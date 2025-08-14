@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.email.EmailAccountMapper">
+    
+    <resultMap type="EmailAccount" id="EmailAccountResult">
+        <result property="accountId"       column="account_id"       />
+        <result property="accountName"     column="account_name"     />
+        <result property="emailAddress"    column="email_address"    />
+        <result property="password"        column="password"         />
+        <result property="smtpHost"        column="smtp_host"        />
+        <result property="smtpPort"        column="smtp_port"        />
+        <result property="dailyLimit"      column="daily_limit"      />
+        <result property="currentCount"    column="current_count"    />
+        <result property="status"          column="status"           />
+        <result property="remark"          column="remark"           />
+        <result property="createBy"        column="create_by"        />
+        <result property="createTime"      column="create_time"      />
+        <result property="updateBy"        column="update_by"        />
+        <result property="updateTime"      column="update_time"      />
+        <result property="deleted"         column="deleted"          />
+    </resultMap>
+
+    <sql id="selectEmailAccountVo">
+        select account_id, account_name, email_address, password, smtp_host, smtp_port, daily_limit, current_count, status, remark, create_by, create_time, update_by, update_time, deleted from email_account
+    </sql>
+
+    <select id="selectEmailAccountList" parameterType="EmailAccount" resultMap="EmailAccountResult">
+        <include refid="selectEmailAccountVo"/>
+        <where>  
+            <if test="accountName != null  and accountName != ''"> and account_name like concat('%', #{accountName}, '%')</if>
+            <if test="emailAddress != null  and emailAddress != ''"> and email_address like concat('%', #{emailAddress}, '%')</if>
+            <if test="smtpHost != null  and smtpHost != ''"> and smtp_host like concat('%', #{smtpHost}, '%')</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+            and deleted = '0'
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectEmailAccountByAccountId" parameterType="Long" resultMap="EmailAccountResult">
+        <include refid="selectEmailAccountVo"/>
+        where account_id = #{accountId} and deleted = '0'
+    </select>
+
+    <select id="selectAvailableEmailAccounts" resultMap="EmailAccountResult">
+        <include refid="selectEmailAccountVo"/>
+        where status = '0' and current_count &lt; daily_limit and deleted = '0'
+        order by current_count asc
+    </select>
+        
+    <insert id="insertEmailAccount" parameterType="EmailAccount" useGeneratedKeys="true" keyProperty="accountId">
+        insert into email_account
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="accountName != null and accountName != ''">account_name,</if>
+            <if test="emailAddress != null and emailAddress != ''">email_address,</if>
+            <if test="password != null and password != ''">password,</if>
+            <if test="smtpHost != null">smtp_host,</if>
+            <if test="smtpPort != null">smtp_port,</if>
+            <if test="dailyLimit != null">daily_limit,</if>
+            <if test="currentCount != null">current_count,</if>
+            <if test="status != null">status,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="deleted != null">deleted,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="accountName != null and accountName != ''">#{accountName},</if>
+            <if test="emailAddress != null and emailAddress != ''">#{emailAddress},</if>
+            <if test="password != null and password != ''">#{password},</if>
+            <if test="smtpHost != null">#{smtpHost},</if>
+            <if test="smtpPort != null">#{smtpPort},</if>
+            <if test="dailyLimit != null">#{dailyLimit},</if>
+            <if test="currentCount != null">#{currentCount},</if>
+            <if test="status != null">#{status},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="deleted != null">#{deleted},</if>
+         </trim>
+    </insert>
+
+    <update id="updateEmailAccount" parameterType="EmailAccount">
+        update email_account
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="accountName != null and accountName != ''">account_name = #{accountName},</if>
+            <if test="emailAddress != null and emailAddress != ''">email_address = #{emailAddress},</if>
+            <if test="password != null and password != ''">password = #{password},</if>
+            <if test="smtpHost != null">smtp_host = #{smtpHost},</if>
+            <if test="smtpPort != null">smtp_port = #{smtpPort},</if>
+            <if test="dailyLimit != null">daily_limit = #{dailyLimit},</if>
+            <if test="currentCount != null">current_count = #{currentCount},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where account_id = #{accountId}
+    </update>
+
+    <delete id="deleteEmailAccountByAccountId" parameterType="Long">
+        update email_account set deleted = '2' where account_id = #{accountId}
+    </delete>
+
+    <delete id="deleteEmailAccountByAccountIds" parameterType="String">
+        update email_account set deleted = '2' where account_id in 
+        <foreach item="accountId" collection="array" open="(" separator="," close=")">
+            #{accountId}
+        </foreach>
+    </delete>
+</mapper>

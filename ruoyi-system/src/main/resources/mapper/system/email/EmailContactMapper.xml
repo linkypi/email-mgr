@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.email.EmailContactMapper">
+    
+    <resultMap type="EmailContact" id="EmailContactResult">
+        <result property="contactId"       column="contact_id"       />
+        <result property="name"            column="name"             />
+        <result property="email"           column="email"            />
+        <result property="company"         column="company"          />
+        <result property="address"         column="address"          />
+        <result property="age"             column="age"              />
+        <result property="gender"          column="gender"           />
+        <result property="socialMedia"     column="social_media"     />
+        <result property="followersCount"  column="followers_count"  />
+        <result property="groupId"         column="group_id"         />
+        <result property="level"           column="level"            />
+        <result property="status"          column="status"           />
+        <result property="remark"          column="remark"           />
+        <result property="createBy"        column="create_by"        />
+        <result property="createTime"      column="create_time"      />
+        <result property="updateBy"        column="update_by"        />
+        <result property="updateTime"      column="update_time"      />
+        <result property="deleted"         column="deleted"          />
+        <result property="groupName"       column="group_name"       />
+    </resultMap>
+
+    <sql id="selectEmailContactVo">
+        select c.contact_id, c.name, c.email, c.company, c.address, c.age, c.gender, c.social_media, c.followers_count, c.group_id, c.level, c.status, c.remark, c.create_by, c.create_time, c.update_by, c.update_time, c.deleted, g.group_name
+        from email_contact c
+        left join email_contact_group g on c.group_id = g.group_id
+    </sql>
+
+    <select id="selectEmailContactList" parameterType="EmailContact" resultMap="EmailContactResult">
+        <include refid="selectEmailContactVo"/>
+        <where>  
+            <if test="name != null  and name != ''"> and c.name like concat('%', #{name}, '%')</if>
+            <if test="email != null  and email != ''"> and c.email like concat('%', #{email}, '%')</if>
+            <if test="company != null  and company != ''"> and c.company like concat('%', #{company}, '%')</if>
+            <if test="groupId != null "> and c.group_id = #{groupId}</if>
+            <if test="level != null  and level != ''"> and c.level = #{level}</if>
+            <if test="status != null  and status != ''"> and c.status = #{status}</if>
+            and c.deleted = '0'
+        </where>
+        order by c.create_time desc
+    </select>
+    
+    <select id="selectEmailContactByContactId" parameterType="Long" resultMap="EmailContactResult">
+        <include refid="selectEmailContactVo"/>
+        where c.contact_id = #{contactId} and c.deleted = '0'
+    </select>
+        
+    <insert id="insertEmailContact" parameterType="EmailContact" useGeneratedKeys="true" keyProperty="contactId">
+        insert into email_contact
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">name,</if>
+            <if test="email != null and email != ''">email,</if>
+            <if test="company != null">company,</if>
+            <if test="address != null">address,</if>
+            <if test="age != null">age,</if>
+            <if test="gender != null">gender,</if>
+            <if test="socialMedia != null">social_media,</if>
+            <if test="followersCount != null">followers_count,</if>
+            <if test="groupId != null">group_id,</if>
+            <if test="level != null">level,</if>
+            <if test="status != null">status,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="deleted != null">deleted,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="name != null and name != ''">#{name},</if>
+            <if test="email != null and email != ''">#{email},</if>
+            <if test="company != null">#{company},</if>
+            <if test="address != null">#{address},</if>
+            <if test="age != null">#{age},</if>
+            <if test="gender != null">#{gender},</if>
+            <if test="socialMedia != null">#{socialMedia},</if>
+            <if test="followersCount != null">#{followersCount},</if>
+            <if test="groupId != null">#{groupId},</if>
+            <if test="level != null">#{level},</if>
+            <if test="status != null">#{status},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="deleted != null">#{deleted},</if>
+         </trim>
+    </insert>
+
+    <update id="updateEmailContact" parameterType="EmailContact">
+        update email_contact
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="name != null and name != ''">name = #{name},</if>
+            <if test="email != null and email != ''">email = #{email},</if>
+            <if test="company != null">company = #{company},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="age != null">age = #{age},</if>
+            <if test="gender != null">gender = #{gender},</if>
+            <if test="socialMedia != null">social_media = #{socialMedia},</if>
+            <if test="followersCount != null">followers_count = #{followersCount},</if>
+            <if test="groupId != null">group_id = #{groupId},</if>
+            <if test="level != null">level = #{level},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where contact_id = #{contactId}
+    </update>
+
+    <delete id="deleteEmailContactByContactId" parameterType="Long">
+        update email_contact set deleted = '2' where contact_id = #{contactId}
+    </delete>
+
+    <delete id="deleteEmailContactByContactIds" parameterType="String">
+        update email_contact set deleted = '2' where contact_id in 
+        <foreach item="contactId" collection="array" open="(" separator="," close=")">
+            #{contactId}
+        </foreach>
+    </delete>
+
+    <insert id="batchInsertEmailContact" parameterType="java.util.List">
+        insert into email_contact (name, email, company, address, age, gender, social_media, followers_count, group_id, level, status, create_by, create_time, deleted) values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.name}, #{item.email}, #{item.company}, #{item.address}, #{item.age}, #{item.gender}, #{item.socialMedia}, #{item.followersCount}, #{item.groupId}, #{item.level}, #{item.status}, #{item.createBy}, #{item.createTime}, '0')
+        </foreach>
+    </insert>
+</mapper>
+
