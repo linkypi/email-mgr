@@ -4,55 +4,55 @@ import java.util.List;
 import com.ruoyi.system.domain.email.EmailAccount;
 
 /**
- * 邮件账号Mapper接口
+ * 邮箱账号Mapper接口
  * 
  * @author ruoyi
- * @date 2024-01-01
+ * @date 2023-01-01
  */
 public interface EmailAccountMapper 
 {
     /**
-     * 查询邮件账号
+     * 查询邮箱账号
      * 
-     * @param accountId 邮件账号主键
-     * @return 邮件账号
+     * @param accountId 邮箱账号主键
+     * @return 邮箱账号
      */
     public EmailAccount selectEmailAccountByAccountId(Long accountId);
 
     /**
-     * 查询邮件账号列表
+     * 查询邮箱账号列表
      * 
-     * @param emailAccount 邮件账号
-     * @return 邮件账号集合
+     * @param emailAccount 邮箱账号
+     * @return 邮箱账号集合
      */
     public List<EmailAccount> selectEmailAccountList(EmailAccount emailAccount);
 
     /**
-     * 新增邮件账号
+     * 新增邮箱账号
      * 
-     * @param emailAccount 邮件账号
+     * @param emailAccount 邮箱账号
      * @return 结果
      */
     public int insertEmailAccount(EmailAccount emailAccount);
 
     /**
-     * 修改邮件账号
+     * 修改邮箱账号
      * 
-     * @param emailAccount 邮件账号
+     * @param emailAccount 邮箱账号
      * @return 结果
      */
     public int updateEmailAccount(EmailAccount emailAccount);
 
     /**
-     * 删除邮件账号
+     * 删除邮箱账号
      * 
-     * @param accountId 邮件账号主键
+     * @param accountId 邮箱账号主键
      * @return 结果
      */
     public int deleteEmailAccountByAccountId(Long accountId);
 
     /**
-     * 批量删除邮件账号
+     * 批量删除邮箱账号
      * 
      * @param accountIds 需要删除的数据主键集合
      * @return 结果
@@ -60,9 +60,9 @@ public interface EmailAccountMapper
     public int deleteEmailAccountByAccountIds(Long[] accountIds);
 
     /**
-     * 查询可用的邮件账号
+     * 查询可用邮箱账号列表
      * 
-     * @return 邮件账号集合
+     * @return 邮箱账号集合
      */
-    public List<EmailAccount> selectAvailableEmailAccounts();
+    public List<EmailAccount> selectAvailableAccounts();
 }
