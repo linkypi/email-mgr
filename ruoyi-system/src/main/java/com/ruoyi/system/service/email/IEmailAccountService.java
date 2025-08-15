@@ -1,0 +1,77 @@
+package com.ruoyi.system.service.email;
+
+import java.util.List;
+import com.ruoyi.system.domain.email.EmailAccount;
+
+/**
+ * 邮箱账号Service接口
+ * 
+ * @author ruoyi
+ * @date 2023-01-01
+ */
+public interface IEmailAccountService 
+{
+    /**
+     * 查询邮箱账号
+     * 
+     * @param accountId 邮箱账号主键
+     * @return 邮箱账号
+     */
+    public EmailAccount selectEmailAccountByAccountId(Long accountId);
+
+    /**
+     * 查询邮箱账号列表
+     * 
+     * @param emailAccount 邮箱账号
+     * @return 邮箱账号集合
+     */
+    public List<EmailAccount> selectEmailAccountList(EmailAccount emailAccount);
+
+    /**
+     * 新增邮箱账号
+     * 
+     * @param emailAccount 邮箱账号
+     * @return 结果
+     */
+    public int insertEmailAccount(EmailAccount emailAccount);
+
+    /**
+     * 修改邮箱账号
+     * 
+     * @param emailAccount 邮箱账号
+     * @return 结果
+     */
+    public int updateEmailAccount(EmailAccount emailAccount);
+
+    /**
+     * 批量删除邮箱账号
+     * 
+     * @param accountIds 需要删除的邮箱账号主键集合
+     * @return 结果
+     */
+    public int deleteEmailAccountByAccountIds(Long[] accountIds);
+
+    /**
+     * 删除邮箱账号信息
+     * 
+     * @param accountId 邮箱账号主键
+     * @return 结果
+     */
+    public int deleteEmailAccountByAccountId(Long accountId);
+
+    /**
+     * 测试邮箱账号连接
+     * 
+     * @param emailAccount 邮箱账号
+     * @return 结果
+     */
+    public boolean testEmailAccount(EmailAccount emailAccount);
+
+    /**
+     * 获取可用邮箱账号列表
+     * 
+     * @return 邮箱账号集合
+     */
+    public List<EmailAccount> getAvailableAccounts();
+}
+

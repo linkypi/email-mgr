@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>企业内部邮件管理系统 - 收件箱</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #188FFF; /* QQ邮箱蓝 */
+            --secondary: #1e88e5;
+            --sidebar-bg: #f0f3f9;
+            --light-gray: #f5f7fa;
+            --border: #e0e6ed;
+            --success: #67C23A;
+            --warning: #E6A23C;
+            --danger: #F56C6C;
+            --text: #303133;
+            --text-light: #606266;
+            --card-shadow: 0 1px 3px rgba(0,0,0,0.07);
+            --read-bg: #ffffff;
+            --unread-bg: #f7fbff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            color: var(--text);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* 头部样式 */
+        .app-header {
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 25px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            font-size: 20px;
+            font-weight: bold;
+        }
+
+        .logo i {
+            margin-right: 12px;
+            font-size: 24px;
+        }
+
+        .header-right {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 16px;
+            background: white;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            margin-right: 8px;
+        }
+
+        /* 主内容区域 */
+        .main-container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* 侧边栏导航 */
+        .sidebar {
+            width: 210px;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            padding: 15px 0;
+            overflow-y: auto;
+        }
+
+        .menu-group {
+            margin-bottom: 25px;
+            padding: 0 15px;
+        }
+
+        .menu-title {
+            color: var(--text-light);
+            font-size: 13px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 8px;
+        }
+
+        .menu-item {
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            border-radius: 4px;
+            margin: 3px 0;
+            transition: all 0.25s ease;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .menu-item i {
+            margin-right: 12px;
+            color: #666;
+            width: 20px;
+            text-align: center;
+        }
+
+        .menu-item:hover {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.07);
+        }
+
+        .menu-item:hover i {
+            color: var(--primary);
+        }
+
+        .menu-item.active {
+            background: white;
+            color: var(--primary);
+            box-shadow: 0 2px 6px rgba(0,123,255,0.15);
+            font-weight: bold;
+        }
+
+        .menu-item.active i {
+            color: var(--primary);
+        }
+
+        .count-badge {
+            background: var(--primary);
+            color: white;
+            font-size: 11px;
+            padding: 1px 6px;
+            border-radius: 10px;
+            margin-left: 8px;
+        }
+
+        .badge-unread {
+            background: var(--danger);
+        }
+
+        /* 邮件工具栏 */
+        .mail-toolbar {
+            padding: 12px 20px;
+            background: white;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+        }
+
+        .toolbar-button {
+            padding: 6px 12px;
+            margin-right: 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .toolbar-button:hover {
+            background: var(--light-gray);
+        }
+
+        .toolbar-button i {
+            margin-right: 5px;
+        }
+
+        .toolbar-check {
+            margin-right: 12px;
+        }
+
+        /* 搜索框 */
+        .search-box {
+            position: relative;
+            flex-grow: 1;
+            max-width: 350px;
+            margin: 0 15px;
+        }
+
+        .search-box i {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-light);
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 8px 10px 8px 32px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        /* 内容区域 */
+        .content-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--light-gray);
+        }
+
+        .page-header {
+            padding: 20px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .page-title {
+            font-size: 22px;
+            font-weight: 600;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+        }
+
+        .page-title i {
+            margin-right: 10px;
+            color: var(--primary);
+        }
+
+        /* 邮件视图区域 */
+        .mail-view {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            padding: 0 20px 20px;
+        }
+
+        .mail-list {
+            flex: 1;
+            background: white;
+            border-radius: 6px;
+            box-shadow: var(--card-shadow);
+            margin-right: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .mail-preview {
+            width: 45%;
+            background: white;
+            border-radius: 6px;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+
+        .mail-item {
+            padding: 15px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mail-item:hover {
+            background: #f5f9ff;
+        }
+
+        .mail-item.selected {
+            background: #e8f4ff;
+        }
+
+        .mail-item.unread {
+            background: var(--unread-bg);
+            font-weight: bold;
+        }
+
+        .item-checkbox {
+            margin-right: 12px;
+        }
+
+        .item-star {
+            color: #ddd;
+            margin-right: 12px;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .item-star.starred {
+            color: #FFB800;
+        }
+
+        .item-important {
+            color: #ddd;
+            margin-right: 12px;
+            transition: all 0.2s;
+        }
+
+        .item-important.high {
+            color: var(--danger);
+        }
+
+        .mail-content {
+            flex: 1;
+            min-width: 0;
+            margin-right: 15px;
+        }
+
+        .mail-from {
+            font-size: 15px;
+            margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+        }
+
+        .mail-subject {
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 5px;
+        }
+
+        .mail-excerpt {
+            font-size: 13px;
+            color: var(--text-light);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .mail-time {
+            font-size: 12px;
+            color: var(--text-light);
+            white-space: nowrap;
+            margin-left: 15px;
+        }
+
+        .mail-unread {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--primary);
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .mail-preview-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .mail-preview-body {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+            line-height: 1.7;
+        }
+
+        .preview-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .preview-info {
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .info-row {
+            display: flex;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .info-label {
+            width: 80px;
+            color: var(--text-light);
+        }
+
+        .mail-attachments {
+            background: #f5f9ff;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 4px;
+            border: 1px dashed var(--border);
+        }
+
+        .attachment {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            margin-bottom: 8px;
+            background: white;
+        }
+
+        .attachment i {
+            color: var(--primary);
+            font-size: 24px;
+            margin-right: 12px;
+        }
+
+        .attachment-name {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        .attachment-size {
+            font-size: 12px;
+            color: var(--text-light);
+        }
+
+        .empty-preview {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-light);
+            text-align: center;
+        }
+
+        .empty-preview i {
+            font-size: 60px;
+            margin-bottom: 20px;
+            color: #e0e0e0;
+        }
+
+        .list-header {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            background: #f5f7fa;
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .mail-list-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            border-top: 1px solid var(--border);
+            font-size: 13px;
+            color: var(--text-light);
+        }
+
+        .pagination-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .pagination-button {
+            padding: 3px 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            cursor: pointer;
+            background: white;
+        }
+
+        .pagination-button.disable {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            border: 1px solid transparent;
+        }
+
+        .btn-outline {
+            background: white;
+            border-color: var(--border);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .btn-reply {
+            background: #e5f8fe;
+            color: #1897fb;
+            border-color: #d0e0ef;
+        }
+
+        .btn-forward {
+            background: #eef8f1;
+            color: #47b36f;
+            border-color: #e0efe7;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 1200px) {
+            .mail-preview {
+                width: 50%;
+            }
+        }
+
+        @media (max-width: 980px) {
+            .mail-view {
+                flex-direction: column;
+            }
+
+            .mail-list, .mail-preview {
+                width: 100%;
+                margin-right: 0;
+                margin-bottom: 20px;
+                flex: none;
+            }
+
+            .mail-list {
+                height: 50vh;
+            }
+
+            .mail-preview {
+                height: 50vh;
+            }
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <!-- 顶部导航 -->
+    <header class="app-header">
+        <div class="logo">
+            <i class="fas fa-envelope"></i>
+            <span>企业内部邮件管理系统</span>
+        </div>
+        <div class="header-right">
+            <div class="user-menu">
+                <div class="avatar">管</div>
+                <span>管理员</span>
+                <i class="fas fa-chevron-down" style="margin-left: 8px;"></i>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <div class="main-container">
+        <!-- 左侧导航 -->
+        <nav class="sidebar">
+            <div class="menu-group">
+                <div class="menu-title">个人邮件</div>
+                <div class="menu-item active">
+                    <i class="fas fa-inbox"></i>
+                    <span>收件箱</span>
+                    <span class="count-badge badge-unread">12</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-envelope-open"></i>
+                    <span>未读邮件</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-paper-plane"></i>
+                    <span>发件箱</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-star"></i>
+                    <span>星标邮件</span>
+                    <span class="count-badge">28</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-trash-alt"></i>
+                    <span>已删除</span>
+                </div>
+            </div>
+
+            <div class="menu-group">
+                <div class="menu-title">邮件分类</div>
+                <div class="menu-item">
+                    <i class="fas fa-users"></i>
+                    <span>工作邮件</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-bullhorn"></i>
+                    <span>通知公告</span>
+                    <span class="count-badge badge-unread">3</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-chart-line"></i>
+                    <span>报表数据</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-file-invoice"></i>
+                    <span>账单通知</span>
+                    <span class="count-badge badge-unread">2</span>
+                </div>
+            </div>
+
+            <div class="menu-group">
+                <div class="menu-title">标签管理</div>
+                <div class="menu-item">
+                    <i class="fas fa-tag" style="color: #F56C6C;"></i>
+                    <span>重要</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-tag" style="color: #67C23A;"></i>
+                    <span>项目邮件</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-tag" style="color: #E6A23C;"></i>
+                    <span>待处理</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-tag" style="color: #909399;"></i>
+                    <span>归档</span>
+                </div>
+            </div>
+
+            <div class="menu-group">
+                <div class="menu-title">我的文件夹</div>
+                <div class="menu-item">
+                    <i class="fas fa-folder" style="color: #9b59b6;"></i>
+                    <span>客户沟通</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-folder" style="color: #3498db;"></i>
+                    <span>团队协作</span>
+                </div>
+                <div class="menu-item">
+                    <i class="fas fa-folder" style="color: #2ecc71;"></i>
+                    <span>周报</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 内容区域 -->
+        <main class="content-area">
+            <div class="page-header">
+                <h1 class="page-title">
+                    <i class="fas fa-inbox"></i>
+                    收件箱
+                </h1>
+            </div>
+
+            <!-- 邮件工具栏 -->
+            <div class="mail-toolbar">
+                <input type="checkbox" class="toolbar-check">
+
+                <button class="toolbar-button">
+                    <i class="fas fa-redo"></i> 刷新
+                </button>
+
+                <button class="toolbar-button">
+                    <i class="fas fa-envelope-open"></i> 标记为已读
+                </button>
+
+                <button class="toolbar-button">
+                    <i class="fas fa-archive"></i> 归档
+                </button>
+
+                <button class="toolbar-button">
+                    <i class="fas fa-ban"></i> 标记为垃圾邮件
+                </button>
+
+                <button class="toolbar-button danger">
+                    <i class="fas fa-trash"></i> 删除
+                </button>
+
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" class="search-input" placeholder="搜索邮件...">
+                </div>
+
+                <button class="toolbar-button">
+                    <i class="fas fa-filter"></i> 筛选
+                </button>
+            </div>
+
+            <!-- 邮件视图区域 -->
+            <div class="mail-view">
+                <!-- 邮件列表 -->
+                <div class="mail-list">
+                    <div class="list-header">
+                        <div>今日邮件 (5)</div>
+                        <div>1-5封，共85封</div>
+                    </div>
+
+                    <div class="mail-list-content" id="mail-list">
+                        <!-- 邮件列表由JS生成 -->
+                    </div>
+
+                    <div class="pagination">
+                        <div class="pagination-info">第1到第20封</div>
+                        <div class="pagination-controls">
+                            <div class="pagination-button disable">
+                                <i class="fas fa-angle-left"></i>
+                            </div>
+                            <div class="pagination-button">
+                                1
+                            </div>
+                            <div class="pagination-button">
+                                2
+                            </div>
+                            <div class="pagination-button">
+                                3
+                            </div>
+                            <div class="pagination-button">
+                                ...
+                            </div>
+                            <div class="pagination-button">
+                                <i class="fas fa-angle-right"></i>
+                            </div>
+                        </div>
+                        <div>每页20封邮件</div>
+                    </div>
+                </div>
+
+                <!-- 邮件预览 -->
+                <div class="mail-preview">
+                    <div id="preview-header" class="mail-preview-header">
+                        <span>请选择邮件查看详情</span>
+                    </div>
+
+                    <div id="preview-content" class="mail-preview-body">
+                        <div class="empty-preview">
+                            <i class="fas fa-envelope-open"></i>
+                            <p>从左侧列表中选择一封邮件进行查看</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+    // 邮件模拟数据
+    const mailData = [
+        {
+            id: 1,
+            from: "人力资源部",
+            email: "hr@company.com",
+            subject: "2023年带薪休假政策更新通知",
+            excerpt: "尊敬的员工：根据最新国家政策和公司规定，我们对2023年带薪休假政策进行了以下更新...",
+            time: "10:22 AM",
+            unread: true,
+            starred: false,
+            important: false,
+            body: "<h2 class='preview-title'>2023年带薪休假政策更新通知</h2>" +
+                "<div class='preview-info'>" +
+                "  <div class='info-row'><div class='info-label'>发件人：</div><div>人力资源部 &lt;hr@company.com&gt; </div></div>" +
+                "  <div class='info-row'><div class='info-label'>时间：</div><div>2023年6月30日 10:22</div></div>" +
+                "</div>" +
+                "<p>尊敬的各位员工：</p>" +
+                "<p>根据最新国家政策和公司规定，我们对2023年带薪休假政策作了如下更新：</p>" +
+                "<p><strong>1. 假期天数调整</strong></p>" +
+                "<p>所有正式员工每年带薪休假天数增加至15天；工龄超过5年的员工增加到18天；超过10年的员工增加到22天。</p>" +
+                "<p><strong>2. 休假申请流程优化</strong></p>" +
+                "<p>即日起，3天以内的休假可直接在人事系统申请，无需部门经理层层审批。</p>" +
+                "<p><strong>3. 法定节假日调整</strong></p>" +
+                "<p>结合国家规定的2023年假期安排，我司将于以下日期安排放假...详细安排见附件文件。</p>" +
+                "<p>请各部门负责人及时通知下属员工，并合理安排工作安排。</p>" +
+                "<div class='mail-attachments'>" +
+                "  <p><strong>附件：</strong></p>" +
+                "  <div class='attachment'>" +
+                "    <i class='fas fa-file-pdf'></i>" +
+                "    <div class='attachment-name'>2023年休假政策实施细则.pdf</div>" +
+                "    <div class='attachment-size'>2.1MB</div>" +
+                "  </div>" +
+                "  <div class='attachment'>" +
+                "    <i class='fas fa-file-excel'></i>" +
+                "    <div class='attachment-name'>假期申请单.xlsx</div>" +
+                "    <div class='attachment-size'>356KB</div>" +
+                "  </div>" +
+                "</div>",
+            attachments: true
+        },
+        {
+            id: 2,
+            from: "技术部 张大伟",
+            email: "zwang@company.com",
+            subject: "生产环境系统升级提醒",
+            excerpt: "各位同事：计划于今晚23:00至次日凌晨3:00进行生产环境系统升级，升级期间将暂停...",
+            time: "9:45 AM",
+            unread: true,
+            starred: true,
+            important: true,
+            body: "<h2 class='preview-title'>生产环境系统升级提醒</h2>" +
+                "<div class='preview-info'>" +
+                "  <div class='info-row'><div class='info-label'>发件人：</div><div>技术部 张大伟 &lt;zwang@company.com&gt; </div></div>" +
+                "  <div class='info-row'><div class='info-label'>时间：</div><div>2023年6月30日 9:45</div></div>" +
+                "</div>" +
+                "<p>各位同事：</p>" +
+                "<p>技术部计划于今天晚上23:00至次日凌晨3:00进行生产环境系统升级，主要包含以下内容：</p>" +
+                "<ul style='margin:15px;'>" +
+                "  <li>数据库迁移和优化</li>" +
+                "  <li>订单处理系统V3.5上线</li>" +
+                "  <li>安全漏洞修复补丁升级</li>" +
+                "</ul>" +
+                "<p><strong>影响范围：</strong></p>" +
+                "<p>升级期间以下服务将暂时停用：</p>" +
+                "<ul style='margin:15px;'>" +
+                "  <li>客户订单系统</li>" +
+                "  <li>内部审批流程</li>" +
+                "  <li>API接口服务</li>" +
+                "</ul>" +
+                "<p><strong>请各部门提前做好以下准备：</strong></p>" +
+                "<p>建议各部门在系统升级前保存手头正在进行的工作，并在升级完成后进行功能测试。</p>" +
+                "<div class='action-buttons'>" +
+                "<button class='btn btn-primary'><i class='fas fa-reply'></i> 回复</button>" +
+                "<button class='btn btn-outline'><i class='fas fa-print'></i> 打印</button>" +
+                "</div>"
+        },
+        {
+            id: 3,
+            from: "项目组周报",
+            email: "noreply@pm-system.com",
+            subject: "【周报】数字化项目进度报告 - 第25周",
+            excerpt: "项目整体进度：完成86%，本周完成需求分析会议3次，核心模块...",
+            time: "昨天",
+            unread: false,
+            starred: true,
+            important: false,
+            body: "<h2 class='preview-title'>【周报】数字化项目进度报告 - 第25周</h2>" +
+                "<div class='preview-info'>" +
+                "  <div class='info-row'><div class='info-label'>发件人：</div><div>项目自动报告系统 &lt;noreply@pm-system.com&gt; </div></div>" +
+                "  <div class='info-row'><div class='info-label'>时间：</div><div>2023年6月29日 18:15</div></div>" +
+                "</div>" +
+                "<h3>项目总体进度</h3>" +
+                "<p>当前项目总体进度：<strong>86%</strong></p>" +
+                "<p><strong>已完成模块</strong></p>" +
+                "<ul style='margin:15px;'>" +
+                "  <li>用户认证子系统</li>" +
+                "  <li>核心业务处理</li>" +
+                "  <li>数据接口服务</li>" +
+                "</ul>" +
+                "<p><strong>本周工作成果</strong></p>" +
+                "<ol>" +
+                "  <li>完成需求分析会议3次</li>" +
+                "  <li>财务模块核心逻辑开发完成</li>" +
+                "  <li>安全审计功能完成80%</li>" +
+                "  <li>测试用例覆盖率达到85%</li>" +
+                "</ol>" +
+                "<h3>下周工作计划</h3>" +
+                "<ul>" +
+                "  <li>完成安全审计功能开发与测试</li>" +
+                "  <li>系统级压力测试准备</li>" +
+                "  <li>编写用户操作手册 (初稿)</li>" +
+                "  <li>项目管理委员会第四次会议</li>" +
+                "</ul>" +
+                "<div class='action-buttons'>" +
+                "<button class='btn btn-reply'><i class='fas fa-reply'></i> 回复项目组</button>" +
+                "<button class='btn btn-forward'><i class='fas fa-share'></i> 转发</button>" +
+                "<button class='btn btn-outline'><i class='fas fa-download'></i> 下载完整报告</button>" +
+                "</div>"
+        },
+        {
+            id: 4,
+            from: "市场部 李婷",
+            email: "tli@company.com",
+            subject: "季度销售分析报告（2023年Q2）",
+            excerpt: "第二季度公司整体销售额突破1200万元，较去年同期增长24%，环比增长18%...",
+            time: "昨天",
+            unread: false,
+            starred: false,
+            important: false
+        },
+        {
+            id: 5,
+            from: "总裁办公室",
+            email: "chairman@company.com",
+            subject: "半年工作总结与表彰大会邀请函",
+            excerpt: "谨定于2023年7月15日（星期六）下午14:00在公司大礼堂召开2023年度...",
+            time: "昨天",
+            unread: false,
+            starred: false,
+            important: true
+        },
+        {
+            id: 6,
+            from: "财务部",
+            email: "finance@company.com",
+            subject: "关于差旅费用报销的最新说明",
+            excerpt: "为了规范差旅管理，财务部对本年度差旅报销政策进行了完善与更新...",
+            time: "星期一",
+            unread: false,
+            starred: false,
+            important: false
+        },
+        {
+            id: 7,
+            from: "IT服务台",
+            email: "helpdesk@company.com",
+            subject: "您的IT服务请求已解决【#SD-230712】",
+            excerpt: "您的电脑无法联网的问题已由技术员王小波于2023年6月28日解决...",
+            time: "星期一",
+            unread: false,
+            starred: true,
+            important: false
+        }
+    ];
+
+    // 初始化邮件列表
+    function initMailList() {
+        const mailList = document.getElementById('mail-list');
+        mailList.innerHTML = '';
+
+        mailData.forEach(mail => {
+            const mailItem = document.createElement('div');
+            mailItem.className = `mail-item ${mail.unread ? 'unread' : ''}`;
+            mailItem.dataset.id = mail.id;
+
+            let starClass = mail.starred ? 'fas fa-star starred item-star' : 'far fa-star item-star';
+            let importantClass = mail.important ? 'fas fa-bookmark high item-important' : 'far fa-bookmark item-important';
+            let unreadSpan = mail.unread ? '<span class="mail-unread"></span>' : '';
+
+            mailItem.innerHTML = `
+                    <div class="item-checkbox"><input type="checkbox"></div>
+                    <div class="${starClass}" data-id="${mail.id}"></div>
+                    <div class="${importantClass}" data-id="${mail.id}"></div>
+                    <div class="mail-content">
+                        <div class="mail-from">
+                            ${mail.from}
+                            ${unreadSpan}
+                        </div>
+                        <div class="mail-subject">${mail.subject}</div>
+                        <div class="mail-excerpt">${mail.excerpt}</div>
+                    </div>
+                    <div class="mail-time">${mail.time}</div>
+                `;
+
+            mailList.appendChild(mailItem);
+        });
+
+        // 监听邮件点击事件
+        document.querySelectorAll('.mail-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                if (e.target.classList.contains('item-star') ||
+                    e.target.classList.contains('item-important') ||
+                    e.target.type === 'checkbox') return;
+
+                const id = this.dataset.id;
+                showMailPreview(id);
+
+                // 标记为已读
+                const mail = mailData.find(m => m.id == id);
+                if (mail.unread) {
+                    mail.unread = false;
+                    this.classList.remove('unread');
+                    this.querySelector('.mail-unread').remove();
+                    updateUnreadCount();
+                }
+
+                // 高亮显示选中项
+                document.querySelectorAll('.mail-item').forEach(i => i.classList.remove('selected'));
+                this.classList.add('selected');
+            });
+        });
+
+        // 监听星标点击
+        document.querySelectorAll('.item-star').forEach(star => {
+            star.addEventListener('click', function() {
+                const id = this.dataset.id;
+                const mail = mailData.find(m => m.id == id);
+                mail.starred = !mail.starred;
+
+                if (mail.starred) {
+                    this.className = 'fas fa-star starred item-star';
+                } else {
+                    this.className = 'far fa-star item-star';
+                }
+            });
+        });
+
+        // 监听重要标识点击
+        document.querySelectorAll('.item-important').forEach(icon => {
+            icon.addEventListener('click', function() {
+                const id = this.dataset.id;
+                const mail = mailData.find(m => m.id == id);
+                mail.important = !mail.important;
+
+                if (mail.important) {
+                    this.className = 'fas fa-bookmark high item-important';
+                } else {
+                    this.className = 'far fa-bookmark item-important';
+                }
+            });
+        });
+    }
+
+    // 显示邮件预览
+    function showMailPreview(id) {
+        const mail = mailData.find(m => m.id == id);
+        if (!mail) return;
+
+        const header = document.getElementById('preview-header');
+        const content = document.getElementById('preview-content');
+
+        // 更新预览头部
+        header.innerHTML = `
+                <div>
+                    <strong>${mail.from}</strong>
+                    <span style="color: var(--text-light);">&lt;${mail.email}&gt;</span>
+                </div>
+                <div class="mail-preview-header">
+                    <span>${mail.time}</span>
+                </div>
+                <div class="action-buttons">
+                    <button class="toolbar-button"><i class="fas fa-reply"></i></button>
+                    <button class="toolbar-button"><i class="fas fa-share"></i></button>
+                    <button class="toolbar-button"><i class="fas fa-trash"></i></button>
+                </div>
+            `;
+
+        // 更新预览内容
+        content.innerHTML = mail.body || `
+                <h2 class='preview-title'>${mail.subject}</h2>
+                <div class='preview-info'>
+                    <div class='info-row'><div class='info-label'>发件人：</div><div>${mail.from} &lt;${mail.email}&gt; </div></div>
+                    <div class='info-row'><div class='info-label'>时间：</div><div>${mail.time}</div></div>
+                </div>
+                <p>${mail.excerpt}</p>
+                <div class='action-buttons'>
+                    <button class='btn btn-primary'><i class='fas fa-reply'></i> 回复</button>
+                    <button class='btn btn-outline'><i class='fas fa-share'></i> 转发</button>
+                </div>
+            `;
+    }
+
+    // 更新未读邮件计数
+    function updateUnreadCount() {
+        const unreadCount = mailData.filter(mail => mail.unread).length;
+        const badge = document.querySelector('.menu-item.active .count-badge');
+        badge.textContent = unreadCount;
+
+        if (unreadCount === 0) {
+            badge.className = 'count-badge';
+        } else {
+            badge.className = 'count-badge badge-unread';
+        }
+    }
+
+    // 初始化页面
+    document.addEventListener('DOMContentLoaded', function() {
+        initMailList();
+        updateUnreadCount();
+
+        // 菜单项点击事件
+        const menuItems = document.querySelectorAll('.menu-item');
+        menuItems.forEach(item => {
+            item.addEventListener('click', function() {
+                menuItems.forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+
+                // 如果是删除菜单，清空邮件预览
+                if (this.querySelector('i').classList.contains('fa-trash-alt')) {
+                    document.getElementById('preview-content').innerHTML =
+                        `<div class="empty-preview">
+                                <i class="fas fa-trash-alt"></i>
+                                <p>已删除邮件暂无可预览内容</p>
+                            </div>`;
+                }
+            });
+        });
+
+        // 搜索功能
+        const searchInput = document.querySelector('.search-input');
+        searchInput.addEventListener('keyup', function() {
+            const term = this.value.toLowerCase();
+            if (term.length === 0) {
+                initMailList();
+                return;
+            }
+
+            const filteredMails = mailData.filter(mail =>
+                mail.from.toLowerCase().includes(term) ||
+                mail.subject.toLowerCase().includes(term) ||
+                mail.excerpt.toLowerCase().includes(term)
+            );
+
+            const mailList = document.getElementById('mail-list');
+            mailList.innerHTML = '';
+
+            filteredMails.forEach(mail => {
+                const mailItem = document.createElement('div');
+                mailItem.className = `mail-item ${mail.unread ? 'unread' : ''}`;
+                mailItem.dataset.id = mail.id;
+
+                let starClass = mail.starred ? 'fas fa-star starred item-star' : 'far fa-star item-star';
+                let importantClass = mail.important ? 'fas fa-bookmark high item-important' : 'far fa-bookmark item-important';
+                let unreadSpan = mail.unread ? '<span class="mail-unread"></span>' : '';
+
+                mailItem.innerHTML = `
+                        <div class="item-checkbox"><input type="checkbox"></div>
+                        <div class="${starClass}" data-id="${mail.id}"></div>
+                        <div class="${importantClass}" data-id="${mail.id}"></div>
+                        <div class="mail-content">
+                            <div class="mail-from">
+                                ${mail.from}
+                                ${unreadSpan}
+                            </div>
+                            <div class="mail-subject">${mail.subject}</div>
+                            <div class="mail-excerpt">${mail.excerpt}</div>
+                        </div>
+                        <div class="mail-time">${mail.time}</div>
+                    `;
+
+                mailList.appendChild(mailItem);
+
+                // 重新绑定事件
+                mailItem.addEventListener('click', function(e) {
+                    if (e.target.classList.contains('item-star') ||
+                        e.target.classList.contains('item-important') ||
+                        e.target.type === 'checkbox') return;
+
+                    const id = this.dataset.id;
+                    showMailPreview(id);
+
+                    const mail = mailData.find(m => m.id == id);
+                    if (mail.unread) {
+                        mail.unread = false;
+                        this.classList.remove('unread');
+                        this.querySelector('.mail-unread').remove();
+                        updateUnreadCount();
+                    }
+
+                    document.querySelectorAll('.mail-item').forEach(i => i.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+        });
+    });
+</script>
+</body>
+</html>
