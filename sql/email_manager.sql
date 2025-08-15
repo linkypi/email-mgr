@@ -32,6 +32,7 @@ CREATE TABLE `email_contact_group` (
   `group_name` varchar(100) NOT NULL COMMENT '群组名称',
   `description` varchar(500) DEFAULT NULL COMMENT '群组描述',
   `status` char(1) DEFAULT '0' COMMENT '状态(0正常 1停用)',
+  `remark` varchar(500) DEFAULT NULL COMMENT '备注',
   `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
   `create_time` datetime DEFAULT NULL COMMENT '创建时间',
   `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
@@ -209,10 +210,10 @@ CREATE TABLE `sys_role_email` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统角色邮件权限表';
 
 -- 插入初始数据
-INSERT INTO `email_contact_group` (`group_name`, `description`, `status`, `create_by`, `create_time`) VALUES 
-('VIP客户', '重要客户群组', '0', 'admin', NOW()),
-('潜在客户', '潜在客户群组', '0', 'admin', NOW()),
-('普通客户', '普通客户群组', '0', 'admin', NOW());
+INSERT INTO `email_contact_group` (`group_name`, `description`, `status`, `remark`, `create_by`, `create_time`) VALUES 
+('VIP客户', '重要客户群组', '0', '重要客户，需要重点关注', 'admin', NOW()),
+('潜在客户', '潜在客户群组', '0', '潜在客户，需要持续跟进', 'admin', NOW()),
+('普通客户', '普通客户群组', '0', '普通客户，定期维护', 'admin', NOW());
 
 INSERT INTO `email_template` (`template_name`, `subject`, `content`, `template_type`, `status`, `create_by`, `create_time`) VALUES 
 ('欢迎邮件', '欢迎加入我们', '亲爱的{name}，\n\n欢迎您加入我们的大家庭！\n\n我们很高兴能够为您提供服务。\n\n如有任何问题，请随时联系我们。\n\n祝好！\n{company}', '普通', '0', 'admin', NOW()),

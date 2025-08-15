@@ -22,10 +22,10 @@ import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.core.page.TableDataInfo;
 
 /**
- * 联系人Controller
+ * 邮件联系人Controller
  * 
  * @author ruoyi
- * @date 2024-01-01
+ * @date 2023-01-01
  */
 @RestController
 @RequestMapping("/email/contact")
@@ -35,7 +35,7 @@ public class EmailContactController extends BaseController
     private IEmailContactService emailContactService;
 
     /**
-     * 查询联系人列表
+     * 查询邮件联系人列表
      */
     @PreAuthorize("@ss.hasPermi('email:contact:list')")
     @GetMapping("/list")
@@ -47,20 +47,32 @@ public class EmailContactController extends BaseController
     }
 
     /**
-     * 导出联系人列表
+     * 查询邮件联系人统计列表
+     */
+    @PreAuthorize("@ss.hasPermi('email:contact:list')")
+    @GetMapping("/statistics")
+    public TableDataInfo statistics(EmailContact emailContact)
+    {
+        startPage();
+        List<EmailContact> list = emailContactService.selectEmailContactStatisticsList(emailContact);
+        return getDataTable(list);
+    }
+
+    /**
+     * 导出邮件联系人列表
      */
     @PreAuthorize("@ss.hasPermi('email:contact:export')")
-    @Log(title = "联系人", businessType = BusinessType.EXPORT)
+    @Log(title = "邮件联系人", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(HttpServletResponse response, EmailContact emailContact)
     {
         List<EmailContact> list = emailContactService.selectEmailContactList(emailContact);
         ExcelUtil<EmailContact> util = new ExcelUtil<EmailContact>(EmailContact.class);
-        util.exportExcel(response, list, "联系人数据");
+        util.exportExcel(response, list, "邮件联系人数据");
     }
 
     /**
-     * 获取联系人详细信息
+     * 获取邮件联系人详细信息
      */
     @PreAuthorize("@ss.hasPermi('email:contact:query')")
     @GetMapping(value = "/{contactId}")
@@ -70,10 +82,10 @@ public class EmailContactController extends BaseController
     }
 
     /**
-     * 新增联系人
+     * 新增邮件联系人
      */
     @PreAuthorize("@ss.hasPermi('email:contact:add')")
-    @Log(title = "联系人", businessType = BusinessType.INSERT)
+    @Log(title = "邮件联系人", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@RequestBody EmailContact emailContact)
     {
@@ -81,10 +93,10 @@ public class EmailContactController extends BaseController
     }
 
     /**
-     * 修改联系人
+     * 修改邮件联系人
      */
     @PreAuthorize("@ss.hasPermi('email:contact:edit')")
-    @Log(title = "联系人", businessType = BusinessType.UPDATE)
+    @Log(title = "邮件联系人", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@RequestBody EmailContact emailContact)
     {
@@ -92,10 +104,10 @@ public class EmailContactController extends BaseController
     }
 
     /**
-     * 删除联系人
+     * 删除邮件联系人
      */
     @PreAuthorize("@ss.hasPermi('email:contact:remove')")
-    @Log(title = "联系人", businessType = BusinessType.DELETE)
+    @Log(title = "邮件联系人", businessType = BusinessType.DELETE)
 	@DeleteMapping("/{contactIds}")
     public AjaxResult remove(@PathVariable Long[] contactIds)
     {
@@ -103,13 +115,47 @@ public class EmailContactController extends BaseController
     }
 
     /**
-     * 批量导入联系人
+     * 根据群组ID查询联系人列表
+     */
+    @PreAuthorize("@ss.hasPermi('email:contact:list')")
+    @GetMapping("/group/{groupId}")
+    public AjaxResult getContactsByGroup(@PathVariable("groupId") Long groupId)
+    {
+        List<EmailContact> list = emailContactService.selectEmailContactByGroupId(groupId);
+        return success(list);
+    }
+
+    /**
+     * 根据标签查询联系人列表
+     */
+    @PreAuthorize("@ss.hasPermi('email:contact:list')")
+    @GetMapping("/tag/{tag}")
+    public AjaxResult getContactsByTag(@PathVariable("tag") String tag)
+    {
+        List<EmailContact> list = emailContactService.selectEmailContactByTag(tag);
+        return success(list);
+    }
+
+    /**
+     * 导入联系人数据
      */
     @PreAuthorize("@ss.hasPermi('email:contact:import')")
-    @Log(title = "批量导入联系人", businessType = BusinessType.IMPORT)
+    @Log(title = "邮件联系人", businessType = BusinessType.IMPORT)
     @PostMapping("/importData")
-    public AjaxResult importData(@RequestBody List<EmailContact> contactList)
+    public AjaxResult importData(List<EmailContact> emailContactList, Boolean isUpdateSupport)
     {
-        return toAjax(emailContactService.batchInsertEmailContact(contactList));
+        String operName = getUsername();
+        String message = emailContactService.importEmailContact(emailContactList, isUpdateSupport, operName);
+        return success(message);
+    }
+
+    /**
+     * 下载导入模板
+     */
+    @PostMapping("/importTemplate")
+    public void importTemplate(HttpServletResponse response)
+    {
+        ExcelUtil<EmailContact> util = new ExcelUtil<EmailContact>(EmailContact.class);
+        util.importTemplateExcel(response, "邮件联系人数据");
     }
 }

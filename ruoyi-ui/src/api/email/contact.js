@@ -9,6 +9,15 @@ export function listContact(query) {
   })
 }
 
+// 查询联系人统计列表
+export function listContactStatistics(query) {
+  return request({
+    url: '/email/contact/statistics',
+    method: 'get',
+    params: query
+  })
+}
+
 // 查询联系人详细
 export function getContact(contactId) {
   return request({
@@ -43,20 +52,35 @@ export function delContact(contactId) {
   })
 }
 
-// 导出联系人
-export function exportContact(query) {
+// 根据群组ID查询联系人
+export function getContactsByGroup(groupId) {
   return request({
-    url: '/email/contact/export',
-    method: 'post',
-    data: query
+    url: '/email/contact/group/' + groupId,
+    method: 'get'
   })
 }
 
-// 批量导入联系人
+// 根据标签查询联系人
+export function getContactsByTag(tag) {
+  return request({
+    url: '/email/contact/tag/' + tag,
+    method: 'get'
+  })
+}
+
+// 导入联系人数据
 export function importContact(data) {
   return request({
     url: '/email/contact/importData',
     method: 'post',
     data: data
+  })
+}
+
+// 下载导入模板
+export function importTemplate() {
+  return request({
+    url: '/email/contact/importTemplate',
+    method: 'post'
   })
 }

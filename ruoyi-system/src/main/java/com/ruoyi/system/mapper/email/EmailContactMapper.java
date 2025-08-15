@@ -4,55 +4,63 @@ import java.util.List;
 import com.ruoyi.system.domain.email.EmailContact;
 
 /**
- * 联系人Mapper接口
+ * 邮件联系人Mapper接口
  * 
  * @author ruoyi
- * @date 2024-01-01
+ * @date 2023-01-01
  */
 public interface EmailContactMapper 
 {
     /**
-     * 查询联系人
+     * 查询邮件联系人
      * 
-     * @param contactId 联系人主键
-     * @return 联系人
+     * @param contactId 邮件联系人主键
+     * @return 邮件联系人
      */
     public EmailContact selectEmailContactByContactId(Long contactId);
 
     /**
-     * 查询联系人列表
+     * 查询邮件联系人列表
      * 
-     * @param emailContact 联系人
-     * @return 联系人集合
+     * @param emailContact 邮件联系人
+     * @return 邮件联系人集合
      */
     public List<EmailContact> selectEmailContactList(EmailContact emailContact);
 
     /**
-     * 新增联系人
+     * 查询邮件联系人统计列表
      * 
-     * @param emailContact 联系人
+     * @param emailContact 邮件联系人
+     * @return 邮件联系人集合
+     */
+    public List<EmailContact> selectEmailContactStatisticsList(EmailContact emailContact);
+
+    /**
+     * 新增邮件联系人
+     * 
+     * @param emailContact 邮件联系人
      * @return 结果
      */
     public int insertEmailContact(EmailContact emailContact);
 
     /**
-     * 修改联系人
+     * 修改邮件联系人
      * 
-     * @param emailContact 联系人
+     * @param emailContact 邮件联系人
      * @return 结果
      */
     public int updateEmailContact(EmailContact emailContact);
 
     /**
-     * 删除联系人
+     * 删除邮件联系人
      * 
-     * @param contactId 联系人主键
+     * @param contactId 邮件联系人主键
      * @return 结果
      */
     public int deleteEmailContactByContactId(Long contactId);
 
     /**
-     * 批量删除联系人
+     * 批量删除邮件联系人
      * 
      * @param contactIds 需要删除的数据主键集合
      * @return 结果
@@ -60,11 +68,59 @@ public interface EmailContactMapper
     public int deleteEmailContactByContactIds(Long[] contactIds);
 
     /**
-     * 批量导入联系人
+     * 根据邮箱地址查询联系人
      * 
-     * @param contactList 联系人列表
+     * @param email 邮箱地址
+     * @return 邮件联系人
+     */
+    public EmailContact selectEmailContactByEmail(String email);
+
+    /**
+     * 根据群组ID查询联系人列表
+     * 
+     * @param groupId 群组ID
+     * @return 邮件联系人集合
+     */
+    public List<EmailContact> selectEmailContactByGroupId(Long groupId);
+
+    /**
+     * 根据标签查询联系人列表
+     * 
+     * @param tag 标签
+     * @return 邮件联系人集合
+     */
+    public List<EmailContact> selectEmailContactByTag(String tag);
+
+    /**
+     * 更新联系人发送统计
+     * 
+     * @param contactId 联系人ID
      * @return 结果
      */
-    public int batchInsertEmailContact(List<EmailContact> contactList);
+    public int updateEmailContactSendCount(Long contactId);
+
+    /**
+     * 更新联系人回复统计
+     * 
+     * @param contactId 联系人ID
+     * @return 结果
+     */
+    public int updateEmailContactReplyCount(Long contactId);
+
+    /**
+     * 更新联系人打开统计
+     * 
+     * @param contactId 联系人ID
+     * @return 结果
+     */
+    public int updateEmailContactOpenCount(Long contactId);
+
+    /**
+     * 批量导入联系人
+     * 
+     * @param emailContactList 联系人列表
+     * @return 结果
+     */
+    public int batchInsertEmailContact(List<EmailContact> emailContactList);
 }
 

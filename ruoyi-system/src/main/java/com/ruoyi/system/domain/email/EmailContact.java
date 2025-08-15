@@ -5,11 +5,13 @@ import com.ruoyi.common.core.domain.BaseEntity;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
+import java.math.BigDecimal;
+
 /**
- * 联系人对象 email_contact
+ * 邮件联系人对象 email_contact
  * 
  * @author ruoyi
- * @date 2024-01-01
+ * @date 2023-01-01
  */
 public class EmailContact extends BaseEntity
 {
@@ -22,12 +24,12 @@ public class EmailContact extends BaseEntity
     @Excel(name = "姓名")
     private String name;
 
-    /** 邮箱 */
-    @Excel(name = "邮箱")
+    /** 邮箱地址 */
+    @Excel(name = "邮箱地址")
     private String email;
 
-    /** 企业 */
-    @Excel(name = "企业")
+    /** 企业名称 */
+    @Excel(name = "企业名称")
     private String company;
 
     /** 地址 */
@@ -38,27 +40,47 @@ public class EmailContact extends BaseEntity
     @Excel(name = "年龄")
     private Integer age;
 
-    /** 性别 */
-    @Excel(name = "性别", readConverterExp = "0=男,1=女")
+    /** 性别(0未知 1男 2女) */
+    @Excel(name = "性别", readConverterExp = "0=未知,1=男,2=女")
     private String gender;
 
     /** 社交媒体账号 */
     @Excel(name = "社交媒体账号")
     private String socialMedia;
 
-    /** 粉丝数 */
-    @Excel(name = "粉丝数")
-    private Integer followersCount;
+    /** 粉丝数量 */
+    @Excel(name = "粉丝数量")
+    private Integer followers;
 
-    /** 群组ID */
-    @Excel(name = "群组")
-    private Long groupId;
-
-    /** 等级 */
-    @Excel(name = "等级")
+    /** 等级(1重要 2普通 3一般) */
+    @Excel(name = "等级", readConverterExp = "1=重要,2=普通,3=一般")
     private String level;
 
-    /** 状态 */
+    /** 群组ID */
+    @Excel(name = "群组ID")
+    private Long groupId;
+
+    /** 标签(逗号分隔) */
+    @Excel(name = "标签")
+    private String tags;
+
+    /** 发送邮件数量 */
+    @Excel(name = "发送邮件数量")
+    private Integer sendCount;
+
+    /** 回复邮件数量 */
+    @Excel(name = "回复邮件数量")
+    private Integer replyCount;
+
+    /** 打开邮件数量 */
+    @Excel(name = "打开邮件数量")
+    private Integer openCount;
+
+    /** 回复率 */
+    @Excel(name = "回复率")
+    private BigDecimal replyRate;
+
+    /** 状态(0正常 1停用) */
     @Excel(name = "状态", readConverterExp = "0=正常,1=停用")
     private String status;
 
@@ -74,7 +96,6 @@ public class EmailContact extends BaseEntity
     {
         return contactId;
     }
-
     public void setName(String name) 
     {
         this.name = name;
@@ -84,7 +105,6 @@ public class EmailContact extends BaseEntity
     {
         return name;
     }
-
     public void setEmail(String email) 
     {
         this.email = email;
@@ -94,7 +114,6 @@ public class EmailContact extends BaseEntity
     {
         return email;
     }
-
     public void setCompany(String company) 
     {
         this.company = company;
@@ -104,7 +123,6 @@ public class EmailContact extends BaseEntity
     {
         return company;
     }
-
     public void setAddress(String address) 
     {
         this.address = address;
@@ -114,7 +132,6 @@ public class EmailContact extends BaseEntity
     {
         return address;
     }
-
     public void setAge(Integer age) 
     {
         this.age = age;
@@ -124,7 +141,6 @@ public class EmailContact extends BaseEntity
     {
         return age;
     }
-
     public void setGender(String gender) 
     {
         this.gender = gender;
@@ -134,7 +150,6 @@ public class EmailContact extends BaseEntity
     {
         return gender;
     }
-
     public void setSocialMedia(String socialMedia) 
     {
         this.socialMedia = socialMedia;
@@ -144,27 +159,15 @@ public class EmailContact extends BaseEntity
     {
         return socialMedia;
     }
-
-    public void setFollowersCount(Integer followersCount) 
+    public void setFollowers(Integer followers) 
     {
-        this.followersCount = followersCount;
+        this.followers = followers;
     }
 
-    public Integer getFollowersCount() 
+    public Integer getFollowers() 
     {
-        return followersCount;
+        return followers;
     }
-
-    public void setGroupId(Long groupId) 
-    {
-        this.groupId = groupId;
-    }
-
-    public Long getGroupId() 
-    {
-        return groupId;
-    }
-
     public void setLevel(String level) 
     {
         this.level = level;
@@ -174,7 +177,60 @@ public class EmailContact extends BaseEntity
     {
         return level;
     }
+    public void setGroupId(Long groupId) 
+    {
+        this.groupId = groupId;
+    }
 
+    public Long getGroupId() 
+    {
+        return groupId;
+    }
+    public void setTags(String tags) 
+    {
+        this.tags = tags;
+    }
+
+    public String getTags() 
+    {
+        return tags;
+    }
+    public void setSendCount(Integer sendCount) 
+    {
+        this.sendCount = sendCount;
+    }
+
+    public Integer getSendCount() 
+    {
+        return sendCount;
+    }
+    public void setReplyCount(Integer replyCount) 
+    {
+        this.replyCount = replyCount;
+    }
+
+    public Integer getReplyCount() 
+    {
+        return replyCount;
+    }
+    public void setOpenCount(Integer openCount) 
+    {
+        this.openCount = openCount;
+    }
+
+    public Integer getOpenCount() 
+    {
+        return openCount;
+    }
+    public void setReplyRate(BigDecimal replyRate) 
+    {
+        this.replyRate = replyRate;
+    }
+
+    public BigDecimal getReplyRate() 
+    {
+        return replyRate;
+    }
     public void setStatus(String status) 
     {
         this.status = status;
@@ -206,16 +262,20 @@ public class EmailContact extends BaseEntity
             .append("age", getAge())
             .append("gender", getGender())
             .append("socialMedia", getSocialMedia())
-            .append("followersCount", getFollowersCount())
-            .append("groupId", getGroupId())
+            .append("followers", getFollowers())
             .append("level", getLevel())
+            .append("groupId", getGroupId())
+            .append("tags", getTags())
+            .append("sendCount", getSendCount())
+            .append("replyCount", getReplyCount())
+            .append("openCount", getOpenCount())
+            .append("replyRate", getReplyRate())
             .append("status", getStatus())
             .append("remark", getRemark())
             .append("createBy", getCreateBy())
             .append("createTime", getCreateTime())
             .append("updateBy", getUpdateBy())
             .append("updateTime", getUpdateTime())
-            .append("deleted", 0)
             .toString();
     }
 }

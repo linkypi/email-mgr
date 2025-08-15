@@ -245,7 +245,7 @@ public class EmailSendRecord extends BaseEntity
             .append("createTime", getCreateTime())
             .append("updateBy", getUpdateBy())
             .append("updateTime", getUpdateTime())
-            .append("deleted", getDeleted())
+            .append("deleted", 0)
             .toString();
     }
 }

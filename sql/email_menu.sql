@@ -24,9 +24,40 @@ INSERT INTO `sys_menu` (`menu_name`, `parent_id`, `order_num`, `path`, `componen
 ('联系人导出', @contactMenuId, 5, '#', '', NULL, 1, 0, 'F', '0', '0', 'email:contact:export', '#', 'admin', NOW(), '', NULL, ''),
 ('联系人导入', @contactMenuId, 6, '#', '', NULL, 1, 0, 'F', '0', '0', 'email:contact:import', '#', 'admin', NOW(), '', NULL, '');
 
+-- 插入联系人群组管理子菜单
+INSERT INTO `sys_menu` (`menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES 
+('联系人群组', @emailMenuId, 2, 'group', 'email/group/index', NULL, 1, 0, 'C', '0', '0', 'email:group:list', 'peoples', 'admin', NOW(), '', NULL, '联系人群组管理菜单');
+
+-- 获取联系人群组管理菜单ID
+SET @groupMenuId = LAST_INSERT_ID();
+
+-- 插入联系人群组管理按钮
+INSERT INTO `sys_menu` (`menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES 
+('联系人群组查询', @groupMenuId, 1, '#', '', NULL, 1, 0, 'F', '0', '0', 'email:group:query', '#', 'admin', NOW(), '', NULL, ''),
+('联系人群组新增', @groupMenuId, 2, '#', '', NULL, 1, 0, 'F', '0', '0', 'email:group:add', '#', 'admin', NOW(), '', NULL, ''),
+('联系人群组修改', @groupMenuId, 3, '#', '', NULL, 1, 0, 'F', '0', '0', 'email:group:edit', '#', 'admin', NOW(), '', NULL, ''),
+('联系人群组删除', @groupMenuId, 4, '#', '', NULL, 1, 0, 'F', '0', '0', 'email:group:remove', '#', 'admin', NOW(), '', NULL, ''),
+('联系人群组导出', @groupMenuId, 5, '#', '', NULL, 1, 0, 'F', '0', '0', 'email:group:export', '#', 'admin', NOW(), '', NULL, '');
+
+-- 插入销售数据管理子菜单
+INSERT INTO `sys_menu` (`menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES 
+('销售数据', @emailMenuId, 3, 'sales', 'email/sales/index', NULL, 1, 0, 'C', '0', '0', 'email:sales:list', 'money', 'admin', NOW(), '', NULL, '销售数据管理菜单');
+
+-- 获取销售数据管理菜单ID
+SET @salesMenuId = LAST_INSERT_ID();
+
+-- 插入销售数据管理按钮
+INSERT INTO `sys_menu` (`menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES 
+('销售数据查询', @salesMenuId, 1, '#', '', NULL, 1, 0, 'F', '0', '0', 'email:sales:query', '#', 'admin', NOW(), '', NULL, ''),
+('销售数据新增', @salesMenuId, 2, '#', '', NULL, 1, 0, 'F', '0', '0', 'email:sales:add', '#', 'admin', NOW(), '', NULL, ''),
+('销售数据修改', @salesMenuId, 3, '#', '', NULL, 1, 0, 'F', '0', '0', 'email:sales:edit', '#', 'admin', NOW(), '', NULL, ''),
+('销售数据删除', @salesMenuId, 4, '#', '', NULL, 1, 0, 'F', '0', '0', 'email:sales:remove', '#', 'admin', NOW(), '', NULL, ''),
+('销售数据导出', @salesMenuId, 5, '#', '', NULL, 1, 0, 'F', '0', '0', 'email:sales:export', '#', 'admin', NOW(), '', NULL, ''),
+('销售数据导入', @salesMenuId, 6, '#', '', NULL, 1, 0, 'F', '0', '0', 'email:sales:import', '#', 'admin', NOW(), '', NULL, '');
+
 -- 插入邮件账号管理子菜单
 INSERT INTO `sys_menu` (`menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES 
-('邮件账号', @emailMenuId, 2, 'account', 'email/account/index', NULL, 1, 0, 'C', '0', '0', 'email:account:list', 'server', 'admin', NOW(), '', NULL, '邮件账号管理菜单');
+('邮件账号', @emailMenuId, 4, 'account', 'email/account/index', NULL, 1, 0, 'C', '0', '0', 'email:account:list', 'server', 'admin', NOW(), '', NULL, '邮件账号管理菜单');
 
 -- 获取邮件账号管理菜单ID
 SET @accountMenuId = LAST_INSERT_ID();
@@ -40,7 +71,7 @@ INSERT INTO `sys_menu` (`menu_name`, `parent_id`, `order_num`, `path`, `componen
 
 -- 插入邮件发送管理子菜单
 INSERT INTO `sys_menu` (`menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES 
-('邮件发送', @emailMenuId, 3, 'send', 'email/send/index', NULL, 1, 0, 'C', '0', '0', 'email:send:list', 'send', 'admin', NOW(), '', NULL, '邮件发送管理菜单');
+('邮件发送', @emailMenuId, 5, 'send', 'email/send/index', NULL, 1, 0, 'C', '0', '0', 'email:send:list', 'send', 'admin', NOW(), '', NULL, '邮件发送管理菜单');
 
 -- 获取邮件发送管理菜单ID
 SET @sendMenuId = LAST_INSERT_ID();
@@ -54,7 +85,7 @@ INSERT INTO `sys_menu` (`menu_name`, `parent_id`, `order_num`, `path`, `componen
 
 -- 插入邮件模板管理子菜单
 INSERT INTO `sys_menu` (`menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES 
-('邮件模板', @emailMenuId, 4, 'template', 'email/template/index', NULL, 1, 0, 'C', '0', '0', 'email:template:list', 'documentation', 'admin', NOW(), '', NULL, '邮件模板管理菜单');
+('邮件模板', @emailMenuId, 6, 'template', 'email/template/index', NULL, 1, 0, 'C', '0', '0', 'email:template:list', 'documentation', 'admin', NOW(), '', NULL, '邮件模板管理菜单');
 
 -- 获取邮件模板管理菜单ID
 SET @templateMenuId = LAST_INSERT_ID();
@@ -68,7 +99,7 @@ INSERT INTO `sys_menu` (`menu_name`, `parent_id`, `order_num`, `path`, `componen
 
 -- 插入邮件统计子菜单
 INSERT INTO `sys_menu` (`menu_name`, `parent_id`, `order_num`, `path`, `component`, `query`, `is_frame`, `is_cache`, `menu_type`, `visible`, `status`, `perms`, `icon`, `create_by`, `create_time`, `update_by`, `update_time`, `remark`) VALUES 
-('邮件统计', @emailMenuId, 5, 'statistics', 'email/statistics/index', NULL, 1, 0, 'C', '0', '0', 'email:statistics:list', 'chart', 'admin', NOW(), '', NULL, '邮件统计菜单');
+('邮件统计', @emailMenuId, 7, 'statistics', 'email/statistics/index', NULL, 1, 0, 'C', '0', '0', 'email:statistics:list', 'chart', 'admin', NOW(), '', NULL, '邮件统计菜单');
 
 -- 获取邮件统计菜单ID
 SET @statisticsMenuId = LAST_INSERT_ID();

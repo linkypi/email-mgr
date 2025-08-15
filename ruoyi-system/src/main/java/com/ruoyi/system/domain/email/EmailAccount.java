@@ -6,10 +6,10 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 /**
- * 邮件账号对象 email_account
+ * 邮箱账号对象 email_account
  * 
  * @author ruoyi
- * @date 2024-01-01
+ * @date 2023-01-01
  */
 public class EmailAccount extends BaseEntity
 {
@@ -26,7 +26,7 @@ public class EmailAccount extends BaseEntity
     @Excel(name = "邮箱地址")
     private String emailAddress;
 
-    /** 密码 */
+    /** 邮箱密码(加密) */
     private String password;
 
     /** SMTP服务器 */
@@ -37,15 +37,23 @@ public class EmailAccount extends BaseEntity
     @Excel(name = "SMTP端口")
     private Integer smtpPort;
 
-    /** 每日发送上限 */
-    @Excel(name = "每日发送上限")
+    /** 是否启用SSL(0否 1是) */
+    @Excel(name = "是否启用SSL", readConverterExp = "0=否,1=是")
+    private String smtpSsl;
+
+    /** 每日发送限制 */
+    @Excel(name = "每日发送限制")
     private Integer dailyLimit;
 
-    /** 当前发送数量 */
-    @Excel(name = "当前发送数量")
-    private Integer currentCount;
+    /** 今日已发送数量 */
+    @Excel(name = "今日已发送数量")
+    private Integer usedCount;
 
-    /** 状态 */
+    /** 最后发送时间 */
+    @Excel(name = "最后发送时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
+    private String lastSendTime;
+
+    /** 状态(0正常 1停用) */
     @Excel(name = "状态", readConverterExp = "0=正常,1=停用")
     private String status;
 
@@ -58,7 +66,6 @@ public class EmailAccount extends BaseEntity
     {
         return accountId;
     }
-
     public void setAccountName(String accountName) 
     {
         this.accountName = accountName;
@@ -68,7 +75,6 @@ public class EmailAccount extends BaseEntity
     {
         return accountName;
     }
-
     public void setEmailAddress(String emailAddress) 
     {
         this.emailAddress = emailAddress;
@@ -78,7 +84,6 @@ public class EmailAccount extends BaseEntity
     {
         return emailAddress;
     }
-
     public void setPassword(String password) 
     {
         this.password = password;
@@ -88,7 +93,6 @@ public class EmailAccount extends BaseEntity
     {
         return password;
     }
-
     public void setSmtpHost(String smtpHost) 
     {
         this.smtpHost = smtpHost;
@@ -98,7 +102,6 @@ public class EmailAccount extends BaseEntity
     {
         return smtpHost;
     }
-
     public void setSmtpPort(Integer smtpPort) 
     {
         this.smtpPort = smtpPort;
@@ -108,7 +111,15 @@ public class EmailAccount extends BaseEntity
     {
         return smtpPort;
     }
+    public void setSmtpSsl(String smtpSsl) 
+    {
+        this.smtpSsl = smtpSsl;
+    }
 
+    public String getSmtpSsl() 
+    {
+        return smtpSsl;
+    }
     public void setDailyLimit(Integer dailyLimit) 
     {
         this.dailyLimit = dailyLimit;
@@ -118,17 +129,24 @@ public class EmailAccount extends BaseEntity
     {
         return dailyLimit;
     }
-
-    public void setCurrentCount(Integer currentCount) 
+    public void setUsedCount(Integer usedCount) 
     {
-        this.currentCount = currentCount;
+        this.usedCount = usedCount;
     }
 
-    public Integer getCurrentCount() 
+    public Integer getUsedCount() 
     {
-        return currentCount;
+        return usedCount;
+    }
+    public void setLastSendTime(String lastSendTime) 
+    {
+        this.lastSendTime = lastSendTime;
     }
 
+    public String getLastSendTime() 
+    {
+        return lastSendTime;
+    }
     public void setStatus(String status) 
     {
         this.status = status;
@@ -148,15 +166,16 @@ public class EmailAccount extends BaseEntity
             .append("password", getPassword())
             .append("smtpHost", getSmtpHost())
             .append("smtpPort", getSmtpPort())
+            .append("smtpSsl", getSmtpSsl())
             .append("dailyLimit", getDailyLimit())
-            .append("currentCount", getCurrentCount())
+            .append("usedCount", getUsedCount())
+            .append("lastSendTime", getLastSendTime())
             .append("status", getStatus())
             .append("remark", getRemark())
             .append("createBy", getCreateBy())
             .append("createTime", getCreateTime())
             .append("updateBy", getUpdateBy())
             .append("updateTime", getUpdateTime())
-            .append("deleted", 0)
             .toString();
     }
 }

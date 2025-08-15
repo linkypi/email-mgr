@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.email.EmailContactGroupMapper">
+    
+    <resultMap type="EmailContactGroup" id="EmailContactGroupResult">
+        <result property="groupId"    column="group_id"    />
+        <result property="groupName"    column="group_name"    />
+        <result property="description"    column="description"    />
+        <result property="status"    column="status"    />
+        <result property="remark"    column="remark"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="contactCount"    column="contact_count"    />
+    </resultMap>
+
+    <sql id="selectEmailContactGroupVo">
+        select g.group_id, g.group_name, g.description, g.status, g.remark, g.create_by, g.create_time, g.update_by, g.update_time, g.deleted,
+               (select count(1) from email_contact c where c.group_id = g.group_id and c.deleted = '0') as contact_count
+        from email_contact_group g
+    </sql>
+
+    <select id="selectEmailContactGroupList" parameterType="EmailContactGroup" resultMap="EmailContactGroupResult">
+        <include refid="selectEmailContactGroupVo"/>
+        <where>  
+            <if test="groupName != null  and groupName != ''"> and g.group_name like concat('%', #{groupName}, '%')</if>
+            <if test="description != null  and description != ''"> and g.description like concat('%', #{description}, '%')</if>
+            <if test="status != null  and status != ''"> and g.status = #{status}</if>
+            and g.deleted = '0'
+        </where>
+        order by g.create_time desc
+    </select>
+    
+    <select id="selectEmailContactGroupByGroupId" parameterType="Long" resultMap="EmailContactGroupResult">
+        <include refid="selectEmailContactGroupVo"/>
+        where g.group_id = #{groupId} and g.deleted = '0'
+    </select>
+        
+    <insert id="insertEmailContactGroup" parameterType="EmailContactGroup" useGeneratedKeys="true" keyProperty="groupId">
+        insert into email_contact_group
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="groupName != null and groupName != ''">group_name,</if>
+            <if test="description != null">description,</if>
+            <if test="status != null">status,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            deleted
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="groupName != null and groupName != ''">#{groupName},</if>
+            <if test="description != null">#{description},</if>
+            <if test="status != null">#{status},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            '0'
+         </trim>
+    </insert>
+
+    <update id="updateEmailContactGroup" parameterType="EmailContactGroup">
+        update email_contact_group
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="groupName != null and groupName != ''">group_name = #{groupName},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where group_id = #{groupId}
+    </update>
+
+    <delete id="deleteEmailContactGroupByGroupId" parameterType="Long">
+        update email_contact_group set deleted = '2' where group_id = #{groupId}
+    </delete>
+
+    <delete id="deleteEmailContactGroupByGroupIds" parameterType="String">
+        update email_contact_group set deleted = '2' where group_id in 
+        <foreach item="groupId" collection="array" open="(" separator="," close=")">
+            #{groupId}
+        </foreach>
+    </delete>
+
+    <select id="selectAllEnabledGroups" resultMap="EmailContactGroupResult">
+        <include refid="selectEmailContactGroupVo"/>
+        where g.status = '0' and g.deleted = '0'
+        order by g.create_time desc
+    </select>
+</mapper>
