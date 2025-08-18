@@ -52,10 +52,10 @@ export function exportGroup(query) {
   })
 }
 
-// 获取所有可用的群组
-export function getEnabledGroups() {
+// 获取所有群组列表
+export function getAllGroups() {
   return request({
-    url: '/email/group/enabled',
+    url: '/email/group/all',
     method: 'get'
   })
 }

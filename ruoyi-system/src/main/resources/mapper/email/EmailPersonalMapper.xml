@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.email.EmailPersonalMapper">
+    
+    <resultMap type="EmailPersonal" id="EmailPersonalResult">
+        <result property="emailId"    column="email_id"    />
+        <result property="emailType"    column="email_type"    />
+        <result property="fromAddress"    column="from_address"    />
+        <result property="toAddress"    column="to_address"    />
+        <result property="ccAddress"    column="cc_address"    />
+        <result property="bccAddress"    column="bcc_address"    />
+        <result property="subject"    column="subject"    />
+        <result property="content"    column="content"    />
+        <result property="attachments"    column="attachments"    />
+        <result property="isRead"    column="is_read"    />
+        <result property="isStarred"    column="is_starred"    />
+        <result property="isImportant"    column="is_important"    />
+        <result property="tags"    column="tags"    />
+        <result property="sendTime"    column="send_time"    />
+        <result property="receiveTime"    column="receive_time"    />
+        <result property="status"    column="status"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"    column="remark"    />
+    </resultMap>
+
+    <sql id="selectEmailPersonalVo">
+        select email_id, email_type, from_address, to_address, cc_address, bcc_address, subject, content, attachments, is_read, is_starred, is_important, tags, send_time, receive_time, status, create_by, create_time, update_by, update_time, remark from email_personal
+    </sql>
+
+    <select id="selectEmailPersonalList" parameterType="EmailPersonal" resultMap="EmailPersonalResult">
+        <include refid="selectEmailPersonalVo"/>
+        <where>  
+            <if test="emailType != null  and emailType != ''"> and email_type = #{emailType}</if>
+            <if test="fromAddress != null  and fromAddress != ''"> and from_address like concat('%', #{fromAddress}, '%')</if>
+            <if test="toAddress != null  and toAddress != ''"> and to_address like concat('%', #{toAddress}, '%')</if>
+            <if test="subject != null  and subject != ''"> and subject like concat('%', #{subject}, '%')</if>
+            <if test="isRead != null  and isRead != ''"> and is_read = #{isRead}</if>
+            <if test="isStarred != null  and isStarred != ''"> and is_starred = #{isStarred}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+        </where>
+    </select>
+
+    <select id="selectInboxList" parameterType="EmailPersonal" resultMap="EmailPersonalResult">
+        <include refid="selectEmailPersonalVo"/>
+        <where>  
+            and email_type = '1' and status = '0'
+            <if test="fromAddress != null  and fromAddress != ''"> and from_address like concat('%', #{fromAddress}, '%')</if>
+            <if test="subject != null  and subject != ''"> and subject like concat('%', #{subject}, '%')</if>
+            <if test="isRead != null  and isRead != ''"> and is_read = #{isRead}</if>
+        </where>
+        order by receive_time desc
+    </select>
+
+    <select id="selectSentList" parameterType="EmailPersonal" resultMap="EmailPersonalResult">
+        <include refid="selectEmailPersonalVo"/>
+        <where>  
+            and email_type = '2' and status = '0'
+            <if test="toAddress != null  and toAddress != ''"> and to_address like concat('%', #{toAddress}, '%')</if>
+            <if test="subject != null  and subject != ''"> and subject like concat('%', #{subject}, '%')</if>
+        </where>
+        order by send_time desc
+    </select>
+
+    <select id="selectStarredList" parameterType="EmailPersonal" resultMap="EmailPersonalResult">
+        <include refid="selectEmailPersonalVo"/>
+        <where>  
+            and is_starred = '1' and status = '0'
+            <if test="fromAddress != null  and fromAddress != ''"> and from_address like concat('%', #{fromAddress}, '%')</if>
+            <if test="toAddress != null  and toAddress != ''"> and to_address like concat('%', #{toAddress}, '%')</if>
+            <if test="subject != null  and subject != ''"> and subject like concat('%', #{subject}, '%')</if>
+        </where>
+        order by receive_time desc
+    </select>
+
+    <select id="selectDeletedList" parameterType="EmailPersonal" resultMap="EmailPersonalResult">
+        <include refid="selectEmailPersonalVo"/>
+        <where>  
+            and status = '1'
+            <if test="fromAddress != null  and fromAddress != ''"> and from_address like concat('%', #{fromAddress}, '%')</if>
+            <if test="toAddress != null  and toAddress != ''"> and to_address like concat('%', #{toAddress}, '%')</if>
+            <if test="subject != null  and subject != ''"> and subject like concat('%', #{subject}, '%')</if>
+        </where>
+        order by update_time desc
+    </select>
+    
+    <select id="selectEmailPersonalByEmailId" parameterType="Long" resultMap="EmailPersonalResult">
+        <include refid="selectEmailPersonalVo"/>
+        where email_id = #{emailId}
+    </select>
+        
+    <insert id="insertEmailPersonal" parameterType="EmailPersonal" useGeneratedKeys="true" keyProperty="emailId">
+        insert into email_personal
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="emailType != null">email_type,</if>
+            <if test="fromAddress != null">from_address,</if>
+            <if test="toAddress != null">to_address,</if>
+            <if test="ccAddress != null">cc_address,</if>
+            <if test="bccAddress != null">bcc_address,</if>
+            <if test="subject != null">subject,</if>
+            <if test="content != null">content,</if>
+            <if test="attachments != null">attachments,</if>
+            <if test="isRead != null">is_read,</if>
+            <if test="isStarred != null">is_starred,</if>
+            <if test="isImportant != null">is_important,</if>
+            <if test="tags != null">tags,</if>
+            <if test="sendTime != null">send_time,</if>
+            <if test="receiveTime != null">receive_time,</if>
+            <if test="status != null">status,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="emailType != null">#{emailType},</if>
+            <if test="fromAddress != null">#{fromAddress},</if>
+            <if test="toAddress != null">#{toAddress},</if>
+            <if test="ccAddress != null">#{ccAddress},</if>
+            <if test="bccAddress != null">#{bccAddress},</if>
+            <if test="subject != null">#{subject},</if>
+            <if test="content != null">#{content},</if>
+            <if test="attachments != null">#{attachments},</if>
+            <if test="isRead != null">#{isRead},</if>
+            <if test="isStarred != null">#{isStarred},</if>
+            <if test="isImportant != null">#{isImportant},</if>
+            <if test="tags != null">#{tags},</if>
+            <if test="sendTime != null">#{sendTime},</if>
+            <if test="receiveTime != null">#{receiveTime},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateEmailPersonal" parameterType="EmailPersonal">
+        update email_personal
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="emailType != null">email_type = #{emailType},</if>
+            <if test="fromAddress != null">from_address = #{fromAddress},</if>
+            <if test="toAddress != null">to_address = #{toAddress},</if>
+            <if test="ccAddress != null">cc_address = #{ccAddress},</if>
+            <if test="bccAddress != null">bcc_address = #{bccAddress},</if>
+            <if test="subject != null">subject = #{subject},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="attachments != null">attachments = #{attachments},</if>
+            <if test="isRead != null">is_read = #{isRead},</if>
+            <if test="isStarred != null">is_starred = #{isStarred},</if>
+            <if test="isImportant != null">is_important = #{isImportant},</if>
+            <if test="tags != null">tags = #{tags},</if>
+            <if test="sendTime != null">send_time = #{sendTime},</if>
+            <if test="receiveTime != null">receive_time = #{receiveTime},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where email_id = #{emailId}
+    </update>
+
+    <delete id="deleteEmailPersonalByEmailId" parameterType="Long">
+        delete from email_personal where email_id = #{emailId}
+    </delete>
+
+    <delete id="deleteEmailPersonalByEmailIds" parameterType="String">
+        delete from email_personal where email_id in 
+        <foreach item="emailId" collection="array" open="(" separator="," close=")">
+            #{emailId}
+        </foreach>
+    </delete>
+
+    <update id="markAsRead" parameterType="Long">
+        update email_personal set is_read = '1' where email_id = #{emailId}
+    </update>
+
+    <update id="markAsStarred" parameterType="Long">
+        update email_personal set is_starred = '1' where email_id = #{emailId}
+    </update>
+
+    <select id="getUnreadCount" resultType="int">
+        select count(*) from email_personal where email_type = '1' and is_read = '0' and status = '0'
+    </select>
+</mapper>

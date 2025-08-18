@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.email.EmailSendTaskMapper">
+    
+    <resultMap type="EmailSendTask" id="EmailSendTaskResult">
+        <result property="taskId"    column="task_id"    />
+        <result property="taskName"    column="task_name"    />
+        <result property="templateId"    column="template_id"    />
+        <result property="subject"    column="subject"    />
+        <result property="content"    column="content"    />
+        <result property="recipientType"    column="recipient_type"    />
+        <result property="recipientIds"    column="recipient_ids"    />
+        <result property="accountIds"    column="account_ids"    />
+        <result property="sendInterval"    column="send_interval"    />
+        <result property="startTime"    column="start_time"    />
+        <result property="endTime"    column="end_time"    />
+        <result property="totalCount"    column="total_count"    />
+        <result property="sentCount"    column="sent_count"    />
+        <result property="deliveredCount"    column="delivered_count"    />
+        <result property="openedCount"    column="opened_count"    />
+        <result property="repliedCount"    column="replied_count"    />
+        <result property="status"    column="status"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"    column="remark"    />
+    </resultMap>
+
+    <sql id="selectEmailSendTaskVo">
+        select task_id, task_name, template_id, subject, content, recipient_type, recipient_ids, account_ids, send_interval, start_time, end_time, total_count, sent_count, delivered_count, opened_count, replied_count, status, create_by, create_time, update_by, update_time, remark from email_send_task
+    </sql>
+
+    <select id="selectEmailSendTaskList" parameterType="EmailSendTask" resultMap="EmailSendTaskResult">
+        <include refid="selectEmailSendTaskVo"/>
+        <where>  
+            <if test="taskName != null  and taskName != ''"> and task_name like concat('%', #{taskName}, '%')</if>
+            <if test="templateId != null "> and template_id = #{templateId}</if>
+            <if test="subject != null  and subject != ''"> and subject like concat('%', #{subject}, '%')</if>
+            <if test="recipientType != null  and recipientType != ''"> and recipient_type = #{recipientType}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectEmailSendTaskByTaskId" parameterType="Long" resultMap="EmailSendTaskResult">
+        <include refid="selectEmailSendTaskVo"/>
+        where task_id = #{taskId}
+    </select>
+        
+    <insert id="insertEmailSendTask" parameterType="EmailSendTask" useGeneratedKeys="true" keyProperty="taskId">
+        insert into email_send_task
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="taskName != null and taskName != ''">task_name,</if>
+            <if test="templateId != null">template_id,</if>
+            <if test="subject != null">subject,</if>
+            <if test="content != null">content,</if>
+            <if test="recipientType != null">recipient_type,</if>
+            <if test="recipientIds != null">recipient_ids,</if>
+            <if test="accountIds != null">account_ids,</if>
+            <if test="sendInterval != null">send_interval,</if>
+            <if test="startTime != null">start_time,</if>
+            <if test="endTime != null">end_time,</if>
+            <if test="totalCount != null">total_count,</if>
+            <if test="sentCount != null">sent_count,</if>
+            <if test="deliveredCount != null">delivered_count,</if>
+            <if test="openedCount != null">opened_count,</if>
+            <if test="repliedCount != null">replied_count,</if>
+            <if test="status != null">status,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="taskName != null and taskName != ''">#{taskName},</if>
+            <if test="templateId != null">#{templateId},</if>
+            <if test="subject != null">#{subject},</if>
+            <if test="content != null">#{content},</if>
+            <if test="recipientType != null">#{recipientType},</if>
+            <if test="recipientIds != null">#{recipientIds},</if>
+            <if test="accountIds != null">#{accountIds},</if>
+            <if test="sendInterval != null">#{sendInterval},</if>
+            <if test="startTime != null">#{startTime},</if>
+            <if test="endTime != null">#{endTime},</if>
+            <if test="totalCount != null">#{totalCount},</if>
+            <if test="sentCount != null">#{sentCount},</if>
+            <if test="deliveredCount != null">#{deliveredCount},</if>
+            <if test="openedCount != null">#{openedCount},</if>
+            <if test="repliedCount != null">#{repliedCount},</if>
+            <if test="status != null">#{status},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateEmailSendTask" parameterType="EmailSendTask">
+        update email_send_task
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="taskName != null and taskName != ''">task_name = #{taskName},</if>
+            <if test="templateId != null">template_id = #{templateId},</if>
+            <if test="subject != null">subject = #{subject},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="recipientType != null">recipient_type = #{recipientType},</if>
+            <if test="recipientIds != null">recipient_ids = #{recipientIds},</if>
+            <if test="accountIds != null">account_ids = #{accountIds},</if>
+            <if test="sendInterval != null">send_interval = #{sendInterval},</if>
+            <if test="startTime != null">start_time = #{startTime},</if>
+            <if test="endTime != null">end_time = #{endTime},</if>
+            <if test="totalCount != null">total_count = #{totalCount},</if>
+            <if test="sentCount != null">sent_count = #{sentCount},</if>
+            <if test="deliveredCount != null">delivered_count = #{deliveredCount},</if>
+            <if test="openedCount != null">opened_count = #{openedCount},</if>
+            <if test="repliedCount != null">replied_count = #{repliedCount},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where task_id = #{taskId}
+    </update>
+
+    <delete id="deleteEmailSendTaskByTaskId" parameterType="Long">
+        delete from email_send_task where task_id = #{taskId}
+    </delete>
+
+    <delete id="deleteEmailSendTaskByTaskIds" parameterType="String">
+        delete from email_send_task where task_id in 
+        <foreach item="taskId" collection="array" open="(" separator="," close=")">
+            #{taskId}
+        </foreach>
+    </delete>
+
+    <update id="updateTaskProgress" parameterType="EmailSendTask">
+        update email_send_task
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="sentCount != null">sent_count = #{sentCount},</if>
+            <if test="deliveredCount != null">delivered_count = #{deliveredCount},</if>
+            <if test="openedCount != null">opened_count = #{openedCount},</if>
+            <if test="repliedCount != null">replied_count = #{repliedCount},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where task_id = #{taskId}
+    </update>
+
+    <select id="selectPendingTasks" resultMap="EmailSendTaskResult">
+        <include refid="selectEmailSendTaskVo"/>
+        where status = '0' and start_time &lt;= now()
+        order by create_time asc
+    </select>
+</mapper>

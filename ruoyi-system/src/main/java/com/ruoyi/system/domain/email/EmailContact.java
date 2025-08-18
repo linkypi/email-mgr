@@ -1,17 +1,16 @@
 package com.ruoyi.system.domain.email;
 
-import com.ruoyi.common.annotation.Excel;
-import com.ruoyi.common.core.domain.BaseEntity;
+import java.math.BigDecimal;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-
-import java.math.BigDecimal;
+import com.ruoyi.common.annotation.Excel;
+import com.ruoyi.common.core.domain.BaseEntity;
 
 /**
  * 邮件联系人对象 email_contact
  * 
  * @author ruoyi
- * @date 2023-01-01
+ * @date 2023-12-01
  */
 public class EmailContact extends BaseEntity
 {
@@ -40,7 +39,7 @@ public class EmailContact extends BaseEntity
     @Excel(name = "年龄")
     private Integer age;
 
-    /** 性别(0未知 1男 2女) */
+    /** 性别 */
     @Excel(name = "性别", readConverterExp = "0=未知,1=男,2=女")
     private String gender;
 
@@ -52,7 +51,7 @@ public class EmailContact extends BaseEntity
     @Excel(name = "粉丝数量")
     private Integer followers;
 
-    /** 等级(1重要 2普通 3一般) */
+    /** 等级 */
     @Excel(name = "等级", readConverterExp = "1=重要,2=普通,3=一般")
     private String level;
 
@@ -60,7 +59,7 @@ public class EmailContact extends BaseEntity
     @Excel(name = "群组ID")
     private Long groupId;
 
-    /** 标签(逗号分隔) */
+    /** 标签 */
     @Excel(name = "标签")
     private String tags;
 
@@ -80,7 +79,7 @@ public class EmailContact extends BaseEntity
     @Excel(name = "回复率")
     private BigDecimal replyRate;
 
-    /** 状态(0正常 1停用) */
+    /** 状态 */
     @Excel(name = "状态", readConverterExp = "0=正常,1=停用")
     private String status;
 

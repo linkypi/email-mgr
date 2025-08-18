@@ -54,8 +54,8 @@ public class EmailDashboardController extends BaseController
     @GetMapping("/contact/statistics")
     public AjaxResult getContactStatistics()
     {
-        EmailContact emailContact = new EmailContact();
-        List<EmailContact> list = emailContactService.selectEmailContactStatisticsList(emailContact);
+        // 获取回复率最高的联系人列表
+        List<EmailContact> list = emailContactService.selectTopReplyRateContacts(10);
         return success(list);
     }
 

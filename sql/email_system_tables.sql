@@ -236,19 +236,110 @@ CREATE TABLE `email_statistics` (
   KEY `idx_stat_type` (`stat_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邮件统计表';
 
+-- 11. 发送草稿表
+CREATE TABLE `email_send_draft` (
+  `draft_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '草稿ID',
+  `draft_name` varchar(100) NOT NULL COMMENT '草稿名称',
+  `template_id` bigint(20) DEFAULT NULL COMMENT '模板ID',
+  `subject` varchar(200) NOT NULL COMMENT '邮件主题',
+  `content` text NOT NULL COMMENT '邮件内容',
+  `recipient_type` char(1) DEFAULT '1' COMMENT '收件人类型(1全部 2群组 3标签 4手动)',
+  `recipient_ids` text DEFAULT NULL COMMENT '收件人ID列表(JSON格式)',
+  `account_ids` text DEFAULT NULL COMMENT '发件账号ID列表(JSON格式)',
+  `selected_groups` text DEFAULT NULL COMMENT '选择的群组ID列表(JSON格式)',
+  `selected_tags` text DEFAULT NULL COMMENT '选择的标签ID列表(JSON格式)',
+  `recipient_tab` varchar(20) DEFAULT 'group' COMMENT '收件人选择标签页',
+  `send_interval` int(11) DEFAULT 10 COMMENT '发送间隔(秒)',
+  `send_type` varchar(20) DEFAULT 'immediate' COMMENT '发送类型(immediate立即 scheduled定时)',
+  `start_time` datetime DEFAULT NULL COMMENT '定时发送时间',
+  `strategy` varchar(20) DEFAULT 'round' COMMENT '发送策略(round轮流 sequential顺序)',
+  `create_by` varchar(64) DEFAULT '' COMMENT '创建者',
+  `create_time` datetime DEFAULT NULL COMMENT '创建时间',
+  `update_by` varchar(64) DEFAULT '' COMMENT '更新者',
+  `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+  `deleted` char(1) DEFAULT '0' COMMENT '删除标志(0代表存在 2代表删除)',
+  PRIMARY KEY (`draft_id`),
+  KEY `idx_create_by` (`create_by`),
+  KEY `idx_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='发送草稿表';
+
+-- 12. 邮件附件表
+CREATE TABLE `email_attachment` (
+  `attachment_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '附件ID',
+  `email_id` bigint(20) NOT NULL COMMENT '邮件ID',
+  `file_name` varchar(200) NOT NULL COMMENT '文件名',
+  `file_path` varchar(500) NOT NULL COMMENT '文件路径',
+  `file_size` bigint(20) DEFAULT 0 COMMENT '文件大小(字节)',
+  `file_type` varchar(100) DEFAULT NULL COMMENT '文件类型',
+  `download_count` int(11) DEFAULT 0 COMMENT '下载次数',
+  `create_time` datetime DEFAULT NULL COMMENT '创建时间',
+  `update_time` datetime DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`attachment_id`),
+  KEY `idx_email_id` (`email_id`),
+  KEY `idx_file_type` (`file_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邮件附件表';
+
+-- 13. 邮件日志表
+CREATE TABLE `email_log` (
+  `log_id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '日志ID',
+  `log_type` char(1) NOT NULL COMMENT '日志类型(1发送 2接收 3错误 4系统)',
+  `operation` varchar(100) NOT NULL COMMENT '操作类型',
+  `description` varchar(500) DEFAULT NULL COMMENT '操作描述',
+  `request_method` varchar(10) DEFAULT NULL COMMENT '请求方法',
+  `request_url` varchar(500) DEFAULT NULL COMMENT '请求URL',
+  `request_param` text DEFAULT NULL COMMENT '请求参数',
+  `response_result` text DEFAULT NULL COMMENT '响应结果',
+  `error_message` varchar(500) DEFAULT NULL COMMENT '错误信息',
+  `operation_time` datetime DEFAULT NULL COMMENT '操作时间',
+  `operation_user` varchar(64) DEFAULT NULL COMMENT '操作用户',
+  `operation_ip` varchar(128) DEFAULT NULL COMMENT '操作IP',
+  `operation_location` varchar(255) DEFAULT NULL COMMENT '操作地点',
+  `operation_browser` varchar(50) DEFAULT NULL COMMENT '操作浏览器',
+  `operation_os` varchar(50) DEFAULT NULL COMMENT '操作系统',
+  `status` char(1) DEFAULT '0' COMMENT '操作状态(0正常 1异常)',
+  `create_time` datetime DEFAULT NULL COMMENT '创建时间',
+  PRIMARY KEY (`log_id`),
+  KEY `idx_log_type` (`log_type`),
+  KEY `idx_operation_time` (`operation_time`),
+  KEY `idx_operation_user` (`operation_user`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='邮件操作日志表';
+
 -- 初始化数据
 INSERT INTO `email_contact_group` (`group_id`, `group_name`, `description`, `contact_count`, `status`, `create_by`, `create_time`) VALUES 
 (1, 'VIP客户', '重要客户群组', 0, '0', 'admin', NOW()),
 (2, '普通客户', '普通客户群组', 0, '0', 'admin', NOW()),
-(3, '潜在客户', '潜在客户群组', 0, '0', 'admin', NOW());
+(3, '潜在客户', '潜在客户群组', 0, '0', 'admin', NOW()),
+(4, '管理层', '公司管理层', 0, '0', 'admin', NOW()),
+(5, '销售部', '销售部门', 0, '0', 'admin', NOW()),
+(6, '技术部', '技术部门', 0, '0', 'admin', NOW());
 
 INSERT INTO `email_contact_tag` (`tag_id`, `tag_name`, `tag_color`, `contact_count`, `status`, `create_by`, `create_time`) VALUES 
 (1, '重要', '#F56C6C', 0, '0', 'admin', NOW()),
 (2, '项目', '#67C23A', 0, '0', 'admin', NOW()),
 (3, '待处理', '#E6A23C', 0, '0', 'admin', NOW()),
-(4, '归档', '#909399', 0, '0', 'admin', NOW());
+(4, '归档', '#909399', 0, '0', 'admin', NOW()),
+(5, 'VIP', '#9B59B6', 0, '0', 'admin', NOW()),
+(6, '新客户', '#3498DB', 0, '0', 'admin', NOW());
 
 INSERT INTO `email_template` (`template_id`, `template_name`, `template_type`, `subject`, `content`, `variables`, `use_count`, `status`, `create_by`, `create_time`) VALUES 
 (1, '产品推广邮件模板', '2', '关于我们最新产品的介绍', '<p>尊敬的{{name}}：</p><p>感谢您对我们公司的关注！</p><p>我们很高兴向您介绍我们的最新产品...</p>', '["name","company"]', 0, '0', 'admin', NOW()),
 (2, '会议邀请模板', '3', '邀请您参加重要会议', '<p>尊敬的{{name}}：</p><p>诚邀您参加我们即将举行的会议...</p>', '["name","meeting_time","meeting_location"]', 0, '0', 'admin', NOW()),
-(3, '月度报表通知', '3', '月度报表已生成', '<p>尊敬的{{name}}：</p><p>您的月度报表已经生成，请查收...</p>', '["name","report_month"]', 0, '0', 'admin', NOW());
+(3, '月度报表通知', '3', '月度报表已生成', '<p>尊敬的{{name}}：</p><p>您的月度报表已经生成，请查收...</p>', '["name","report_month"]', 0, '0', 'admin', NOW()),
+(4, '公司内部通告模板', '3', '公司内部重要通知', '<p>全体员工：</p><p>根据公司发展需要，现发布以下重要通知...</p>', '["notice_content"]', 0, '0', 'admin', NOW()),
+(5, '客户关怀邮件模板', '2', '感谢您的支持', '<p>尊敬的{{name}}：</p><p>感谢您一直以来对我们公司的信任与支持...</p>', '["name","company"]', 0, '0', 'admin', NOW());
+
+-- 插入示例联系人数据
+INSERT INTO `email_contact` (`contact_id`, `name`, `email`, `company`, `address`, `age`, `gender`, `social_media`, `followers`, `level`, `group_id`, `tags`, `send_count`, `reply_count`, `open_count`, `reply_rate`, `status`, `create_by`, `create_time`) VALUES 
+(1, '张经理', 'zhang@company.com', 'ABC公司', '北京市朝阳区', 35, '1', '@zhang_manager', 1200, '1', 1, '重要,VIP', 132, 89, 98, 67.42, '0', 'admin', NOW()),
+(2, '王晓明', 'wang@company.com', 'XYZ企业', '上海市浦东新区', 28, '1', '@wang_xiaoming', 850, '3', 2, '项目', 78, 42, 65, 53.85, '0', 'admin', NOW()),
+(3, '李思思', 'li@company.com', 'DEF集团', '广州市天河区', 32, '2', '@lisi_si', 2100, '2', 1, '重要,待处理', 56, 43, 52, 76.79, '0', 'admin', NOW()),
+(4, '赵工程师', 'zhao@tech.com', '技术公司', '深圳市南山区', 29, '1', '@zhao_engineer', 650, '2', 3, '项目', 67, 35, 58, 52.24, '0', 'admin', NOW()),
+(5, '刘总监', 'liu@company.com', 'GHI集团', '杭州市西湖区', 40, '1', '@liu_director', 3200, '1', 1, '重要,VIP', 92, 79, 85, 85.87, '0', 'admin', NOW());
+
+-- 插入示例销售数据
+INSERT INTO `email_contact_sales` (`sales_id`, `contact_id`, `sales_amount`, `sales_date`, `product_name`, `sales_channel`, `sales_notes`, `create_by`, `create_time`) VALUES 
+(1, 1, 50000.00, '2023-06-15', '企业版软件', '邮件营销', '通过邮件营销获得的大客户', 'admin', NOW()),
+(2, 2, 15000.00, '2023-06-20', '标准版软件', '电话销售', '电话跟进后的成交', 'admin', NOW()),
+(3, 3, 80000.00, '2023-06-25', '定制开发', '邮件营销', 'VIP客户定制需求', 'admin', NOW()),
+(4, 5, 120000.00, '2023-06-30', '企业解决方案', '邮件营销', '年度大单', 'admin', NOW());

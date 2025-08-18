@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.email.EmailStatisticsMapper">
+    
+    <resultMap type="EmailStatistics" id="EmailStatisticsResult">
+        <result property="statisticsId"    column="statistics_id"    />
+        <result property="statisticsDate"    column="statistics_date"    />
+        <result property="accountId"    column="account_id"    />
+        <result property="accountName"    column="account_name"    />
+        <result property="totalSent"    column="total_sent"    />
+        <result property="delivered"    column="delivered"    />
+        <result property="opened"    column="opened"    />
+        <result property="replied"    column="replied"    />
+        <result property="deliveryRate"    column="delivery_rate"    />
+        <result property="openRate"    column="open_rate"    />
+        <result property="replyRate"    column="reply_rate"    />
+        <result property="statisticsType"    column="statistics_type"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"    column="remark"    />
+    </resultMap>
+
+    <sql id="selectEmailStatisticsVo">
+        select statistics_id, statistics_date, account_id, account_name, total_sent, delivered, opened, replied, delivery_rate, open_rate, reply_rate, statistics_type, create_by, create_time, update_by, update_time, remark from email_statistics
+    </sql>
+
+    <select id="selectEmailStatisticsList" parameterType="EmailStatistics" resultMap="EmailStatisticsResult">
+        <include refid="selectEmailStatisticsVo"/>
+        <where>  
+            <if test="statisticsDate != null  and statisticsDate != ''"> and statistics_date = #{statisticsDate}</if>
+            <if test="accountId != null "> and account_id = #{accountId}</if>
+            <if test="accountName != null  and accountName != ''"> and account_name like concat('%', #{accountName}, '%')</if>
+            <if test="statisticsType != null  and statisticsType != ''"> and statistics_type = #{statisticsType}</if>
+        </where>
+        order by statistics_date desc
+    </select>
+    
+    <select id="selectEmailStatisticsByStatisticsId" parameterType="Long" resultMap="EmailStatisticsResult">
+        <include refid="selectEmailStatisticsVo"/>
+        where statistics_id = #{statisticsId}
+    </select>
+        
+    <insert id="insertEmailStatistics" parameterType="EmailStatistics" useGeneratedKeys="true" keyProperty="statisticsId">
+        insert into email_statistics
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="statisticsDate != null and statisticsDate != ''">statistics_date,</if>
+            <if test="accountId != null">account_id,</if>
+            <if test="accountName != null">account_name,</if>
+            <if test="totalSent != null">total_sent,</if>
+            <if test="delivered != null">delivered,</if>
+            <if test="opened != null">opened,</if>
+            <if test="replied != null">replied,</if>
+            <if test="deliveryRate != null">delivery_rate,</if>
+            <if test="openRate != null">open_rate,</if>
+            <if test="replyRate != null">reply_rate,</if>
+            <if test="statisticsType != null">statistics_type,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="statisticsDate != null and statisticsDate != ''">#{statisticsDate},</if>
+            <if test="accountId != null">#{accountId},</if>
+            <if test="accountName != null">#{accountName},</if>
+            <if test="totalSent != null">#{totalSent},</if>
+            <if test="delivered != null">#{delivered},</if>
+            <if test="opened != null">#{opened},</if>
+            <if test="replied != null">#{replied},</if>
+            <if test="deliveryRate != null">#{deliveryRate},</if>
+            <if test="openRate != null">#{openRate},</if>
+            <if test="replyRate != null">#{replyRate},</if>
+            <if test="statisticsType != null">#{statisticsType},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateEmailStatistics" parameterType="EmailStatistics">
+        update email_statistics
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="statisticsDate != null and statisticsDate != ''">statistics_date = #{statisticsDate},</if>
+            <if test="accountId != null">account_id = #{accountId},</if>
+            <if test="accountName != null">account_name = #{accountName},</if>
+            <if test="totalSent != null">total_sent = #{totalSent},</if>
+            <if test="delivered != null">delivered = #{delivered},</if>
+            <if test="opened != null">opened = #{opened},</if>
+            <if test="replied != null">replied = #{replied},</if>
+            <if test="deliveryRate != null">delivery_rate = #{deliveryRate},</if>
+            <if test="openRate != null">open_rate = #{openRate},</if>
+            <if test="replyRate != null">reply_rate = #{replyRate},</if>
+            <if test="statisticsType != null">statistics_type = #{statisticsType},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where statistics_id = #{statisticsId}
+    </update>
+
+    <delete id="deleteEmailStatisticsByStatisticsId" parameterType="Long">
+        delete from email_statistics where statistics_id = #{statisticsId}
+    </delete>
+
+    <delete id="deleteEmailStatisticsByStatisticsIds" parameterType="String">
+        delete from email_statistics where statistics_id in 
+        <foreach item="statisticsId" collection="array" open="(" separator="," close=")">
+            #{statisticsId}
+        </foreach>
+    </delete>
+
+    <select id="getTodayStatistics" resultMap="EmailStatisticsResult">
+        <include refid="selectEmailStatisticsVo"/>
+        where statistics_date = date_format(now(), '%Y-%m-%d')
+        limit 1
+    </select>
+
+    <select id="getTotalStatistics" resultMap="EmailStatisticsResult">
+        select 
+            sum(total_sent) as total_sent,
+            sum(delivered) as delivered,
+            sum(opened) as opened,
+            sum(replied) as replied,
+            avg(delivery_rate) as delivery_rate,
+            avg(open_rate) as open_rate,
+            avg(reply_rate) as reply_rate
+        from email_statistics
+        where statistics_type = '1'
+    </select>
+
+    <select id="getSendTrendData" parameterType="int" resultMap="EmailStatisticsResult">
+        <include refid="selectEmailStatisticsVo"/>
+        where statistics_date >= date_sub(curdate(), interval #{days} day)
+        and statistics_type = '1'
+        order by statistics_date asc
+    </select>
+
+    <select id="getReplyRateComparisonData" resultMap="EmailStatisticsResult">
+        select 
+            account_name,
+            avg(reply_rate) as reply_rate
+        from email_statistics
+        where statistics_type = '1'
+        group by account_id, account_name
+        order by reply_rate desc
+    </select>
+</mapper>
