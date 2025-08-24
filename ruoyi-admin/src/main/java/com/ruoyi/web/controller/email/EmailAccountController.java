@@ -1,6 +1,7 @@
 package com.ruoyi.web.controller.email;
 
 import java.util.List;
+import javax.servlet.http.HttpServletResponse;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,7 +25,7 @@ import com.ruoyi.common.core.page.TableDataInfo;
  * 邮箱账号Controller
  * 
  * @author ruoyi
- * @date 2023-01-01
+ * @date 2024-01-01
  */
 @RestController
 @RequestMapping("/email/account")
@@ -42,6 +43,13 @@ public class EmailAccountController extends BaseController
     {
         startPage();
         List<EmailAccount> list = emailAccountService.selectEmailAccountList(emailAccount);
+        
+        // 处理密码字段，不返回明文密码
+        for (EmailAccount account : list) {
+            account.setPassword(null);
+            account.setImapPassword(null);
+        }
+        
         return getDataTable(list);
     }
 
@@ -50,12 +58,12 @@ public class EmailAccountController extends BaseController
      */
     @PreAuthorize("@ss.hasPermi('email:account:export')")
     @Log(title = "邮箱账号", businessType = BusinessType.EXPORT)
-    @GetMapping("/export")
-    public AjaxResult export(EmailAccount emailAccount)
+    @PostMapping("/export")
+    public void export(HttpServletResponse response, EmailAccount emailAccount)
     {
         List<EmailAccount> list = emailAccountService.selectEmailAccountList(emailAccount);
         ExcelUtil<EmailAccount> util = new ExcelUtil<EmailAccount>(EmailAccount.class);
-        return util.exportExcel(list, "邮箱账号数据");
+        util.exportExcel(response, list, "邮箱账号数据");
     }
 
     /**
@@ -65,7 +73,24 @@ public class EmailAccountController extends BaseController
     @GetMapping(value = "/{accountId}")
     public AjaxResult getInfo(@PathVariable("accountId") Long accountId)
     {
-        return success(emailAccountService.selectEmailAccountByAccountId(accountId));
+        EmailAccount account = emailAccountService.selectEmailAccountByAccountId(accountId);
+        if (account != null) {
+            // 不返回密码字段
+            account.setPassword(null);
+            account.setImapPassword(null);
+        }
+        return success(account);
+    }
+
+    /**
+     * 获取邮箱账号详细信息（包含解密后的密码，用于编辑）
+     */
+    @PreAuthorize("@ss.hasPermi('email:account:edit')")
+    @GetMapping(value = "/{accountId}/edit")
+    public AjaxResult getInfoForEdit(@PathVariable("accountId") Long accountId)
+    {
+        EmailAccount account = emailAccountService.selectEmailAccountWithDecryptedPassword(accountId);
+        return success(account);
     }
 
     /**
@@ -91,6 +116,17 @@ public class EmailAccountController extends BaseController
     }
 
     /**
+     * 批量更新邮箱账号状态
+     */
+    @PreAuthorize("@ss.hasPermi('email:account:edit')")
+    @Log(title = "批量更新邮箱账号状态", businessType = BusinessType.UPDATE)
+    @PutMapping("/batch/status")
+    public AjaxResult batchUpdateStatus(@RequestBody EmailAccount emailAccount)
+    {
+        return toAjax(emailAccountService.batchUpdateAccountStatus(emailAccount));
+    }
+
+    /**
      * 删除邮箱账号
      */
     @PreAuthorize("@ss.hasPermi('email:account:remove')")
@@ -102,31 +138,21 @@ public class EmailAccountController extends BaseController
     }
 
     /**
-     * 测试邮箱账号连接
+     * 获取所有可用账号
      */
-    @PreAuthorize("@ss.hasPermi('email:account:test')")
-    @Log(title = "测试邮箱连接", businessType = BusinessType.OTHER)
-    @PostMapping("/test")
-    public AjaxResult testConnection(@RequestBody EmailAccount emailAccount)
+    @GetMapping("/all")
+    public AjaxResult getAllAccounts()
     {
-        try
-        {
-            boolean result = emailAccountService.testEmailAccount(emailAccount);
-            return success(result ? "连接测试成功" : "连接测试失败");
+        EmailAccount emailAccount = new EmailAccount();
+        emailAccount.setStatus("0"); // 只查询正常状态的账号
+        List<EmailAccount> list = emailAccountService.selectEmailAccountList(emailAccount);
+        
+        // 处理密码字段，不返回明文密码
+        for (EmailAccount account : list) {
+            account.setPassword(null);
+            account.setImapPassword(null);
         }
-        catch (Exception e)
-        {
-            return error("连接测试失败：" + e.getMessage());
-        }
-    }
-
-    /**
-     * 获取可用邮箱账号列表
-     */
-    @GetMapping("/available")
-    public AjaxResult getAvailableAccounts()
-    {
-        List<EmailAccount> list = emailAccountService.getAvailableAccounts();
+        
         return success(list);
     }
 }

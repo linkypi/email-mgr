@@ -43,16 +43,7 @@ export function delTag(tagId) {
   })
 }
 
-// 导出邮件标签
-export function exportTag(query) {
-  return request({
-    url: '/email/tag/export',
-    method: 'post',
-    data: query
-  })
-}
-
-// 获取所有标签列表
+// 获取所有标签（用于下拉选择）
 export function getAllTags() {
   return request({
     url: '/email/tag/all',

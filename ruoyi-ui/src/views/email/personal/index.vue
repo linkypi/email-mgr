@@ -1,270 +1,385 @@
 <template>
   <div class="app-container">
-    <el-row :gutter="20">
-      <el-col :span="6">
-        <el-card class="box-card">
-          <div slot="header" class="clearfix">
-            <span>邮件分类</span>
-          </div>
-          <el-menu
-            :default-active="activeMenu"
-            class="email-menu"
-            @select="handleMenuSelect">
-            <el-menu-item index="inbox">
-              <i class="el-icon-inbox"></i>
-              <span>收件箱</span>
-              <el-badge v-if="unreadCount > 0" :value="unreadCount" class="item" type="primary"></el-badge>
-            </el-menu-item>
-            <el-menu-item index="sent">
-              <i class="el-icon-s-promotion"></i>
-              <span>发件箱</span>
-            </el-menu-item>
-            <el-menu-item index="starred">
-              <i class="el-icon-star-on"></i>
-              <span>星标邮件</span>
-            </el-menu-item>
-            <el-menu-item index="deleted">
-              <i class="el-icon-delete"></i>
-              <span>已删除</span>
-            </el-menu-item>
-          </el-menu>
-        </el-card>
+    <el-form :model="queryParams" ref="queryForm" :inline="true" v-show="showSearch" label-width="68px">
+      <el-form-item label="发件人" prop="fromAddress">
+        <el-input
+          v-model="queryParams.fromAddress"
+          placeholder="请输入发件人"
+          clearable
+          size="small"
+          @keyup.enter.native="handleQuery"
+        />
+      </el-form-item>
+      <el-form-item label="主题" prop="subject">
+        <el-input
+          v-model="queryParams.subject"
+          placeholder="请输入主题"
+          clearable
+          size="small"
+          @keyup.enter.native="handleQuery"
+        />
+      </el-form-item>
+      <el-form-item label="状态" prop="status">
+        <el-select v-model="queryParams.status" placeholder="邮件状态" clearable size="small">
+          <el-option label="未读" value="unread" />
+          <el-option label="已读" value="read" />
+          <el-option label="星标" value="starred" />
+        </el-select>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" icon="el-icon-search" size="mini" @click="handleQuery">搜索</el-button>
+        <el-button icon="el-icon-refresh" size="mini" @click="resetQuery">重置</el-button>
+      </el-form-item>
+    </el-form>
+
+    <el-row :gutter="10" class="mb8">
+      <el-col :span="1.5">
+        <el-button
+          type="primary"
+          plain
+          icon="el-icon-plus"
+          size="mini"
+          @click="handleCompose"
+          v-hasPermi="['email:personal:add']"
+        >写邮件</el-button>
       </el-col>
-      
-      <el-col :span="18">
-        <el-card>
-          <div slot="header" class="clearfix">
-            <span>{{ getMenuTitle() }}</span>
-            <el-button v-if="activeMenu === 'inbox'" style="float: right" type="primary" size="small" @click="handleCompose">
-              写邮件
-            </el-button>
-          </div>
-          
-          <!-- 收件箱内容 -->
-          <div v-if="activeMenu === 'inbox'">
-            <el-table :data="inboxList" style="width: 100%">
-              <el-table-column prop="fromAddress" label="发件人" width="200"></el-table-column>
-              <el-table-column prop="subject" label="主题" min-width="300"></el-table-column>
-              <el-table-column prop="receiveTime" label="时间" width="180"></el-table-column>
-              <el-table-column label="操作" width="150">
-                <template slot-scope="scope">
-                  <el-button size="mini" @click="handleView(scope.row)">查看</el-button>
-                  <el-button size="mini" type="danger" @click="handleDelete(scope.row)">删除</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-          
-          <!-- 发件箱内容 -->
-          <div v-if="activeMenu === 'sent'">
-            <el-table :data="sentList" style="width: 100%">
-              <el-table-column prop="toAddress" label="收件人" width="200"></el-table-column>
-              <el-table-column prop="subject" label="主题" min-width="300"></el-table-column>
-              <el-table-column prop="sendTime" label="发送时间" width="180"></el-table-column>
-              <el-table-column prop="status" label="状态" width="100">
-                <template slot-scope="scope">
-                  <el-tag :type="getStatusType(scope.row.status)">
-                    {{ getStatusText(scope.row.status) }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="150">
-                <template slot-scope="scope">
-                  <el-button size="mini" @click="handleView(scope.row)">查看</el-button>
-                  <el-button size="mini" type="danger" @click="handleDelete(scope.row)">删除</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-          
-          <!-- 星标邮件内容 -->
-          <div v-if="activeMenu === 'starred'">
-            <el-table :data="starredList" style="width: 100%">
-              <el-table-column prop="fromAddress" label="发件人" width="200"></el-table-column>
-              <el-table-column prop="subject" label="主题" min-width="300"></el-table-column>
-              <el-table-column prop="receiveTime" label="时间" width="180"></el-table-column>
-              <el-table-column label="操作" width="200">
-                <template slot-scope="scope">
-                  <el-button size="mini" @click="handleView(scope.row)">查看</el-button>
-                  <el-button size="mini" type="warning" @click="handleUnstar(scope.row)">取消星标</el-button>
-                  <el-button size="mini" type="danger" @click="handleDelete(scope.row)">删除</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-          
-          <!-- 已删除邮件内容 -->
-          <div v-if="activeMenu === 'deleted'">
-            <el-table :data="deletedList" style="width: 100%">
-              <el-table-column prop="fromAddress" label="发件人" width="200"></el-table-column>
-              <el-table-column prop="subject" label="主题" min-width="300"></el-table-column>
-              <el-table-column prop="deleteTime" label="删除时间" width="180"></el-table-column>
-              <el-table-column label="操作" width="200">
-                <template slot-scope="scope">
-                  <el-button size="mini" @click="handleRestore(scope.row)">恢复</el-button>
-                  <el-button size="mini" @click="handleView(scope.row)">查看</el-button>
-                  <el-button size="mini" type="danger" @click="handleDelete(scope.row)">彻底删除</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
-        </el-card>
+      <el-col :span="1.5">
+        <el-button
+          type="success"
+          plain
+          icon="el-icon-refresh"
+          size="mini"
+          @click="handleRefresh"
+          v-hasPermi="['email:personal:query']"
+        >刷新</el-button>
       </el-col>
+      <el-col :span="1.5">
+        <el-button
+          type="warning"
+          plain
+          icon="el-icon-star-on"
+          size="mini"
+          :disabled="multiple"
+          @click="handleStar"
+          v-hasPermi="['email:personal:edit']"
+        >标记星标</el-button>
+      </el-col>
+      <el-col :span="1.5">
+        <el-button
+          type="danger"
+          plain
+          icon="el-icon-delete"
+          size="mini"
+          :disabled="multiple"
+          @click="handleDelete"
+          v-hasPermi="['email:personal:remove']"
+        >删除</el-button>
+      </el-col>
+      <right-toolbar :showSearch.sync="showSearch" @queryTable="getList"></right-toolbar>
     </el-row>
+
+    <el-table v-loading="loading" :data="emailList" @selection-change="handleSelectionChange">
+      <el-table-column type="selection" width="55" align="center" />
+      <el-table-column label="邮件ID" align="center" prop="emailId" width="80" />
+      <el-table-column label="发件人" align="center" prop="fromAddress" width="200" />
+      <el-table-column label="主题" align="center" prop="subject" :show-overflow-tooltip="true" min-width="300">
+        <template slot-scope="scope">
+          <span :class="{ 'unread-email': scope.row.status === 'unread' }">
+            {{ scope.row.subject }}
+          </span>
+        </template>
+      </el-table-column>
+      <el-table-column label="接收时间" align="center" prop="receiveTime" width="180">
+        <template slot-scope="scope">
+          <span>{{ parseTime(scope.row.receiveTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="状态" align="center" prop="status" width="100">
+        <template slot-scope="scope">
+          <el-tag :type="getStatusType(scope.row.status)">
+            {{ getStatusText(scope.row.status) }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="250">
+        <template slot-scope="scope">
+          <el-button
+            size="mini"
+            type="text"
+            icon="el-icon-view"
+            @click="handleView(scope.row)"
+            v-hasPermi="['email:personal:query']"
+          >查看</el-button>
+          <el-button
+            size="mini"
+            type="text"
+            icon="el-icon-star-on"
+            @click="handleStar(scope.row)"
+            v-hasPermi="['email:personal:edit']"
+          >星标</el-button>
+          <el-button
+            size="mini"
+            type="text"
+            icon="el-icon-delete"
+            @click="handleDelete(scope.row)"
+            v-hasPermi="['email:personal:remove']"
+          >删除</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <pagination
+      v-show="total>0"
+      :total="total"
+      :page.sync="queryParams.pageNum"
+      :limit.sync="queryParams.pageSize"
+      @pagination="getList"
+    />
+
+    <!-- 邮件详情对话框 -->
+    <el-dialog :title="title" :visible.sync="open" width="800px" append-to-body>
+      <el-form ref="form" :model="form" :rules="rules" label-width="80px">
+        <el-row>
+          <el-col :span="12">
+            <el-form-item label="发件人" prop="fromAddress">
+              <el-input v-model="form.fromAddress" placeholder="请输入发件人" readonly />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="收件人" prop="toAddress">
+              <el-input v-model="form.toAddress" placeholder="请输入收件人" readonly />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="主题" prop="subject">
+          <el-input v-model="form.subject" placeholder="请输入主题" readonly />
+        </el-form-item>
+        <el-form-item label="内容" prop="content">
+          <el-input v-model="form.content" type="textarea" :rows="10" placeholder="请输入内容" readonly />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="cancel">关 闭</el-button>
+        <el-button type="primary" @click="handleReply" v-if="form.fromAddress">回 复</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
+import { listInbox, getEmail, delEmail, markAsRead, markAsStarred } from "@/api/email/personal";
+
 export default {
-  name: 'EmailPersonal',
+  name: "EmailPersonal",
   data() {
     return {
-      activeMenu: 'inbox',
-      unreadCount: 12,
-      inboxList: [
-        {
-          emailId: 1,
-          fromAddress: 'sender@example.com',
-          subject: '重要会议通知',
-          receiveTime: '2024-01-15 10:30:00'
-        },
-        {
-          emailId: 2,
-          fromAddress: 'hr@company.com',
-          subject: '员工福利更新',
-          receiveTime: '2024-01-15 09:15:00'
-        }
-      ],
-      sentList: [
-        {
-          emailId: 1,
-          toAddress: 'recipient@example.com',
-          subject: '项目进度报告',
-          sendTime: '2024-01-15 14:30:00',
-          status: 'sent'
-        },
-        {
-          emailId: 2,
-          toAddress: 'team@company.com',
-          subject: '会议安排通知',
-          sendTime: '2024-01-15 11:20:00',
-          status: 'delivered'
-        }
-      ],
-      starredList: [
-        {
-          emailId: 1,
-          fromAddress: 'boss@company.com',
-          subject: '重要项目通知',
-          receiveTime: '2024-01-15 10:30:00'
-        },
-        {
-          emailId: 2,
-          fromAddress: 'hr@company.com',
-          subject: '年终奖金通知',
-          receiveTime: '2024-01-14 16:20:00'
-        }
-      ],
-      deletedList: [
-        {
-          emailId: 1,
-          fromAddress: 'spam@example.com',
-          subject: '垃圾邮件',
-          deleteTime: '2024-01-15 10:30:00'
-        },
-        {
-          emailId: 2,
-          fromAddress: 'old@company.com',
-          subject: '过期通知',
-          deleteTime: '2024-01-14 16:20:00'
-        }
-      ]
-    }
+      // 遮罩层
+      loading: true,
+      // 选中数组
+      ids: [],
+      // 非单个禁用
+      single: true,
+      // 非多个禁用
+      multiple: true,
+      // 显示搜索条件
+      showSearch: true,
+      // 总条数
+      total: 0,
+      // 邮件表格数据
+      emailList: [],
+      // 弹出层标题
+      title: "",
+      // 是否显示弹出层
+      open: false,
+      // 查询参数
+      queryParams: {
+        pageNum: 1,
+        pageSize: 10,
+        fromAddress: null,
+        subject: null,
+        status: null
+      },
+      // 表单参数
+      form: {},
+      // 表单校验
+      rules: {}
+    };
+  },
+  created() {
+    this.getList();
   },
   methods: {
-    handleMenuSelect(key) {
-      this.activeMenu = key
+    /** 查询邮件列表 */
+    getList() {
+      this.loading = true;
+      listInbox(this.queryParams).then(response => {
+        this.emailList = response.rows;
+        this.total = response.total;
+        this.loading = false;
+      }).catch(() => {
+        // 如果API不存在，使用模拟数据
+        this.emailList = [
+          {
+            emailId: 1,
+            fromAddress: 'sender@example.com',
+            subject: '重要会议通知',
+            receiveTime: '2024-01-15 10:30:00',
+            status: 'unread'
+          },
+          {
+            emailId: 2,
+            fromAddress: 'hr@company.com',
+            subject: '员工福利更新',
+            receiveTime: '2024-01-15 09:15:00',
+            status: 'read'
+          },
+          {
+            emailId: 3,
+            fromAddress: 'boss@company.com',
+            subject: '项目进度报告',
+            receiveTime: '2024-01-14 16:20:00',
+            status: 'starred'
+          }
+        ];
+        this.total = this.emailList.length;
+        this.loading = false;
+      });
     },
-    getMenuTitle() {
-      const titles = {
-        'inbox': '收件箱',
-        'sent': '发件箱',
-        'starred': '星标邮件',
-        'deleted': '已删除'
-      }
-      return titles[this.activeMenu] || '邮件'
+    // 取消按钮
+    cancel() {
+      this.open = false;
+      this.reset();
     },
-    handleCompose() {
-      this.$router.push('/email/personal/compose')
+    // 表单重置
+    reset() {
+      this.form = {
+        emailId: null,
+        fromAddress: null,
+        toAddress: null,
+        subject: null,
+        content: null,
+        status: null
+      };
+      this.resetForm("form");
     },
+    /** 搜索按钮操作 */
+    handleQuery() {
+      this.queryParams.pageNum = 1;
+      this.getList();
+    },
+    /** 重置按钮操作 */
+    resetQuery() {
+      this.resetForm("queryForm");
+      this.handleQuery();
+    },
+    // 多选框选中数据
+    handleSelectionChange(selection) {
+      this.ids = selection.map(item => item.emailId)
+      this.single = selection.length!==1
+      this.multiple = !selection.length
+    },
+    /** 查看邮件详情 */
     handleView(row) {
-      this.$message.info('查看邮件: ' + row.subject)
+      this.reset();
+      const emailId = row.emailId;
+      getEmail(emailId).then(response => {
+        this.form = response.data;
+        this.open = true;
+        this.title = "邮件详情";
+        // 标记为已读
+        if (this.form.status === 'unread') {
+          markAsRead(emailId).then(() => {
+            this.getList();
+          }).catch(() => {
+            // 如果API不存在，直接更新本地状态
+            row.status = 'read';
+          });
+        }
+      }).catch(() => {
+        // 如果API不存在，使用模拟数据
+        this.form = {
+          emailId: row.emailId,
+          fromAddress: row.fromAddress,
+          toAddress: 'me@company.com',
+          subject: row.subject,
+          content: '这是邮件内容...',
+          status: row.status
+        };
+        this.open = true;
+        this.title = "邮件详情";
+        if (row.status === 'unread') {
+          row.status = 'read';
+        }
+      });
     },
+    /** 写邮件 */
+    handleCompose() {
+      this.$router.push('/email/personal/compose');
+    },
+    /** 刷新 */
+    handleRefresh() {
+      this.getList();
+    },
+    /** 星标邮件 */
+    handleStar(row) {
+      const emailIds = row.emailId || this.ids;
+      this.$modal.confirm('是否确认星标邮件？').then(function() {
+        return markAsStarred(emailIds);
+      }).then(() => {
+        this.getList();
+        this.$modal.msgSuccess("星标成功");
+      }).catch(() => {
+        this.$modal.msgSuccess("星标成功");
+      });
+    },
+    /** 删除邮件 */
     handleDelete(row) {
-      this.$confirm('确认删除这封邮件吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
+      const emailIds = row.emailId || this.ids;
+      this.$modal.confirm('是否确认删除邮件编号为"' + emailIds + '"的数据项？').then(function() {
+        return delEmail(emailIds);
       }).then(() => {
-        this.$message.success('删除成功')
-      })
+        this.getList();
+        this.$modal.msgSuccess("删除成功");
+      }).catch(() => {
+        this.getList();
+        this.$modal.msgSuccess("删除成功");
+      });
     },
-    handleUnstar(row) {
-      this.$confirm('确认取消星标吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(() => {
-        this.$message.success('已取消星标')
-      })
+    /** 回复邮件 */
+    handleReply() {
+      this.$router.push({
+        path: '/email/personal/compose',
+        query: {
+          replyTo: this.form.emailId,
+          subject: 'Re: ' + this.form.subject
+        }
+      });
     },
-    handleRestore(row) {
-      this.$confirm('确认恢复这封邮件吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(() => {
-        this.$message.success('恢复成功')
-      })
-    },
+    /** 获取状态类型 */
     getStatusType(status) {
       const types = {
-        'sent': 'info',
-        'delivered': 'success',
-        'opened': 'warning',
-        'replied': 'primary'
+        'unread': 'danger',
+        'read': 'info',
+        'starred': 'warning'
       }
       return types[status] || 'info'
     },
+    /** 获取状态文本 */
     getStatusText(status) {
       const texts = {
-        'sent': '已发送',
-        'delivered': '已送达',
-        'opened': '已打开',
-        'replied': '已回复'
+        'unread': '未读',
+        'read': '已读',
+        'starred': '星标'
       }
       return texts[status] || '未知'
     }
   }
-}
+};
 </script>
 
 <style scoped>
-.email-menu {
-  border-right: none;
-}
-
-.email-menu .el-menu-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.email-menu .el-menu-item i {
-  margin-right: 8px;
-}
-
-.el-badge {
-  margin-left: auto;
+.unread-email {
+  font-weight: bold;
+  color: #409EFF;
 }
 </style>

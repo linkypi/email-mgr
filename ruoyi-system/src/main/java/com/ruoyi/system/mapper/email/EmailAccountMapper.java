@@ -7,7 +7,7 @@ import com.ruoyi.system.domain.email.EmailAccount;
  * 邮箱账号Mapper接口
  * 
  * @author ruoyi
- * @date 2023-01-01
+ * @date 2024-01-01
  */
 public interface EmailAccountMapper 
 {
@@ -58,11 +58,14 @@ public interface EmailAccountMapper
      * @return 结果
      */
     public int deleteEmailAccountByAccountIds(Long[] accountIds);
+    
+
 
     /**
-     * 查询可用邮箱账号列表
+     * 批量更新邮箱账号状态
      * 
-     * @return 邮箱账号集合
+     * @param emailAccount 包含accountIds和status的邮箱账号对象
+     * @return 结果
      */
-    public List<EmailAccount> selectAvailableAccounts();
+    public int batchUpdateAccountStatus(EmailAccount emailAccount);
 }

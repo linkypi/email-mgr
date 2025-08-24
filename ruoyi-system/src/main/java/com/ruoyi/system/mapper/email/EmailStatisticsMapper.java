@@ -1,6 +1,7 @@
 package com.ruoyi.system.mapper.email;
 
 import java.util.List;
+
 import com.ruoyi.system.domain.email.EmailStatistics;
 
 /**
@@ -9,15 +10,23 @@ import com.ruoyi.system.domain.email.EmailStatistics;
  * @author ruoyi
  * @date 2024-01-01
  */
-public interface EmailStatisticsMapper 
+public interface EmailStatisticsMapper
 {
     /**
      * 查询邮件统计
      * 
-     * @param statisticsId 邮件统计主键
+     * @param statId 邮件统计主键
      * @return 邮件统计
      */
-    public EmailStatistics selectEmailStatisticsByStatisticsId(Long statisticsId);
+    public EmailStatistics selectEmailStatisticsByStatId(Long statId);
+
+    /**
+     * 根据Message-ID查询邮件统计
+     * 
+     * @param messageId 邮件Message-ID
+     * @return 邮件统计
+     */
+    public EmailStatistics selectEmailStatisticsByMessageId(String messageId);
 
     /**
      * 查询邮件统计列表
@@ -46,45 +55,42 @@ public interface EmailStatisticsMapper
     /**
      * 删除邮件统计
      * 
-     * @param statisticsId 邮件统计主键
+     * @param statId 邮件统计主键
      * @return 结果
      */
-    public int deleteEmailStatisticsByStatisticsId(Long statisticsId);
+    public int deleteEmailStatisticsByStatId(Long statId);
 
     /**
      * 批量删除邮件统计
      * 
-     * @param statisticsIds 需要删除的数据主键集合
+     * @param statIds 需要删除的数据主键集合
      * @return 结果
      */
-    public int deleteEmailStatisticsByStatisticsIds(Long[] statisticsIds);
+    public int deleteEmailStatisticsByStatIds(Long[] statIds);
 
     /**
-     * 获取今日统计数据
+     * 生成每日统计
      * 
-     * @return 今日统计数据
+     * @param statDate 统计日期
+     * @return 结果
      */
-    public EmailStatistics getTodayStatistics();
+    public int generateDailyStatistics(String statDate);
 
     /**
-     * 获取总统计数据
+     * 生成月度统计
      * 
-     * @return 总统计数据
+     * @param yearMonth 年月(格式: yyyy-MM)
+     * @return 结果
      */
-    public EmailStatistics getTotalStatistics();
+    public int generateMonthlyStatistics(String yearMonth);
 
     /**
-     * 获取发送趋势数据
+     * 生成年度统计
      * 
-     * @param days 天数
-     * @return 趋势数据
+     * @param year 年份
+     * @return 结果
      */
-    public List<EmailStatistics> getSendTrendData(int days);
-
-    /**
-     * 获取回复率对比数据
-     * 
-     * @return 对比数据
-     */
-    public List<EmailStatistics> getReplyRateComparisonData();
+    public int generateYearlyStatistics(String year);
 }
+
+

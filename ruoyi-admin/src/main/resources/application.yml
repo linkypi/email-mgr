@@ -51,6 +51,12 @@ spring:
   messages:
     # 国际化资源文件路径
     basename: i18n/messages
+    # 国际化资源文件编码
+    encoding: UTF-8
+    # 国际化资源文件缓存时间（秒）
+    cache-duration: 3600
+    # 国际化资源文件默认语言
+    default-locale: zh_CN
   profiles:
     active: druid
   # 文件上传

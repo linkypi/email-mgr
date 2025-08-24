@@ -7,7 +7,7 @@ import com.ruoyi.system.domain.email.EmailContact;
  * 邮件联系人Mapper接口
  * 
  * @author ruoyi
- * @date 2023-12-01
+ * @date 2024-01-01
  */
 public interface EmailContactMapper 
 {
@@ -68,35 +68,35 @@ public interface EmailContactMapper
     public EmailContact selectEmailContactByEmail(String email);
 
     /**
-     * 根据群组ID查询联系人列表
-     * 
-     * @param groupId 群组ID
-     * @return 联系人列表
-     */
-    public List<EmailContact> selectEmailContactByGroupId(Long groupId);
-
-    /**
-     * 根据标签查询联系人列表
-     * 
-     * @param tag 标签
-     * @return 联系人列表
-     */
-    public List<EmailContact> selectEmailContactByTag(String tag);
-
-    /**
-     * 更新联系人统计信息
-     * 
-     * @param contactId 联系人ID
-     * @return 结果
-     */
-    public int updateContactStatistics(Long contactId);
-
-    /**
      * 查询回复率最高的联系人
      * 
      * @param limit 限制数量
      * @return 联系人列表
      */
     public List<EmailContact> selectTopReplyRateContacts(int limit);
+
+    /**
+     * 根据群组ID列表查询联系人
+     * 
+     * @param groupIds 群组ID列表
+     * @return 联系人列表
+     */
+    public List<EmailContact> selectContactsByGroupIds(List<String> groupIds);
+
+    /**
+     * 根据标签ID列表查询联系人
+     * 
+     * @param tagIds 标签ID列表
+     * @return 联系人列表
+     */
+    public List<EmailContact> selectContactsByTagIds(List<String> tagIds);
+
+    /**
+     * 根据联系人ID列表查询联系人
+     * 
+     * @param contactIds 联系人ID列表
+     * @return 联系人列表
+     */
+    public List<EmailContact> selectContactsByIds(List<String> contactIds);
 }
 

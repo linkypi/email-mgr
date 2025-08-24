@@ -32,6 +32,18 @@ public class EmailSendTaskServiceImpl implements IEmailSendTaskService
     }
 
     /**
+     * 根据任务名称查询批量发送任务
+     * 
+     * @param taskName 任务名称
+     * @return 批量发送任务
+     */
+    @Override
+    public EmailSendTask selectEmailSendTaskByTaskName(String taskName)
+    {
+        return emailSendTaskMapper.selectEmailSendTaskByTaskName(taskName);
+    }
+
+    /**
      * 查询批量发送任务列表
      * 
      * @param emailSendTask 批量发送任务
@@ -164,4 +176,18 @@ public class EmailSendTaskServiceImpl implements IEmailSendTaskService
         
         return emailSendTaskMapper.updateEmailSendTask(emailSendTask);
     }
+
+    /**
+     * 查询待处理的发送任务
+     * 查询条件：状态为"pending"且发送时间已到的任务
+     * 
+     * @return 待处理的发送任务列表
+     */
+    @Override
+    public List<EmailSendTask> selectPendingTasks()
+    {
+        return emailSendTaskMapper.selectPendingTasks();
+    }
 }
+
+

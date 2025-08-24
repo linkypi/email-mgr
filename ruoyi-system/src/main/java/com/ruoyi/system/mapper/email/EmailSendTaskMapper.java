@@ -20,6 +20,14 @@ public interface EmailSendTaskMapper
     public EmailSendTask selectEmailSendTaskByTaskId(Long taskId);
 
     /**
+     * 根据任务名称查询批量发送任务
+     * 
+     * @param taskName 任务名称
+     * @return 批量发送任务
+     */
+    public EmailSendTask selectEmailSendTaskByTaskName(String taskName);
+
+    /**
      * 查询批量发送任务列表
      * 
      * @param emailSendTask 批量发送任务
@@ -74,3 +82,5 @@ public interface EmailSendTaskMapper
      */
     public List<EmailSendTask> selectPendingTasks();
 }
+
+

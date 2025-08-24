@@ -5,8 +5,10 @@ import com.ruoyi.common.core.domain.BaseEntity;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
+import java.util.Date;
+
 /**
- * 批量发送任务对象 email_send_task
+ * 邮件发送任务对象 email_send_task
  * 
  * @author ruoyi
  * @date 2024-01-01
@@ -26,21 +28,40 @@ public class EmailSendTask extends BaseEntity
     @Excel(name = "模板ID")
     private Long templateId;
 
+    /** 发件人账号ID */
+    @Excel(name = "发件人账号ID")
+    private Long accountId;
+
     /** 邮件主题 */
     @Excel(name = "邮件主题")
     private String subject;
 
     /** 邮件内容 */
+    @Excel(name = "邮件内容")
     private String content;
 
-    /** 收件人类型(1全部 2群组 3标签 4手动) */
-    @Excel(name = "收件人类型", readConverterExp = "1=全部,2=群组,3=标签,4=手动")
+    /** 收件人类型(all全部 group群组 tag标签 manual手动) */
+    @Excel(name = "收件人类型", readConverterExp = "all=全部,group=群组,tag=标签,manual=手动")
     private String recipientType;
 
     /** 收件人ID列表(JSON格式) */
+    @Excel(name = "收件人ID列表")
     private String recipientIds;
 
+    /** 群组ID列表(逗号分隔) */
+    @Excel(name = "群组ID列表")
+    private String groupIds;
+
+    /** 标签ID列表(逗号分隔) */
+    @Excel(name = "标签ID列表")
+    private String tagIds;
+
+    /** 联系人ID列表(逗号分隔) */
+    @Excel(name = "联系人ID列表")
+    private String contactIds;
+
     /** 发件账号ID列表(JSON格式) */
+    @Excel(name = "发件账号ID列表")
     private String accountIds;
 
     /** 发送间隔(秒) */
@@ -49,11 +70,11 @@ public class EmailSendTask extends BaseEntity
 
     /** 开始发送时间 */
     @Excel(name = "开始发送时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
-    private String startTime;
+    private Date startTime;
 
     /** 结束发送时间 */
     @Excel(name = "结束发送时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
-    private String endTime;
+    private Date endTime;
 
     /** 总发送数量 */
     @Excel(name = "总发送数量")
@@ -75,9 +96,17 @@ public class EmailSendTask extends BaseEntity
     @Excel(name = "回复数量")
     private Integer repliedCount;
 
+    /** 发送模式(immediate立即发送 scheduled定时发送) */
+    @Excel(name = "发送模式", readConverterExp = "immediate=立即发送,scheduled=定时发送")
+    private String sendMode;
+
     /** 状态(0待发送 1发送中 2已完成 3已暂停 4已取消) */
     @Excel(name = "状态", readConverterExp = "0=待发送,1=发送中,2=已完成,3=已暂停,4=已取消")
     private String status;
+
+    /** 模板变量(JSON格式) */
+    @Excel(name = "模板变量")
+    private String templateVariables;
 
     public void setTaskId(Long taskId) 
     {
@@ -88,6 +117,7 @@ public class EmailSendTask extends BaseEntity
     {
         return taskId;
     }
+
     public void setTaskName(String taskName) 
     {
         this.taskName = taskName;
@@ -97,6 +127,7 @@ public class EmailSendTask extends BaseEntity
     {
         return taskName;
     }
+
     public void setTemplateId(Long templateId) 
     {
         this.templateId = templateId;
@@ -106,6 +137,17 @@ public class EmailSendTask extends BaseEntity
     {
         return templateId;
     }
+
+    public void setAccountId(Long accountId) 
+    {
+        this.accountId = accountId;
+    }
+
+    public Long getAccountId() 
+    {
+        return accountId;
+    }
+
     public void setSubject(String subject) 
     {
         this.subject = subject;
@@ -115,6 +157,7 @@ public class EmailSendTask extends BaseEntity
     {
         return subject;
     }
+
     public void setContent(String content) 
     {
         this.content = content;
@@ -124,6 +167,7 @@ public class EmailSendTask extends BaseEntity
     {
         return content;
     }
+
     public void setRecipientType(String recipientType) 
     {
         this.recipientType = recipientType;
@@ -133,6 +177,7 @@ public class EmailSendTask extends BaseEntity
     {
         return recipientType;
     }
+
     public void setRecipientIds(String recipientIds) 
     {
         this.recipientIds = recipientIds;
@@ -142,6 +187,37 @@ public class EmailSendTask extends BaseEntity
     {
         return recipientIds;
     }
+
+    public void setGroupIds(String groupIds) 
+    {
+        this.groupIds = groupIds;
+    }
+
+    public String getGroupIds() 
+    {
+        return groupIds;
+    }
+
+    public void setTagIds(String tagIds) 
+    {
+        this.tagIds = tagIds;
+    }
+
+    public String getTagIds() 
+    {
+        return tagIds;
+    }
+
+    public void setContactIds(String contactIds) 
+    {
+        this.contactIds = contactIds;
+    }
+
+    public String getContactIds() 
+    {
+        return contactIds;
+    }
+
     public void setAccountIds(String accountIds) 
     {
         this.accountIds = accountIds;
@@ -151,6 +227,7 @@ public class EmailSendTask extends BaseEntity
     {
         return accountIds;
     }
+
     public void setSendInterval(Integer sendInterval) 
     {
         this.sendInterval = sendInterval;
@@ -160,24 +237,27 @@ public class EmailSendTask extends BaseEntity
     {
         return sendInterval;
     }
-    public void setStartTime(String startTime) 
+
+    public void setStartTime(Date startTime) 
     {
         this.startTime = startTime;
     }
 
-    public String getStartTime() 
+    public Date getStartTime() 
     {
         return startTime;
     }
-    public void setEndTime(String endTime) 
+
+    public void setEndTime(Date endTime) 
     {
         this.endTime = endTime;
     }
 
-    public String getEndTime() 
+    public Date getEndTime() 
     {
         return endTime;
     }
+
     public void setTotalCount(Integer totalCount) 
     {
         this.totalCount = totalCount;
@@ -187,6 +267,7 @@ public class EmailSendTask extends BaseEntity
     {
         return totalCount;
     }
+
     public void setSentCount(Integer sentCount) 
     {
         this.sentCount = sentCount;
@@ -196,6 +277,7 @@ public class EmailSendTask extends BaseEntity
     {
         return sentCount;
     }
+
     public void setDeliveredCount(Integer deliveredCount) 
     {
         this.deliveredCount = deliveredCount;
@@ -205,6 +287,7 @@ public class EmailSendTask extends BaseEntity
     {
         return deliveredCount;
     }
+
     public void setOpenedCount(Integer openedCount) 
     {
         this.openedCount = openedCount;
@@ -214,6 +297,7 @@ public class EmailSendTask extends BaseEntity
     {
         return openedCount;
     }
+
     public void setRepliedCount(Integer repliedCount) 
     {
         this.repliedCount = repliedCount;
@@ -223,6 +307,17 @@ public class EmailSendTask extends BaseEntity
     {
         return repliedCount;
     }
+
+    public void setSendMode(String sendMode) 
+    {
+        this.sendMode = sendMode;
+    }
+
+    public String getSendMode() 
+    {
+        return sendMode;
+    }
+
     public void setStatus(String status) 
     {
         this.status = status;
@@ -233,16 +328,30 @@ public class EmailSendTask extends BaseEntity
         return status;
     }
 
+    public void setTemplateVariables(String templateVariables) 
+    {
+        this.templateVariables = templateVariables;
+    }
+
+    public String getTemplateVariables() 
+    {
+        return templateVariables;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
             .append("taskId", getTaskId())
             .append("taskName", getTaskName())
             .append("templateId", getTemplateId())
+            .append("accountId", getAccountId())
             .append("subject", getSubject())
             .append("content", getContent())
             .append("recipientType", getRecipientType())
             .append("recipientIds", getRecipientIds())
+            .append("groupIds", getGroupIds())
+            .append("tagIds", getTagIds())
+            .append("contactIds", getContactIds())
             .append("accountIds", getAccountIds())
             .append("sendInterval", getSendInterval())
             .append("startTime", getStartTime())
@@ -252,7 +361,9 @@ public class EmailSendTask extends BaseEntity
             .append("deliveredCount", getDeliveredCount())
             .append("openedCount", getOpenedCount())
             .append("repliedCount", getRepliedCount())
+            .append("sendMode", getSendMode())
             .append("status", getStatus())
+            .append("templateVariables", getTemplateVariables())
             .append("createBy", getCreateBy())
             .append("createTime", getCreateTime())
             .append("updateBy", getUpdateBy())

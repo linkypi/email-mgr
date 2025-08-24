@@ -1,31 +1,37 @@
 package com.ruoyi.system.service.email.impl;
 
 import java.util.List;
-import java.util.Properties;
-import javax.mail.Session;
-import javax.mail.Transport;
-import javax.mail.internet.InternetAddress;
-import javax.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.system.mapper.email.EmailAccountMapper;
 import com.ruoyi.system.domain.email.EmailAccount;
 import com.ruoyi.system.service.email.IEmailAccountService;
+import com.ruoyi.system.service.email.EmailServiceMonitorService;
+import com.ruoyi.system.service.email.EmailListener;
 import com.ruoyi.common.utils.DateUtils;
-import com.ruoyi.common.utils.SecurityUtils;
-import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.PasswordUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 邮箱账号Service业务层处理
  * 
  * @author ruoyi
- * @date 2023-01-01
+ * @date 2024-01-01
  */
 @Service
 public class EmailAccountServiceImpl implements IEmailAccountService 
 {
+    private static final Logger logger = LoggerFactory.getLogger(EmailAccountServiceImpl.class);
+    
     @Autowired
     private EmailAccountMapper emailAccountMapper;
+    
+    @Autowired
+    private EmailServiceMonitorService emailServiceMonitorService;
+    
+    @Autowired
+    private EmailListener emailListener;
 
     /**
      * 查询邮箱账号
@@ -43,7 +49,7 @@ public class EmailAccountServiceImpl implements IEmailAccountService
      * 查询邮箱账号列表
      * 
      * @param emailAccount 邮箱账号
-     * @return 邮箱账号集合
+     * @return 邮箱账号
      */
     @Override
     public List<EmailAccount> selectEmailAccountList(EmailAccount emailAccount)
@@ -60,7 +66,14 @@ public class EmailAccountServiceImpl implements IEmailAccountService
     @Override
     public int insertEmailAccount(EmailAccount emailAccount)
     {
-        emailAccount.setCreateBy(SecurityUtils.getUsername());
+        // 加密密码
+        if (emailAccount.getPassword() != null && !emailAccount.getPassword().trim().isEmpty()) {
+            emailAccount.setPassword(PasswordUtils.encryptPassword(emailAccount.getPassword()));
+        }
+        if (emailAccount.getImapPassword() != null && !emailAccount.getImapPassword().trim().isEmpty()) {
+            emailAccount.setImapPassword(PasswordUtils.encryptPassword(emailAccount.getImapPassword()));
+        }
+        
         emailAccount.setCreateTime(DateUtils.getNowDate());
         return emailAccountMapper.insertEmailAccount(emailAccount);
     }
@@ -74,15 +87,62 @@ public class EmailAccountServiceImpl implements IEmailAccountService
     @Override
     public int updateEmailAccount(EmailAccount emailAccount)
     {
-        emailAccount.setUpdateBy(SecurityUtils.getUsername());
+        // 获取更新前的账号信息，用于比较状态变化
+        EmailAccount oldAccount = null;
+        if (emailAccount.getAccountId() != null) {
+            oldAccount = emailAccountMapper.selectEmailAccountByAccountId(emailAccount.getAccountId());
+        }
+        
+        // 如果密码字段不为空且不是已加密的格式，则加密密码
+        if (emailAccount.getPassword() != null && !emailAccount.getPassword().trim().isEmpty()) {
+            // 检查是否已经是加密格式（Base64编码的AES加密结果）
+            if (!isEncryptedPassword(emailAccount.getPassword())) {
+                emailAccount.setPassword(PasswordUtils.encryptPassword(emailAccount.getPassword()));
+            }
+        }
+        if (emailAccount.getImapPassword() != null && !emailAccount.getImapPassword().trim().isEmpty()) {
+            // 检查是否已经是加密格式
+            if (!isEncryptedPassword(emailAccount.getImapPassword())) {
+                emailAccount.setImapPassword(PasswordUtils.encryptPassword(emailAccount.getImapPassword()));
+            }
+        }
+        
         emailAccount.setUpdateTime(DateUtils.getNowDate());
-        return emailAccountMapper.updateEmailAccount(emailAccount);
+        int result = emailAccountMapper.updateEmailAccount(emailAccount);
+        
+        // 如果状态发生变化，处理监听和监控服务的启动/停止
+        if (oldAccount != null && emailAccount.getStatus() != null && 
+            !emailAccount.getStatus().equals(oldAccount.getStatus())) {
+            handleAccountStatusChange(emailAccount, oldAccount.getStatus());
+        }
+        
+        return result;
+    }
+    
+    /**
+     * 检查密码是否已经是加密格式
+     * 
+     * @param password 密码
+     * @return 是否已加密
+     */
+    private boolean isEncryptedPassword(String password) {
+        if (password == null || password.trim().isEmpty()) {
+            return false;
+        }
+        
+        try {
+            // 尝试Base64解码，如果成功且长度合理，则认为是加密的
+            byte[] decoded = java.util.Base64.getDecoder().decode(password);
+            return decoded.length > 0 && decoded.length % 16 == 0; // AES加密结果长度是16的倍数
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**
      * 批量删除邮箱账号
      * 
-     * @param accountIds 需要删除的邮箱账号主键集合
+     * @param accountIds 需要删除的邮箱账号主键
      * @return 结果
      */
     @Override
@@ -104,47 +164,136 @@ public class EmailAccountServiceImpl implements IEmailAccountService
     }
 
     /**
-     * 测试邮箱账号连接
+     * 获取邮箱账号（包含解密后的密码）
      * 
-     * @param emailAccount 邮箱账号
+     * @param accountId 邮箱账号主键
+     * @return 邮箱账号
+     */
+    @Override
+    public EmailAccount selectEmailAccountWithDecryptedPassword(Long accountId)
+    {
+        EmailAccount account = emailAccountMapper.selectEmailAccountByAccountId(accountId);
+        if (account != null) {
+            // 解密密码
+            if (account.getPassword() != null) {
+                try {
+                    account.setPassword(PasswordUtils.decryptPassword(account.getPassword()));
+                } catch (Exception e) {
+                    // 如果解密失败，可能是旧数据，保持原样
+                }
+            }
+            if (account.getImapPassword() != null) {
+                try {
+                    account.setImapPassword(PasswordUtils.decryptPassword(account.getImapPassword()));
+                } catch (Exception e) {
+                    // 如果解密失败，可能是旧数据，保持原样
+                }
+            }
+        }
+        return account;
+    }
+    
+
+
+    /**
+     * 批量更新邮箱账号状态
+     * 
+     * @param emailAccount 包含accountIds和status的邮箱账号对象
      * @return 结果
      */
     @Override
-    public boolean testEmailAccount(EmailAccount emailAccount)
+    public int batchUpdateAccountStatus(EmailAccount emailAccount)
     {
-        try
-        {
-            Properties props = new Properties();
-            props.put("mail.smtp.host", emailAccount.getSmtpHost());
-            props.put("mail.smtp.port", emailAccount.getSmtpPort());
-            props.put("mail.smtp.auth", "true");
-            
-            if ("1".equals(emailAccount.getSmtpSsl()))
-            {
-                props.put("mail.smtp.starttls.enable", "true");
-                props.put("mail.smtp.ssl.trust", emailAccount.getSmtpHost());
+        emailAccount.setUpdateTime(DateUtils.getNowDate());
+        int result = emailAccountMapper.batchUpdateAccountStatus(emailAccount);
+        
+        // 批量处理状态变化
+        if (emailAccount.getAccountIds() != null && emailAccount.getStatus() != null) {
+            for (Long accountId : emailAccount.getAccountIds()) {
+                try {
+                    EmailAccount account = new EmailAccount();
+                    account.setAccountId(accountId);
+                    account.setStatus(emailAccount.getStatus());
+                    
+                    if ("0".equals(emailAccount.getStatus())) {
+                        // 批量启用
+                        EmailAccount fullAccount = emailAccountMapper.selectEmailAccountByAccountId(accountId);
+                        if (fullAccount != null) {
+                            startAccountServices(fullAccount);
+                        }
+                    } else if ("1".equals(emailAccount.getStatus())) {
+                        // 批量禁用
+                        stopAccountServices(accountId);
+                    }
+                } catch (Exception e) {
+                    logger.error("批量处理账号 {} 状态变化时发生错误", accountId, e);
+                }
             }
-
-            Session session = Session.getInstance(props);
-            Transport transport = session.getTransport("smtp");
-            transport.connect(emailAccount.getSmtpHost(), emailAccount.getEmailAddress(), emailAccount.getPassword());
-            transport.close();
-            return true;
         }
-        catch (Exception e)
-        {
-            throw new ServiceException("邮箱连接测试失败：" + e.getMessage());
+        
+        return result;
+    }
+    
+    /**
+     * 处理账号状态变化
+     * 
+     * @param account 更新后的账号信息
+     * @param oldStatus 更新前的状态
+     */
+    private void handleAccountStatusChange(EmailAccount account, String oldStatus) {
+        try {
+            logger.info("账号 {} 状态发生变化: {} -> {}", 
+                account.getEmailAddress(), oldStatus, account.getStatus());
+            
+            if ("0".equals(account.getStatus())) {
+                // 状态变为启用，启动监听和监控
+                logger.info("启动账号 {} 的监听和监控服务", account.getEmailAddress());
+                startAccountServices(account);
+            } else if ("1".equals(account.getStatus())) {
+                // 状态变为禁用，停止监听和监控
+                logger.info("停止账号 {} 的监听和监控服务", account.getEmailAddress());
+                stopAccountServices(account.getAccountId());
+            }
+        } catch (Exception e) {
+            logger.error("处理账号 {} 状态变化时发生错误", account.getEmailAddress(), e);
         }
     }
-
+    
     /**
-     * 获取可用邮箱账号列表
+     * 启动账号的监听和监控服务
      * 
-     * @return 邮箱账号集合
+     * @param account 账号信息
      */
-    @Override
-    public List<EmailAccount> getAvailableAccounts()
-    {
-        return emailAccountMapper.selectAvailableAccounts();
+    private void startAccountServices(EmailAccount account) {
+        try {
+            // 启动监控服务
+            emailServiceMonitorService.startAccountMonitor(account.getAccountId());
+            logger.info("已启动账号 {} 的监控服务", account.getEmailAddress());
+            
+            // 启动监听服务
+            emailListener.addAccountConnection(account);
+            logger.info("已启动账号 {} 的监听服务", account.getEmailAddress());
+        } catch (Exception e) {
+            logger.error("启动账号 {} 服务失败", account.getEmailAddress(), e);
+        }
+    }
+    
+    /**
+     * 停止账号的监听和监控服务
+     * 
+     * @param accountId 账号ID
+     */
+    private void stopAccountServices(Long accountId) {
+        try {
+            // 停止监控服务
+            emailServiceMonitorService.stopAccountMonitor(accountId);
+            logger.info("已停止账号 {} 的监控服务", accountId);
+            
+            // 停止监听服务
+            emailListener.removeAccountConnection(accountId);
+            logger.info("已停止账号 {} 的监听服务", accountId);
+        } catch (Exception e) {
+            logger.error("停止账号 {} 服务失败", accountId, e);
+        }
     }
 }

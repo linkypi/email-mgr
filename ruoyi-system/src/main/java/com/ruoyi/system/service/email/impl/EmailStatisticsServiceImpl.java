@@ -1,13 +1,13 @@
 package com.ruoyi.system.service.email.impl;
 
+import java.util.Date;
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.ArrayList;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import com.ruoyi.system.mapper.email.EmailStatisticsMapper;
+
 import com.ruoyi.system.domain.email.EmailStatistics;
+import com.ruoyi.system.mapper.email.EmailStatisticsMapper;
 import com.ruoyi.system.service.email.IEmailStatisticsService;
 
 /**
@@ -17,7 +17,7 @@ import com.ruoyi.system.service.email.IEmailStatisticsService;
  * @date 2024-01-01
  */
 @Service
-public class EmailStatisticsServiceImpl implements IEmailStatisticsService 
+public class EmailStatisticsServiceImpl implements IEmailStatisticsService
 {
     @Autowired
     private EmailStatisticsMapper emailStatisticsMapper;
@@ -25,13 +25,25 @@ public class EmailStatisticsServiceImpl implements IEmailStatisticsService
     /**
      * 查询邮件统计
      * 
-     * @param statisticsId 邮件统计主键
+     * @param statId 邮件统计主键
      * @return 邮件统计
      */
     @Override
-    public EmailStatistics selectEmailStatisticsByStatisticsId(Long statisticsId)
+    public EmailStatistics selectEmailStatisticsByStatId(Long statId)
     {
-        return emailStatisticsMapper.selectEmailStatisticsByStatisticsId(statisticsId);
+        return emailStatisticsMapper.selectEmailStatisticsByStatId(statId);
+    }
+
+    /**
+     * 根据Message-ID查询邮件统计
+     * 
+     * @param messageId 邮件Message-ID
+     * @return 邮件统计
+     */
+    @Override
+    public EmailStatistics selectEmailStatisticsByMessageId(String messageId)
+    {
+        return emailStatisticsMapper.selectEmailStatisticsByMessageId(messageId);
     }
 
     /**
@@ -55,6 +67,7 @@ public class EmailStatisticsServiceImpl implements IEmailStatisticsService
     @Override
     public int insertEmailStatistics(EmailStatistics emailStatistics)
     {
+        emailStatistics.setCreateTime(new Date());
         return emailStatisticsMapper.insertEmailStatistics(emailStatistics);
     }
 
@@ -67,127 +80,144 @@ public class EmailStatisticsServiceImpl implements IEmailStatisticsService
     @Override
     public int updateEmailStatistics(EmailStatistics emailStatistics)
     {
+        emailStatistics.setUpdateTime(new Date());
         return emailStatisticsMapper.updateEmailStatistics(emailStatistics);
     }
 
     /**
      * 批量删除邮件统计
      * 
-     * @param statisticsIds 需要删除的邮件统计主键
+     * @param statIds 需要删除的邮件统计主键
      * @return 结果
      */
     @Override
-    public int deleteEmailStatisticsByStatisticsIds(Long[] statisticsIds)
+    public int deleteEmailStatisticsByStatIds(Long[] statIds)
     {
-        return emailStatisticsMapper.deleteEmailStatisticsByStatisticsIds(statisticsIds);
+        return emailStatisticsMapper.deleteEmailStatisticsByStatIds(statIds);
     }
 
     /**
      * 删除邮件统计信息
      * 
-     * @param statisticsId 邮件统计主键
+     * @param statId 邮件统计主键
      * @return 结果
      */
     @Override
-    public int deleteEmailStatisticsByStatisticsId(Long statisticsId)
+    public int deleteEmailStatisticsByStatId(Long statId)
     {
-        return emailStatisticsMapper.deleteEmailStatisticsByStatisticsId(statisticsId);
+        return emailStatisticsMapper.deleteEmailStatisticsByStatId(statId);
     }
 
     /**
-     * 获取今日统计数据
+     * 记录邮件送达
      * 
-     * @return 统计数据
+     * @param messageId 邮件Message-ID
+     * @return 结果
      */
     @Override
-    public Map<String, Object> getTodayStatistics()
+    public int recordEmailDelivered(String messageId)
     {
-        Map<String, Object> result = new HashMap<>();
-        // 这里应该从数据库查询今日统计数据
-        // 暂时返回模拟数据
-        result.put("totalSent", 156);
-        result.put("delivered", 148);
-        result.put("opened", 67);
-        result.put("replied", 23);
-        return result;
-    }
-
-    /**
-     * 获取总统计数据
-     * 
-     * @return 统计数据
-     */
-    @Override
-    public Map<String, Object> getTotalStatistics()
-    {
-        Map<String, Object> result = new HashMap<>();
-        // 这里应该从数据库查询总统计数据
-        // 暂时返回模拟数据
-        result.put("totalSent", 12580);
-        result.put("avgOpenRate", 45.2);
-        result.put("avgReplyRate", 23.5);
-        return result;
-    }
-
-    /**
-     * 获取发送趋势数据
-     * 
-     * @param days 天数
-     * @return 趋势数据
-     */
-    @Override
-    public List<Map<String, Object>> getSendTrendData(Integer days)
-    {
-        List<Map<String, Object>> result = new ArrayList<>();
-        // 这里应该从数据库查询趋势数据
-        // 暂时返回模拟数据
-        String[] dates = {"1-09", "1-10", "1-11", "1-12", "1-13", "1-14", "1-15"};
-        int[] data = {120, 132, 101, 134, 90, 142, 156};
-        
-        for (int i = 0; i < dates.length; i++) {
-            Map<String, Object> item = new HashMap<>();
-            item.put("date", dates[i]);
-            item.put("value", data[i]);
-            result.add(item);
+        EmailStatistics stats = selectEmailStatisticsByMessageId(messageId);
+        if (stats != null)
+        {
+            stats.setDeliveredTime(new Date());
+            stats.setStatus("2"); // 已送达
+            return updateEmailStatistics(stats);
         }
-        return result;
+        return 0;
     }
 
     /**
-     * 获取回复率对比数据
+     * 记录邮件打开
      * 
-     * @return 对比数据
-     */
-    @Override
-    public List<Map<String, Object>> getReplyRateComparisonData()
-    {
-        List<Map<String, Object>> result = new ArrayList<>();
-        // 这里应该从数据库查询对比数据
-        // 暂时返回模拟数据
-        Map<String, Object> item1 = new HashMap<>();
-        item1.put("name", "marketing@company.com");
-        item1.put("value", 14.7);
-        result.add(item1);
-        
-        Map<String, Object> item2 = new HashMap<>();
-        item2.put("name", "support@company.com");
-        item2.put("value", 16.9);
-        result.add(item2);
-        
-        return result;
-    }
-
-    /**
-     * 生成统计数据
-     * 
-     * @param date 统计日期
+     * @param messageId 邮件Message-ID
      * @return 结果
      */
     @Override
-    public int generateStatistics(String date)
+    public int recordEmailOpened(String messageId)
     {
-        // 这里应该实现统计数据的生成逻辑
-        // 暂时返回成功
-        return 1;
+        EmailStatistics stats = selectEmailStatisticsByMessageId(messageId);
+        if (stats != null)
+        {
+            stats.setOpenedTime(new Date());
+            stats.setStatus("3"); // 已打开
+            return updateEmailStatistics(stats);
+        }
+        return 0;
+    }
+
+    /**
+     * 记录邮件回复
+     * 
+     * @param messageId 邮件Message-ID
+     * @return 结果
+     */
+    @Override
+    public int recordEmailReplied(String messageId)
+    {
+        EmailStatistics stats = selectEmailStatisticsByMessageId(messageId);
+        if (stats != null)
+        {
+            stats.setRepliedTime(new Date());
+            stats.setStatus("4"); // 已回复
+            return updateEmailStatistics(stats);
+        }
+        return 0;
+    }
+
+    /**
+     * 记录邮件点击
+     * 
+     * @param messageId 邮件Message-ID
+     * @return 结果
+     */
+    @Override
+    public int recordEmailClicked(String messageId)
+    {
+        EmailStatistics stats = selectEmailStatisticsByMessageId(messageId);
+        if (stats != null)
+        {
+            stats.setClickedTime(new Date());
+            return updateEmailStatistics(stats);
+        }
+        return 0;
+    }
+
+    /**
+     * 生成每日统计
+     * 
+     * @param statDate 统计日期
+     * @return 结果
+     */
+    @Override
+    public int generateDailyStatistics(String statDate)
+    {
+        return emailStatisticsMapper.generateDailyStatistics(statDate);
+    }
+
+    /**
+     * 生成月度统计
+     * 
+     * @param yearMonth 年月(格式: yyyy-MM)
+     * @return 结果
+     */
+    @Override
+    public int generateMonthlyStatistics(String yearMonth)
+    {
+        return emailStatisticsMapper.generateMonthlyStatistics(yearMonth);
+    }
+
+    /**
+     * 生成年度统计
+     * 
+     * @param year 年份
+     * @return 结果
+     */
+    @Override
+    public int generateYearlyStatistics(String year)
+    {
+        return emailStatisticsMapper.generateYearlyStatistics(year);
     }
 }
+
+

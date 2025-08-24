@@ -67,3 +67,5 @@ public interface EmailTemplateMapper
      */
     public int increaseTemplateUseCount(Long templateId);
 }
+
+

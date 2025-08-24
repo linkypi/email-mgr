@@ -7,10 +7,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <resultMap type="EmailTemplate" id="EmailTemplateResult">
         <result property="templateId"    column="template_id"    />
         <result property="templateName"    column="template_name"    />
-        <result property="templateType"    column="template_type"    />
         <result property="subject"    column="subject"    />
         <result property="content"    column="content"    />
-        <result property="variables"    column="variables"    />
+        <result property="templateType"    column="template_type"    />
         <result property="useCount"    column="use_count"    />
         <result property="status"    column="status"    />
         <result property="createBy"    column="create_by"    />
@@ -21,15 +20,15 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectEmailTemplateVo">
-        select template_id, template_name, template_type, subject, content, variables, use_count, status, create_by, create_time, update_by, update_time, remark from email_template
+        select template_id, template_name, subject, content, template_type, use_count, status, create_by, create_time, update_by, update_time, remark from email_template
     </sql>
 
     <select id="selectEmailTemplateList" parameterType="EmailTemplate" resultMap="EmailTemplateResult">
         <include refid="selectEmailTemplateVo"/>
         <where>  
             <if test="templateName != null  and templateName != ''"> and template_name like concat('%', #{templateName}, '%')</if>
-            <if test="templateType != null  and templateType != ''"> and template_type = #{templateType}</if>
             <if test="subject != null  and subject != ''"> and subject like concat('%', #{subject}, '%')</if>
+            <if test="templateType != null  and templateType != ''"> and template_type = #{templateType}</if>
             <if test="status != null  and status != ''"> and status = #{status}</if>
         </where>
     </select>
@@ -43,10 +42,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         insert into email_template
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="templateName != null and templateName != ''">template_name,</if>
-            <if test="templateType != null">template_type,</if>
-            <if test="subject != null">subject,</if>
+            <if test="subject != null and subject != ''">subject,</if>
             <if test="content != null">content,</if>
-            <if test="variables != null">variables,</if>
+            <if test="templateType != null">template_type,</if>
             <if test="useCount != null">use_count,</if>
             <if test="status != null">status,</if>
             <if test="createBy != null">create_by,</if>
@@ -57,10 +55,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="templateName != null and templateName != ''">#{templateName},</if>
-            <if test="templateType != null">#{templateType},</if>
-            <if test="subject != null">#{subject},</if>
+            <if test="subject != null and subject != ''">#{subject},</if>
             <if test="content != null">#{content},</if>
-            <if test="variables != null">#{variables},</if>
+            <if test="templateType != null">#{templateType},</if>
             <if test="useCount != null">#{useCount},</if>
             <if test="status != null">#{status},</if>
             <if test="createBy != null">#{createBy},</if>
@@ -75,10 +72,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         update email_template
         <trim prefix="SET" suffixOverrides=",">
             <if test="templateName != null and templateName != ''">template_name = #{templateName},</if>
-            <if test="templateType != null">template_type = #{templateType},</if>
-            <if test="subject != null">subject = #{subject},</if>
+            <if test="subject != null and subject != ''">subject = #{subject},</if>
             <if test="content != null">content = #{content},</if>
-            <if test="variables != null">variables = #{variables},</if>
+            <if test="templateType != null">template_type = #{templateType},</if>
             <if test="useCount != null">use_count = #{useCount},</if>
             <if test="status != null">status = #{status},</if>
             <if test="createBy != null">create_by = #{createBy},</if>
@@ -105,3 +101,5 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         update email_template set use_count = use_count + 1 where template_id = #{templateId}
     </update>
 </mapper>
+
+

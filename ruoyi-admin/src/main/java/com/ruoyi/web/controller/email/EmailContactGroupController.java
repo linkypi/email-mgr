@@ -22,7 +22,7 @@ import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.core.page.TableDataInfo;
 
 /**
- * 联系人群组Controller
+ * 邮件联系人群组Controller
  * 
  * @author ruoyi
  * @date 2024-01-01
@@ -35,7 +35,7 @@ public class EmailContactGroupController extends BaseController
     private IEmailContactGroupService emailContactGroupService;
 
     /**
-     * 查询联系人群组列表
+     * 查询邮件联系人群组列表
      */
     @PreAuthorize("@ss.hasPermi('email:group:list')")
     @GetMapping("/list")
@@ -47,20 +47,20 @@ public class EmailContactGroupController extends BaseController
     }
 
     /**
-     * 导出联系人群组列表
+     * 导出邮件联系人群组列表
      */
     @PreAuthorize("@ss.hasPermi('email:group:export')")
-    @Log(title = "联系人群组", businessType = BusinessType.EXPORT)
+    @Log(title = "邮件联系人群组", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(HttpServletResponse response, EmailContactGroup emailContactGroup)
     {
         List<EmailContactGroup> list = emailContactGroupService.selectEmailContactGroupList(emailContactGroup);
         ExcelUtil<EmailContactGroup> util = new ExcelUtil<EmailContactGroup>(EmailContactGroup.class);
-        util.exportExcel(response, list, "联系人群组数据");
+        util.exportExcel(response, list, "邮件联系人群组数据");
     }
 
     /**
-     * 获取联系人群组详细信息
+     * 获取邮件联系人群组详细信息
      */
     @PreAuthorize("@ss.hasPermi('email:group:query')")
     @GetMapping(value = "/{groupId}")
@@ -70,10 +70,10 @@ public class EmailContactGroupController extends BaseController
     }
 
     /**
-     * 新增联系人群组
+     * 新增邮件联系人群组
      */
     @PreAuthorize("@ss.hasPermi('email:group:add')")
-    @Log(title = "联系人群组", businessType = BusinessType.INSERT)
+    @Log(title = "邮件联系人群组", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@RequestBody EmailContactGroup emailContactGroup)
     {
@@ -81,10 +81,10 @@ public class EmailContactGroupController extends BaseController
     }
 
     /**
-     * 修改联系人群组
+     * 修改邮件联系人群组
      */
     @PreAuthorize("@ss.hasPermi('email:group:edit')")
-    @Log(title = "联系人群组", businessType = BusinessType.UPDATE)
+    @Log(title = "邮件联系人群组", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@RequestBody EmailContactGroup emailContactGroup)
     {
@@ -92,10 +92,10 @@ public class EmailContactGroupController extends BaseController
     }
 
     /**
-     * 删除联系人群组
+     * 删除邮件联系人群组
      */
     @PreAuthorize("@ss.hasPermi('email:group:remove')")
-    @Log(title = "联系人群组", businessType = BusinessType.DELETE)
+    @Log(title = "邮件联系人群组", businessType = BusinessType.DELETE)
 	@DeleteMapping("/{groupIds}")
     public AjaxResult remove(@PathVariable Long[] groupIds)
     {
@@ -103,12 +103,12 @@ public class EmailContactGroupController extends BaseController
     }
 
     /**
-     * 获取所有可用的群组
+     * 获取所有群组列表（用于下拉选择）
      */
-    @GetMapping("/enabled")
-    public AjaxResult getEnabledGroups()
+    @GetMapping("/all")
+    public AjaxResult getAllGroups()
     {
-        List<EmailContactGroup> list = emailContactGroupService.selectAllEnabledGroups();
+        List<EmailContactGroup> list = emailContactGroupService.selectEmailContactGroupList(new EmailContactGroup());
         return success(list);
     }
 }

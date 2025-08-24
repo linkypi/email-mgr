@@ -21,7 +21,7 @@ public class AsyncManager
     /**
      * 异步操作任务调度线程池
      */
-    private ScheduledExecutorService executor = SpringUtils.getBean("scheduledExecutorService");
+    private ScheduledExecutorService executor;
 
     /**
      * 单例模式
@@ -36,13 +36,37 @@ public class AsyncManager
     }
 
     /**
+     * 获取执行器，延迟初始化
+     */
+    private ScheduledExecutorService getExecutor()
+    {
+        if (executor == null)
+        {
+            try
+            {
+                executor = SpringUtils.getBean("scheduledExecutorService");
+            }
+            catch (Exception e)
+            {
+                // 如果Spring容器已关闭，返回null
+                return null;
+            }
+        }
+        return executor;
+    }
+
+    /**
      * 执行任务
      * 
      * @param task 任务
      */
     public void execute(TimerTask task)
     {
-        executor.schedule(task, OPERATE_DELAY_TIME, TimeUnit.MILLISECONDS);
+        ScheduledExecutorService exec = getExecutor();
+        if (exec != null && !exec.isShutdown())
+        {
+            exec.schedule(task, OPERATE_DELAY_TIME, TimeUnit.MILLISECONDS);
+        }
     }
 
     /**
@@ -50,6 +74,10 @@ public class AsyncManager
      */
     public void shutdown()
     {
-        Threads.shutdownAndAwaitTermination(executor);
+        ScheduledExecutorService exec = getExecutor();
+        if (exec != null && !exec.isShutdown())
+        {
+            Threads.shutdownAndAwaitTermination(exec);
+        }
     }
 }

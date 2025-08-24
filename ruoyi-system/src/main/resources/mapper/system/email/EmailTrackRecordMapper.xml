@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.email.EmailTrackRecordMapper">
+    
+    <resultMap type="EmailTrackRecord" id="EmailTrackRecordResult">
+        <result property="id"    column="id"    />
+        <result property="taskId"    column="task_id"    />
+        <result property="messageId"    column="message_id"    />
+        <result property="subject"    column="subject"    />
+        <result property="recipient"    column="recipient"    />
+        <result property="sender"    column="sender"    />
+        <result property="content"    column="content"    />
+        <result property="status"    column="status"    />
+        <result property="sentTime"    column="sent_time"    />
+        <result property="deliveredTime"    column="delivered_time"    />
+        <result property="openedTime"    column="opened_time"    />
+        <result property="repliedTime"    column="replied_time"    />
+        <result property="clickedTime"    column="clicked_time"    />
+        <result property="retryCount"    column="retry_count"    />
+        <result property="errorLogs"    column="error_logs"    />
+        <result property="accountId"    column="account_id"    />
+        <result property="trackingPixelUrl"    column="tracking_pixel_url"    />
+        <result property="trackingLinkUrl"    column="tracking_link_url"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="deleted"    column="deleted"    />
+    </resultMap>
+
+    <sql id="selectEmailTrackRecordVo">
+        select id, task_id, message_id, subject, recipient, sender, content, status, sent_time, delivered_time, opened_time, replied_time, clicked_time, retry_count, error_logs, account_id, tracking_pixel_url, tracking_link_url, create_by, create_time, update_by, update_time, deleted from email_track_record
+    </sql>
+
+    <select id="selectEmailTrackRecordList" parameterType="EmailTrackRecord" resultMap="EmailTrackRecordResult">
+        <include refid="selectEmailTrackRecordVo"/>
+        <where>  
+            <if test="taskId != null "> and task_id = #{taskId}</if>
+            <if test="messageId != null  and messageId != ''"> and message_id = #{messageId}</if>
+            <if test="subject != null  and subject != ''"> and subject like concat('%', #{subject}, '%')</if>
+            <if test="recipient != null  and recipient != ''"> and recipient like concat('%', #{recipient}, '%')</if>
+            <if test="sender != null  and sender != ''"> and sender like concat('%', #{sender}, '%')</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="accountId != null "> and account_id = #{accountId}</if>
+            and deleted = '0'
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectEmailTrackRecordById" parameterType="Long" resultMap="EmailTrackRecordResult">
+        <include refid="selectEmailTrackRecordVo"/>
+        where id = #{id} and deleted = '0'
+    </select>
+
+    <select id="selectEmailTrackRecordByMessageId" parameterType="String" resultMap="EmailTrackRecordResult">
+        <include refid="selectEmailTrackRecordVo"/>
+        where message_id = #{messageId} and deleted = '0'
+    </select>
+
+    <select id="selectEmailTrackRecordByTaskId" parameterType="Long" resultMap="EmailTrackRecordResult">
+        <include refid="selectEmailTrackRecordVo"/>
+        where task_id = #{taskId} and deleted = '0'
+        order by create_time desc
+    </select>
+
+    <select id="selectEmailTrackRecordByAccountId" parameterType="Long" resultMap="EmailTrackRecordResult">
+        <include refid="selectEmailTrackRecordVo"/>
+        where account_id = #{accountId} and deleted = '0'
+        order by create_time desc
+    </select>
+
+    <select id="selectEmailTrackRecordByStatus" parameterType="String" resultMap="EmailTrackRecordResult">
+        <include refid="selectEmailTrackRecordVo"/>
+        where status = #{status} and deleted = '0'
+        order by create_time desc
+    </select>
+
+    <select id="selectEmailTrackRecordStatsByTaskId" parameterType="Long" resultMap="EmailTrackRecordResult">
+        select status, count(*) as retry_count
+        from email_track_record
+        where task_id = #{taskId} and deleted = '0'
+        group by status
+    </select>
+
+    <select id="selectEmailTrackRecordStatsByAccountId" parameterType="Long" resultMap="EmailTrackRecordResult">
+        select status, count(*) as retry_count
+        from email_track_record
+        where account_id = #{accountId} and deleted = '0'
+        group by status
+    </select>
+        
+    <insert id="insertEmailTrackRecord" parameterType="EmailTrackRecord" useGeneratedKeys="true" keyProperty="id">
+        insert into email_track_record
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="taskId != null">task_id,</if>
+            <if test="messageId != null and messageId != ''">message_id,</if>
+            <if test="subject != null">subject,</if>
+            <if test="recipient != null">recipient,</if>
+            <if test="sender != null">sender,</if>
+            <if test="content != null">content,</if>
+            <if test="status != null">status,</if>
+            <if test="sentTime != null">sent_time,</if>
+            <if test="deliveredTime != null">delivered_time,</if>
+            <if test="openedTime != null">opened_time,</if>
+            <if test="repliedTime != null">replied_time,</if>
+            <if test="clickedTime != null">clicked_time,</if>
+            <if test="retryCount != null">retry_count,</if>
+            <if test="errorLogs != null">error_logs,</if>
+            <if test="accountId != null">account_id,</if>
+            <if test="trackingPixelUrl != null">tracking_pixel_url,</if>
+            <if test="trackingLinkUrl != null">tracking_link_url,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="deleted != null">deleted,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="taskId != null">#{taskId},</if>
+            <if test="messageId != null and messageId != ''">#{messageId},</if>
+            <if test="subject != null">#{subject},</if>
+            <if test="recipient != null">#{recipient},</if>
+            <if test="sender != null">#{sender},</if>
+            <if test="content != null">#{content},</if>
+            <if test="status != null">#{status},</if>
+            <if test="sentTime != null">#{sentTime},</if>
+            <if test="deliveredTime != null">#{deliveredTime},</if>
+            <if test="openedTime != null">#{openedTime},</if>
+            <if test="repliedTime != null">#{repliedTime},</if>
+            <if test="clickedTime != null">#{clickedTime},</if>
+            <if test="retryCount != null">#{retryCount},</if>
+            <if test="errorLogs != null">#{errorLogs},</if>
+            <if test="accountId != null">#{accountId},</if>
+            <if test="trackingPixelUrl != null">#{trackingPixelUrl},</if>
+            <if test="trackingLinkUrl != null">#{trackingLinkUrl},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="deleted != null">#{deleted},</if>
+         </trim>
+    </insert>
+
+    <update id="updateEmailTrackRecord" parameterType="EmailTrackRecord">
+        update email_track_record
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="taskId != null">task_id = #{taskId},</if>
+            <if test="messageId != null and messageId != ''">message_id = #{messageId},</if>
+            <if test="subject != null">subject = #{subject},</if>
+            <if test="recipient != null">recipient = #{recipient},</if>
+            <if test="sender != null">sender = #{sender},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="sentTime != null">sent_time = #{sentTime},</if>
+            <if test="deliveredTime != null">delivered_time = #{deliveredTime},</if>
+            <if test="openedTime != null">opened_time = #{openedTime},</if>
+            <if test="repliedTime != null">replied_time = #{repliedTime},</if>
+            <if test="clickedTime != null">clicked_time = #{clickedTime},</if>
+            <if test="retryCount != null">retry_count = #{retryCount},</if>
+            <if test="errorLogs != null">error_logs = #{errorLogs},</if>
+            <if test="accountId != null">account_id = #{accountId},</if>
+            <if test="trackingPixelUrl != null">tracking_pixel_url = #{trackingPixelUrl},</if>
+            <if test="trackingLinkUrl != null">tracking_link_url = #{trackingLinkUrl},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="deleted != null">deleted = #{deleted},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteEmailTrackRecordById" parameterType="Long">
+        update email_track_record set deleted = '2' where id = #{id}
+    </delete>
+
+    <delete id="deleteEmailTrackRecordByIds" parameterType="String">
+        update email_track_record set deleted = '2' where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+
+    <delete id="deleteEmailTrackRecordByMessageId" parameterType="String">
+        update email_track_record set deleted = '2' where message_id = #{messageId}
+    </delete>
+
+    <delete id="deleteEmailTrackRecordByTaskId" parameterType="Long">
+        update email_track_record set deleted = '2' where task_id = #{taskId}
+    </delete>
+</mapper>

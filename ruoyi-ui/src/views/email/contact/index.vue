@@ -44,10 +44,15 @@
             导出
           </el-button>
         </el-col>
+        <el-col :span="1.5">
+          <el-button type="info" icon="el-icon-download" size="mini" @click="handleImportTemplate">
+            下载模板
+          </el-button>
+        </el-col>
       </el-row>
 
       <!-- 联系人列表 -->
-      <el-table :data="contactList" style="width: 100%">
+      <el-table v-loading="loading" :data="contactList" style="width: 100%">
         <el-table-column prop="name" label="姓名" width="120"></el-table-column>
         <el-table-column prop="email" label="邮箱" width="200"></el-table-column>
         <el-table-column prop="company" label="企业" width="150"></el-table-column>
@@ -61,14 +66,14 @@
         <el-table-column prop="groupName" label="群组" width="100"></el-table-column>
         <el-table-column prop="tags" label="标签" width="150">
           <template slot-scope="scope">
-            <el-tag v-for="tag in scope.row.tags" :key="tag" size="mini" style="margin-right: 2px;">
+            <el-tag v-for="tag in getTagsArray(scope.row.tags)" :key="tag" size="mini" style="margin-right: 2px;">
               {{ tag }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="replyRate" label="回复率" width="80">
           <template slot-scope="scope">
-            {{ scope.row.replyRate }}%
+            {{ scope.row.replyRate || 0 }}%
           </template>
         </el-table-column>
         <el-table-column label="操作" width="200">
@@ -78,10 +83,19 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 分页 -->
+      <pagination
+        v-show="total > 0"
+        :total="total"
+        :page.sync="queryParams.pageNum"
+        :limit.sync="queryParams.pageSize"
+        @pagination="getList"
+      />
     </el-card>
 
     <!-- 新增/编辑对话框 -->
-    <el-dialog :title="dialogTitle" :visible.sync="dialogVisible" width="600px">
+    <el-dialog :title="dialogTitle" :visible.sync="dialogVisible" width="600px" @close="handleDialogClose">
       <el-form :model="form" :rules="rules" ref="form" label-width="80px">
         <el-form-item label="姓名" prop="name">
           <el-input v-model="form.name" placeholder="请输入姓名"></el-input>
@@ -114,9 +128,12 @@
         </el-form-item>
         <el-form-item label="群组">
           <el-select v-model="form.groupId" placeholder="请选择群组">
-            <el-option label="VIP客户" value="1"></el-option>
-            <el-option label="普通客户" value="2"></el-option>
-            <el-option label="潜在客户" value="3"></el-option>
+            <el-option 
+              v-for="group in groupList" 
+              :key="group.groupId" 
+              :label="group.groupName" 
+              :value="group.groupId">
+            </el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="标签">
@@ -128,7 +145,7 @@
       </el-form>
       <div slot="footer" class="dialog-footer">
         <el-button @click="dialogVisible = false">取 消</el-button>
-        <el-button type="primary" @click="handleSubmit">确 定</el-button>
+        <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确 定</el-button>
       </div>
     </el-dialog>
 
@@ -147,7 +164,11 @@
         <div class="el-upload__tip" slot="tip">只能上传xlsx/xls/csv文件，且不超过10MB</div>
       </el-upload>
       
-      <el-button type="primary" @click="handleImportSubmit" :disabled="!selectedFile" style="margin-top: 20px;">
+      <el-checkbox v-model="isUpdateSupport" style="margin-top: 20px;">
+        是否更新已存在的联系人数据
+      </el-checkbox>
+      
+      <el-button type="primary" @click="handleImportSubmit" :disabled="!selectedFile" :loading="importLoading" style="margin-top: 20px;">
         开始导入
       </el-button>
       
@@ -159,51 +180,45 @@
 </template>
 
 <script>
+import { 
+  listContact, 
+  getContact, 
+  addContact, 
+  updateContact, 
+  delContact, 
+  exportContact, 
+  importContact, 
+  importTemplate 
+} from "@/api/email/contact";
+import { getAllGroups } from "@/api/email/group";
+
 export default {
   name: 'Contact',
   data() {
     return {
+      // 遮罩层
+      loading: false,
+      // 总条数
+      total: 0,
+      // 联系人表格数据
+      contactList: [],
+      // 群组列表
+      groupList: [],
+      // 查询参数
       queryParams: {
+        pageNum: 1,
+        pageSize: 10,
         name: '',
         email: '',
         company: '',
         level: ''
       },
-      contactList: [
-        {
-          contactId: 1,
-          name: '张经理',
-          email: 'zhang@company.com',
-          company: 'ABC公司',
-          level: '1',
-          groupName: 'VIP客户',
-          tags: ['重要', 'VIP'],
-          replyRate: 67.42
-        },
-        {
-          contactId: 2,
-          name: '王晓明',
-          email: 'wang@company.com',
-          company: 'XYZ企业',
-          level: '3',
-          groupName: '普通客户',
-          tags: ['项目'],
-          replyRate: 53.85
-        },
-        {
-          contactId: 3,
-          name: '李思思',
-          email: 'li@company.com',
-          company: 'DEF集团',
-          level: '2',
-          groupName: 'VIP客户',
-          tags: ['重要', '待处理'],
-          replyRate: 76.79
-        }
-      ],
+      // 对话框显示状态
       dialogVisible: false,
       dialogTitle: '新增收件人',
+      // 表单对象
       form: {
+        contactId: null,
         name: '',
         email: '',
         company: '',
@@ -211,10 +226,11 @@ export default {
         age: null,
         gender: '0',
         level: '',
-        groupId: '',
+        groupId: null,
         tags: '',
         remark: ''
       },
+      // 表单校验规则
       rules: {
         name: [
           { required: true, message: '请输入姓名', trigger: 'blur' }
@@ -224,26 +240,64 @@ export default {
           { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
         ]
       },
+      // 提交按钮加载状态
+      submitLoading: false,
+      // 导入对话框显示状态
       importVisible: false,
+      // 导入文件列表
       fileList: [],
-      selectedFile: null
+      // 选中的文件
+      selectedFile: null,
+      // 是否更新已存在的数据
+      isUpdateSupport: false,
+      // 导入按钮加载状态
+      importLoading: false
     }
   },
+  created() {
+    this.getList();
+    this.getGroupList();
+  },
   methods: {
-    handleSearch() {
-      this.$message.info('搜索功能待实现')
+    /** 查询联系人列表 */
+    getList() {
+      this.loading = true;
+      listContact(this.queryParams).then(response => {
+        this.contactList = response.rows;
+        this.total = response.total;
+        this.loading = false;
+      }).catch(() => {
+        this.loading = false;
+      });
     },
+    /** 查询群组列表 */
+    getGroupList() {
+      getAllGroups().then(response => {
+        this.groupList = response.data || [];
+      });
+    },
+    /** 搜索按钮操作 */
+    handleSearch() {
+      this.queryParams.pageNum = 1;
+      this.getList();
+    },
+    /** 重置按钮操作 */
     handleReset() {
       this.queryParams = {
+        pageNum: 1,
+        pageSize: 10,
         name: '',
         email: '',
         company: '',
         level: ''
-      }
+      };
+      this.getList();
     },
+    /** 新增按钮操作 */
     handleAdd() {
-      this.dialogTitle = '新增收件人'
+      this.dialogTitle = '新增收件人';
       this.form = {
+        contactId: null,
         name: '',
         email: '',
         company: '',
@@ -251,56 +305,107 @@ export default {
         age: null,
         gender: '0',
         level: '',
-        groupId: '',
+        groupId: null,
         tags: '',
         remark: ''
-      }
-      this.dialogVisible = true
+      };
+      this.dialogVisible = true;
     },
+    /** 修改按钮操作 */
     handleEdit(row) {
-      this.dialogTitle = '编辑收件人'
-      this.form = { ...row }
-      this.dialogVisible = true
+      this.dialogTitle = '编辑收件人';
+      this.form = { ...row };
+      this.dialogVisible = true;
     },
-    handleDelete(row) {
-      this.$confirm('确认删除该收件人吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(() => {
-        this.$message.success('删除成功')
-      })
-    },
+    /** 提交按钮 */
     handleSubmit() {
       this.$refs.form.validate((valid) => {
         if (valid) {
-          this.$message.success('保存成功')
-          this.dialogVisible = false
+          this.submitLoading = true;
+          if (this.form.contactId != null) {
+            updateContact(this.form).then(response => {
+              this.$modal.msgSuccess("修改成功");
+              this.dialogVisible = false;
+              this.getList();
+            }).finally(() => {
+              this.submitLoading = false;
+            });
+          } else {
+            addContact(this.form).then(response => {
+              this.$modal.msgSuccess("新增成功");
+              this.dialogVisible = false;
+              this.getList();
+            }).finally(() => {
+              this.submitLoading = false;
+            });
+          }
         }
-      })
+      });
     },
-    handleImport() {
-      this.importVisible = true
+    /** 删除按钮操作 */
+    handleDelete(row) {
+      this.$modal.confirm('是否确认删除联系人名称为"' + row.name + '"的数据项？').then(() => {
+        return delContact(row.contactId);
+      }).then(() => {
+        this.getList();
+        this.$modal.msgSuccess("删除成功");
+      }).catch(() => {});
     },
+    /** 导出按钮操作 */
     handleExport() {
-      this.$message.success('导出功能待实现')
+      this.$modal.confirm('是否确认导出所有联系人数据项？').then(() => {
+        this.$modal.loading("正在导出数据，请稍候...");
+        exportContact(this.queryParams).then(response => {
+          this.$download.excel(response, "联系人数据.xlsx");
+          this.$modal.closeLoading();
+        });
+      });
     },
+    /** 导入按钮操作 */
+    handleImport() {
+      this.importVisible = true;
+      this.fileList = [];
+      this.selectedFile = null;
+      this.isUpdateSupport = false;
+    },
+    /** 下载模板操作 */
+    handleImportTemplate() {
+      importTemplate().then(response => {
+        this.$download.excel(response, "联系人导入模板.xlsx");
+      });
+    },
+    /** 文件上传中处理 */
     handleFileChange(file) {
-      this.selectedFile = file.raw
-      this.fileList = [file]
+      this.selectedFile = file.raw;
+      this.fileList = [file];
     },
+    /** 文件上传提交处理 */
     handleImportSubmit() {
       if (!this.selectedFile) {
-        this.$message.warning('请先选择文件')
-        return
+        this.$modal.msgWarning("请先选择文件");
+        return;
       }
       
-      this.$message.info('正在导入...')
-      setTimeout(() => {
-        this.$message.success('导入完成')
-        this.importVisible = false
-      }, 2000)
+      this.importLoading = true;
+      const formData = new FormData();
+      formData.append('file', this.selectedFile);
+      formData.append('isUpdateSupport', this.isUpdateSupport);
+      
+      importContact(formData).then(response => {
+        this.$modal.msgSuccess(response.msg);
+        this.importVisible = false;
+        this.getList();
+      }).catch(error => {
+        this.$modal.msgError("导入失败：" + error.message);
+      }).finally(() => {
+        this.importLoading = false;
+      });
     },
+    /** 对话框关闭处理 */
+    handleDialogClose() {
+      this.$refs.form.resetFields();
+    },
+    /** 获取等级类型 */
     getLevelType(level) {
       const types = {
         '1': 'danger',
@@ -309,6 +414,7 @@ export default {
       }
       return types[level] || 'info'
     },
+    /** 获取等级文本 */
     getLevelText(level) {
       const texts = {
         '1': '重要',
@@ -316,6 +422,11 @@ export default {
         '3': '一般'
       }
       return texts[level] || '一般'
+    },
+    /** 获取标签数组 */
+    getTagsArray(tags) {
+      if (!tags) return [];
+      return tags.split(',').filter(tag => tag.trim());
     }
   }
 }

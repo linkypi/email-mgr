@@ -90,7 +90,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <update id="updateTagContactCount" parameterType="Long">
         update email_contact_tag set contact_count = (
-            select count(*) from email_contact_tag_relation where tag_id = #{tagId}
+            select count(*) from email_contact where find_in_set(#{tagId}, tags) > 0 and status = '0'
         ) where tag_id = #{tagId}
     </update>
 </mapper>

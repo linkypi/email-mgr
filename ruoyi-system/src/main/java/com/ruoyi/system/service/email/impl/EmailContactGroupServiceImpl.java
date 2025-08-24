@@ -6,9 +6,10 @@ import org.springframework.stereotype.Service;
 import com.ruoyi.system.mapper.email.EmailContactGroupMapper;
 import com.ruoyi.system.domain.email.EmailContactGroup;
 import com.ruoyi.system.service.email.IEmailContactGroupService;
+import com.ruoyi.common.utils.DateUtils;
 
 /**
- * 联系人群组Service业务层处理
+ * 邮件联系人群组Service业务层处理
  * 
  * @author ruoyi
  * @date 2024-01-01
@@ -20,10 +21,10 @@ public class EmailContactGroupServiceImpl implements IEmailContactGroupService
     private EmailContactGroupMapper emailContactGroupMapper;
 
     /**
-     * 查询联系人群组
+     * 查询邮件联系人群组
      * 
-     * @param groupId 联系人群组主键
-     * @return 联系人群组
+     * @param groupId 邮件联系人群组主键
+     * @return 邮件联系人群组
      */
     @Override
     public EmailContactGroup selectEmailContactGroupByGroupId(Long groupId)
@@ -32,10 +33,10 @@ public class EmailContactGroupServiceImpl implements IEmailContactGroupService
     }
 
     /**
-     * 查询联系人群组列表
+     * 查询邮件联系人群组列表
      * 
-     * @param emailContactGroup 联系人群组
-     * @return 联系人群组
+     * @param emailContactGroup 邮件联系人群组
+     * @return 邮件联系人群组
      */
     @Override
     public List<EmailContactGroup> selectEmailContactGroupList(EmailContactGroup emailContactGroup)
@@ -44,33 +45,35 @@ public class EmailContactGroupServiceImpl implements IEmailContactGroupService
     }
 
     /**
-     * 新增联系人群组
+     * 新增邮件联系人群组
      * 
-     * @param emailContactGroup 联系人群组
+     * @param emailContactGroup 邮件联系人群组
      * @return 结果
      */
     @Override
     public int insertEmailContactGroup(EmailContactGroup emailContactGroup)
     {
+        emailContactGroup.setCreateTime(DateUtils.getNowDate());
         return emailContactGroupMapper.insertEmailContactGroup(emailContactGroup);
     }
 
     /**
-     * 修改联系人群组
+     * 修改邮件联系人群组
      * 
-     * @param emailContactGroup 联系人群组
+     * @param emailContactGroup 邮件联系人群组
      * @return 结果
      */
     @Override
     public int updateEmailContactGroup(EmailContactGroup emailContactGroup)
     {
+        emailContactGroup.setUpdateTime(DateUtils.getNowDate());
         return emailContactGroupMapper.updateEmailContactGroup(emailContactGroup);
     }
 
     /**
-     * 批量删除联系人群组
+     * 批量删除邮件联系人群组
      * 
-     * @param groupIds 需要删除的联系人群组主键
+     * @param groupIds 需要删除的邮件联系人群组主键
      * @return 结果
      */
     @Override
@@ -80,9 +83,9 @@ public class EmailContactGroupServiceImpl implements IEmailContactGroupService
     }
 
     /**
-     * 删除联系人群组信息
+     * 删除邮件联系人群组信息
      * 
-     * @param groupId 联系人群组主键
+     * @param groupId 邮件联系人群组主键
      * @return 结果
      */
     @Override
@@ -92,13 +95,14 @@ public class EmailContactGroupServiceImpl implements IEmailContactGroupService
     }
 
     /**
-     * 查询所有可用的群组
+     * 更新群组联系人数量
      * 
-     * @return 群组列表
+     * @param groupId 群组ID
+     * @return 结果
      */
     @Override
-    public List<EmailContactGroup> selectAllEnabledGroups()
+    public int updateGroupContactCount(Long groupId)
     {
-        return emailContactGroupMapper.selectAllEnabledGroups();
+        return emailContactGroupMapper.updateGroupContactCount(groupId);
     }
 }

@@ -20,6 +20,14 @@ public interface IEmailSendTaskService
     public EmailSendTask selectEmailSendTaskByTaskId(Long taskId);
 
     /**
+     * 根据任务名称查询批量发送任务
+     * 
+     * @param taskName 任务名称
+     * @return 批量发送任务
+     */
+    public EmailSendTask selectEmailSendTaskByTaskName(String taskName);
+
+    /**
      * 查询批量发送任务列表
      * 
      * @param emailSendTask 批量发送任务
@@ -94,4 +102,14 @@ public interface IEmailSendTaskService
      * @return 结果
      */
     public int updateTaskProgress(Long taskId, Integer sentCount, Integer deliveredCount, Integer openedCount, Integer repliedCount);
+
+    /**
+     * 查询待处理的发送任务
+     * 查询条件：状态为"pending"且发送时间已到的任务
+     * 
+     * @return 待处理的发送任务列表
+     */
+    public List<EmailSendTask> selectPendingTasks();
 }
+
+

@@ -1,61 +1,93 @@
--- 邮件管理系统菜单配置
--- 基于若依框架设计，根据UI设计图调整
+-- 邮件管理系统菜单数据
+-- 删除旧的邮件管理菜单
+DELETE FROM sys_menu WHERE menu_name LIKE '%邮件%' OR menu_name LIKE '%Email%';
 
--- 清空现有邮件相关菜单
-DELETE FROM sys_menu WHERE menu_name LIKE '%邮件%' OR menu_name LIKE '%收件%' OR menu_name LIKE '%发件%' OR menu_name LIKE '%联系人%' OR menu_name LIKE '%群组%' OR menu_name LIKE '%标签%' OR menu_name LIKE '%模板%' OR menu_name LIKE '%批量%' OR menu_name LIKE '%统计%' OR menu_name LIKE '%邮箱账号%';
+-- 插入新的邮件管理菜单结构
 
--- 1. 邮件管理主菜单
-INSERT INTO sys_menu VALUES(1800, '邮件管理', 0, 4, 'email', NULL, '', '', 1, 0, 'M', '0', '0', '', 'email', 'admin', NOW(), '', NULL, '邮件管理目录');
+-- 1. 个人邮件主菜单
+INSERT INTO sys_menu VALUES (2000, '个人邮件', 0, 1, 'personal', NULL, '', 'personal', 1, 0, 'M', '0', '0', '', 'email', 'admin', NOW(), '', NULL, '个人邮件管理');
 
--- 2. 个人邮件子菜单
-INSERT INTO sys_menu VALUES(1801, '个人邮件', 1800, 1, 'personal', 'email/personal/index', '', '', 1, 0, 'C', '0', '0', 'email:personal:list', 'inbox', 'admin', NOW(), '', NULL, '个人邮件菜单');
-INSERT INTO sys_menu VALUES(1802, '收件箱', 1801, 1, 'inbox', 'email/personal/inbox', '', '', 1, 0, 'C', '0', '0', 'email:inbox:list', 'inbox', 'admin', NOW(), '', NULL, '收件箱菜单');
-INSERT INTO sys_menu VALUES(1803, '发件箱', 1801, 2, 'sent', 'email/personal/sent', '', '', 1, 0, 'C', '0', '0', 'email:sent:list', 'paper-plane', 'admin', NOW(), '', NULL, '发件箱菜单');
-INSERT INTO sys_menu VALUES(1804, '星标邮件', 1801, 3, 'starred', 'email/personal/starred', '', '', 1, 0, 'C', '0', '0', 'email:starred:list', 'star', 'admin', NOW(), '', NULL, '星标邮件菜单');
-INSERT INTO sys_menu VALUES(1805, '已删除', 1801, 4, 'deleted', 'email/personal/deleted', '', '', 1, 0, 'C', '0', '0', 'email:deleted:list', 'trash', 'admin', NOW(), '', NULL, '已删除邮件菜单');
+-- 1.1 收件箱
+INSERT INTO sys_menu VALUES (2001, '收件箱', 2000, 1, 'inbox', 'email/personal/inbox', '', 'inbox', 1, 0, 'C', '0', '0', 'email:personal:inbox:list', 'inbox', 'admin', NOW(), '', NULL, '收件箱管理');
+INSERT INTO sys_menu VALUES (2002, '收件箱查询', 2001, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:personal:inbox:query', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2003, '收件箱删除', 2001, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:personal:inbox:remove', '#', 'admin', NOW(), '', NULL, '');
 
--- 3. 邮件管理子菜单
-INSERT INTO sys_menu VALUES(1810, '收件人管理', 1800, 2, 'contact', 'email/contact/index', '', '', 1, 0, 'C', '0', '0', 'email:contact:list', 'users', 'admin', NOW(), '', NULL, '收件人管理菜单');
-INSERT INTO sys_menu VALUES(1811, '收件人查询', 1810, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:contact:query', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1812, '收件人新增', 1810, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:contact:add', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1813, '收件人修改', 1810, 3, '', '', '', '', 1, 0, 'F', '0', '0', 'email:contact:edit', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1814, '收件人删除', 1810, 4, '', '', '', '', 1, 0, 'F', '0', '0', 'email:contact:remove', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1815, '收件人导出', 1810, 5, '', '', '', '', 1, 0, 'F', '0', '0', 'email:contact:export', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1816, '收件人导入', 1810, 6, '', '', '', '', 1, 0, 'F', '0', '0', 'email:contact:import', '#', 'admin', NOW(), '', NULL, '');
+-- 1.2 发件箱
+INSERT INTO sys_menu VALUES (2004, '发件箱', 2000, 2, 'sent', 'email/personal/sent', '', 'sent', 1, 0, 'C', '0', '0', 'email:personal:sent:list', 's-promotion', 'admin', NOW(), '', NULL, '发件箱管理');
+INSERT INTO sys_menu VALUES (2005, '发件箱查询', 2004, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:personal:sent:query', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2006, '发件箱删除', 2004, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:personal:sent:remove', '#', 'admin', NOW(), '', NULL, '');
 
-INSERT INTO sys_menu VALUES(1820, '群组管理', 1800, 3, 'group', 'email/group/index', '', '', 1, 0, 'C', '0', '0', 'email:group:list', 'folder', 'admin', NOW(), '', NULL, '群组管理菜单');
-INSERT INTO sys_menu VALUES(1821, '群组查询', 1820, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:group:query', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1822, '群组新增', 1820, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:group:add', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1823, '群组修改', 1820, 3, '', '', '', '', 1, 0, 'F', '0', '0', 'email:group:edit', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1824, '群组删除', 1820, 4, '', '', '', '', 1, 0, 'F', '0', '0', 'email:group:remove', '#', 'admin', NOW(), '', NULL, '');
+-- 1.3 星标邮件
+INSERT INTO sys_menu VALUES (2007, '星标邮件', 2000, 3, 'starred', 'email/personal/starred', '', 'starred', 1, 0, 'C', '0', '0', 'email:personal:starred:list', 'star-on', 'admin', NOW(), '', NULL, '星标邮件管理');
+INSERT INTO sys_menu VALUES (2008, '星标邮件查询', 2007, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:personal:starred:query', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2009, '星标邮件删除', 2007, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:personal:starred:remove', '#', 'admin', NOW(), '', NULL, '');
 
-INSERT INTO sys_menu VALUES(1830, '标签管理', 1800, 4, 'tag', 'email/tag/index', '', '', 1, 0, 'C', '0', '0', 'email:tag:list', 'tag', 'admin', NOW(), '', NULL, '标签管理菜单');
-INSERT INTO sys_menu VALUES(1831, '标签查询', 1830, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:tag:query', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1832, '标签新增', 1830, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:tag:add', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1833, '标签修改', 1830, 3, '', '', '', '', 1, 0, 'F', '0', '0', 'email:tag:edit', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1834, '标签删除', 1830, 4, '', '', '', '', 1, 0, 'F', '0', '0', 'email:tag:remove', '#', 'admin', NOW(), '', NULL, '');
+-- 1.4 已删除
+INSERT INTO sys_menu VALUES (2010, '已删除', 2000, 4, 'deleted', 'email/personal/deleted', '', 'deleted', 1, 0, 'C', '0', '0', 'email:personal:deleted:list', 'delete', 'admin', NOW(), '', NULL, '已删除邮件管理');
+INSERT INTO sys_menu VALUES (2011, '已删除查询', 2010, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:personal:deleted:query', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2012, '已删除恢复', 2010, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:personal:deleted:restore', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2013, '已删除彻底删除', 2010, 3, '', '', '', '', 1, 0, 'F', '0', '0', 'email:personal:deleted:delete', '#', 'admin', NOW(), '', NULL, '');
 
-INSERT INTO sys_menu VALUES(1840, '邮件模板', 1800, 5, 'template', 'email/template/index', '', '', 1, 0, 'C', '0', '0', 'email:template:list', 'file-medical', 'admin', NOW(), '', NULL, '邮件模板菜单');
-INSERT INTO sys_menu VALUES(1841, '模板查询', 1840, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:template:query', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1842, '模板新增', 1840, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:template:add', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1843, '模板修改', 1840, 3, '', '', '', '', 1, 0, 'F', '0', '0', 'email:template:edit', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1844, '模板删除', 1840, 4, '', '', '', '', 1, 0, 'F', '0', '0', 'email:template:remove', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1845, '模板预览', 1840, 5, '', '', '', '', 1, 0, 'F', '0', '0', 'email:template:preview', '#', 'admin', NOW(), '', NULL, '');
+-- 2. 邮件管理主菜单
+INSERT INTO sys_menu VALUES (2020, '邮件管理', 0, 2, 'management', NULL, '', 'management', 1, 0, 'M', '0', '0', '', 'setting', 'admin', NOW(), '', NULL, '邮件管理');
 
--- 4. 批量操作子菜单
-INSERT INTO sys_menu VALUES(1850, '批量操作', 1800, 6, 'batch', 'email/batch/index', '', '', 1, 0, 'C', '0', '0', 'email:batch:list', 'share-square', 'admin', NOW(), '', NULL, '批量操作菜单');
-INSERT INTO sys_menu VALUES(1851, '导入收件人', 1850, 1, 'import', 'email/batch/import', '', '', 1, 0, 'C', '0', '0', 'email:import:list', 'upload', 'admin', NOW(), '', NULL, '导入收件人菜单');
-INSERT INTO sys_menu VALUES(1852, '邮件批量发送', 1850, 2, 'send', 'email/batch/send', '', '', 1, 0, 'C', '0', '0', 'email:send:list', 'paper-plane', 'admin', NOW(), '', NULL, '邮件批量发送菜单');
+-- 2.1 发件人管理
+INSERT INTO sys_menu VALUES (2021, '发件人管理', 2020, 1, 'account', 'email/account/index', '', 'account', 1, 0, 'C', '0', '0', 'email:account:list', 'user', 'admin', NOW(), '', NULL, '发件人管理');
+INSERT INTO sys_menu VALUES (2022, '发件人查询', 2021, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:account:query', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2023, '发件人新增', 2021, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:account:add', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2024, '发件人修改', 2021, 3, '', '', '', '', 1, 0, 'F', '0', '0', 'email:account:edit', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2025, '发件人删除', 2021, 4, '', '', '', '', 1, 0, 'F', '0', '0', 'email:account:remove', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2026, '发件人导出', 2021, 5, '', '', '', '', 1, 0, 'F', '0', '0', 'email:account:export', '#', 'admin', NOW(), '', NULL, '');
 
--- 5. 数据统计子菜单
-INSERT INTO sys_menu VALUES(1860, '数据统计', 1800, 7, 'statistics', 'email/statistics/index', '', '', 1, 0, 'C', '0', '0', 'email:statistics:list', 'chart-bar', 'admin', NOW(), '', NULL, '数据统计菜单');
-INSERT INTO sys_menu VALUES(1861, '统计查询', 1860, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:statistics:query', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1862, '统计导出', 1860, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:statistics:export', '#', 'admin', NOW(), '', NULL, '');
+-- 2.2 收件人管理
+INSERT INTO sys_menu VALUES (2027, '收件人管理', 2020, 2, 'contact', 'email/contact/index', '', 'contact', 1, 0, 'C', '0', '0', 'email:contact:list', 'user', 'admin', NOW(), '', NULL, '收件人管理');
+INSERT INTO sys_menu VALUES (2028, '收件人查询', 2027, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:contact:query', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2029, '收件人新增', 2027, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:contact:add', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2030, '收件人修改', 2027, 3, '', '', '', '', 1, 0, 'F', '0', '0', 'email:contact:edit', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2031, '收件人删除', 2027, 4, '', '', '', '', 1, 0, 'F', '0', '0', 'email:contact:remove', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2032, '收件人导出', 2027, 5, '', '', '', '', 1, 0, 'F', '0', '0', 'email:contact:export', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2033, '收件人导入', 2027, 6, '', '', '', '', 1, 0, 'F', '0', '0', 'email:contact:import', '#', 'admin', NOW(), '', NULL, '');
 
--- 6. 邮箱账号管理子菜单（添加到系统管理下）
-INSERT INTO sys_menu VALUES(1870, '邮箱账号管理', 1, 8, 'account', 'system/account/index', '', '', 1, 0, 'C', '0', '0', 'system:account:list', 'at', 'admin', NOW(), '', NULL, '邮箱账号管理菜单');
-INSERT INTO sys_menu VALUES(1871, '账号查询', 1870, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'system:account:query', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1872, '账号新增', 1870, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'system:account:add', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1873, '账号修改', 1870, 3, '', '', '', '', 1, 0, 'F', '0', '0', 'system:account:edit', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1874, '账号删除', 1870, 4, '', '', '', '', 1, 0, 'F', '0', '0', 'system:account:remove', '#', 'admin', NOW(), '', NULL, '');
-INSERT INTO sys_menu VALUES(1875, '账号测试', 1870, 5, '', '', '', '', 1, 0, 'F', '0', '0', 'system:account:test', '#', 'admin', NOW(), '', NULL, '');
+-- 2.3 群组管理
+INSERT INTO sys_menu VALUES (2040, '群组管理', 2020, 3, 'group', 'email/group/index', '', 'group', 1, 0, 'C', '0', '0', 'email:group:list', 'peoples', 'admin', NOW(), '', NULL, '群组管理');
+INSERT INTO sys_menu VALUES (2041, '群组查询', 2040, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:group:query', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2042, '群组新增', 2040, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:group:add', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2043, '群组修改', 2040, 3, '', '', '', '', 1, 0, 'F', '0', '0', 'email:group:edit', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2044, '群组删除', 2040, 4, '', '', '', '', 1, 0, 'F', '0', '0', 'email:group:remove', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2045, '群组导出', 2040, 5, '', '', '', '', 1, 0, 'F', '0', '0', 'email:group:export', '#', 'admin', NOW(), '', NULL, '');
+
+-- 2.4 标签管理
+INSERT INTO sys_menu VALUES (2050, '标签管理', 2020, 4, 'tag', 'email/tag/index', '', 'tag', 1, 0, 'C', '0', '0', 'email:tag:list', 'collection-tag', 'admin', NOW(), '', NULL, '标签管理');
+INSERT INTO sys_menu VALUES (2051, '标签查询', 2050, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:tag:query', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2052, '标签新增', 2050, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:tag:add', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2053, '标签修改', 2050, 3, '', '', '', '', 1, 0, 'F', '0', '0', 'email:tag:edit', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2054, '标签删除', 2050, 4, '', '', '', '', 1, 0, 'F', '0', '0', 'email:tag:remove', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2055, '标签导出', 2050, 5, '', '', '', '', 1, 0, 'F', '0', '0', 'email:tag:export', '#', 'admin', NOW(), '', NULL, '');
+
+-- 2.5 邮件模板
+INSERT INTO sys_menu VALUES (2060, '邮件模板', 2020, 5, 'template', 'email/template/index', '', 'template', 1, 0, 'C', '0', '0', 'email:template:list', 'documentation', 'admin', NOW(), '', NULL, '邮件模板管理');
+INSERT INTO sys_menu VALUES (2061, '模板查询', 2060, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:template:query', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2062, '模板新增', 2060, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:template:add', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2063, '模板修改', 2060, 3, '', '', '', '', 1, 0, 'F', '0', '0', 'email:template:edit', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2064, '模板删除', 2060, 4, '', '', '', '', 1, 0, 'F', '0', '0', 'email:template:remove', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2065, '模板导出', 2060, 5, '', '', '', '', 1, 0, 'F', '0', '0', 'email:template:export', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2066, '模板预览', 2060, 6, '', '', '', '', 1, 0, 'F', '0', '0', 'email:template:preview', '#', 'admin', NOW(), '', NULL, '');
+
+-- 3. 批量操作主菜单
+INSERT INTO sys_menu VALUES (2070, '批量操作', 0, 3, 'batch', NULL, '', 'batch', 1, 0, 'M', '0', '0', '', 'tool', 'admin', NOW(), '', NULL, '批量操作');
+
+-- 3.1 导入收件人
+INSERT INTO sys_menu VALUES (2071, '导入收件人', 2070, 1, 'import', 'email/batch/import', '', 'import', 1, 0, 'C', '0', '0', 'email:batch:import:list', 'upload', 'admin', NOW(), '', NULL, '批量导入收件人');
+INSERT INTO sys_menu VALUES (2072, '导入查询', 2071, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:batch:import:query', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2073, '导入新增', 2071, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:batch:import:add', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2074, '导入删除', 2071, 3, '', '', '', '', 1, 0, 'F', '0', '0', 'email:batch:import:remove', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2075, '导入导出', 2071, 4, '', '', '', '', 1, 0, 'F', '0', '0', 'email:batch:import:export', '#', 'admin', NOW(), '', NULL, '');
+
+-- 3.2 邮件批量发送
+INSERT INTO sys_menu VALUES (2080, '邮件批量发送', 2070, 2, 'send', 'email/batch/send', '', 'send', 1, 0, 'C', '0', '0', 'email:batch:send:list', 's-promotion', 'admin', NOW(), '', NULL, '邮件批量发送');
+INSERT INTO sys_menu VALUES (2081, '开始发送', 2080, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:batch:send:create', '#', 'admin', NOW(), '', NULL, '');
+
+-- 4. 数据统计主菜单
+INSERT INTO sys_menu VALUES (2090, '数据统计', 0, 4, 'statistics', 'email/statistics/index', '', 'statistics', 1, 0, 'C', '0', '0', 'email:statistics:list', 'chart', 'admin', NOW(), '', NULL, '邮件数据统计');
+INSERT INTO sys_menu VALUES (2091, '统计查询', 2090, 1, '', '', '', '', 1, 0, 'F', '0', '0', 'email:statistics:query', '#', 'admin', NOW(), '', NULL, '');
+INSERT INTO sys_menu VALUES (2092, '统计导出', 2090, 2, '', '', '', '', 1, 0, 'F', '0', '0', 'email:statistics:export', '#', 'admin', NOW(), '', NULL, '');

@@ -136,3 +136,5 @@ public class EmailTemplate extends BaseEntity
             .toString();
     }
 }
+
+

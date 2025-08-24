@@ -11,7 +11,7 @@ import com.ruoyi.system.service.email.IEmailPersonalService;
  * 个人邮件Service业务层处理
  * 
  * @author ruoyi
- * @date 2024-01-01
+ * @date 2024-01-15
  */
 @Service
 public class EmailPersonalServiceImpl implements IEmailPersonalService 
@@ -41,6 +41,54 @@ public class EmailPersonalServiceImpl implements IEmailPersonalService
     public List<EmailPersonal> selectEmailPersonalList(EmailPersonal emailPersonal)
     {
         return emailPersonalMapper.selectEmailPersonalList(emailPersonal);
+    }
+
+    /**
+     * 查询收件箱列表
+     * 
+     * @param emailPersonal 个人邮件
+     * @return 个人邮件集合
+     */
+    @Override
+    public List<EmailPersonal> selectInboxList(EmailPersonal emailPersonal)
+    {
+        return emailPersonalMapper.selectInboxList(emailPersonal);
+    }
+
+    /**
+     * 查询发件箱列表
+     * 
+     * @param emailPersonal 个人邮件
+     * @return 个人邮件集合
+     */
+    @Override
+    public List<EmailPersonal> selectSentList(EmailPersonal emailPersonal)
+    {
+        return emailPersonalMapper.selectSentList(emailPersonal);
+    }
+
+    /**
+     * 查询星标邮件列表
+     * 
+     * @param emailPersonal 个人邮件
+     * @return 个人邮件集合
+     */
+    @Override
+    public List<EmailPersonal> selectStarredList(EmailPersonal emailPersonal)
+    {
+        return emailPersonalMapper.selectStarredList(emailPersonal);
+    }
+
+    /**
+     * 查询已删除邮件列表
+     * 
+     * @param emailPersonal 个人邮件
+     * @return 个人邮件集合
+     */
+    @Override
+    public List<EmailPersonal> selectDeletedList(EmailPersonal emailPersonal)
+    {
+        return emailPersonalMapper.selectDeletedList(emailPersonal);
     }
 
     /**
@@ -92,58 +140,6 @@ public class EmailPersonalServiceImpl implements IEmailPersonalService
     }
 
     /**
-     * 查询收件箱邮件
-     * 
-     * @param emailPersonal 查询条件
-     * @return 邮件列表
-     */
-    @Override
-    public List<EmailPersonal> selectInboxList(EmailPersonal emailPersonal)
-    {
-        emailPersonal.setEmailType("1"); // 收件
-        return emailPersonalMapper.selectEmailPersonalList(emailPersonal);
-    }
-
-    /**
-     * 查询发件箱邮件
-     * 
-     * @param emailPersonal 查询条件
-     * @return 邮件列表
-     */
-    @Override
-    public List<EmailPersonal> selectSentList(EmailPersonal emailPersonal)
-    {
-        emailPersonal.setEmailType("2"); // 发件
-        return emailPersonalMapper.selectEmailPersonalList(emailPersonal);
-    }
-
-    /**
-     * 查询星标邮件
-     * 
-     * @param emailPersonal 查询条件
-     * @return 邮件列表
-     */
-    @Override
-    public List<EmailPersonal> selectStarredList(EmailPersonal emailPersonal)
-    {
-        emailPersonal.setIsStarred("1"); // 星标
-        return emailPersonalMapper.selectEmailPersonalList(emailPersonal);
-    }
-
-    /**
-     * 查询已删除邮件
-     * 
-     * @param emailPersonal 查询条件
-     * @return 邮件列表
-     */
-    @Override
-    public List<EmailPersonal> selectDeletedList(EmailPersonal emailPersonal)
-    {
-        emailPersonal.setStatus("1"); // 已删除
-        return emailPersonalMapper.selectEmailPersonalList(emailPersonal);
-    }
-
-    /**
      * 标记邮件为已读
      * 
      * @param emailId 邮件ID
@@ -152,39 +148,114 @@ public class EmailPersonalServiceImpl implements IEmailPersonalService
     @Override
     public int markAsRead(Long emailId)
     {
-        EmailPersonal emailPersonal = new EmailPersonal();
-        emailPersonal.setEmailId(emailId);
-        emailPersonal.setIsRead("1");
-        return emailPersonalMapper.updateEmailPersonal(emailPersonal);
+        return emailPersonalMapper.markAsRead(emailId);
     }
 
     /**
      * 标记邮件为星标
      * 
      * @param emailId 邮件ID
-     * @param isStarred 是否星标
      * @return 结果
      */
     @Override
-    public int markAsStarred(Long emailId, String isStarred)
+    public int markAsStarred(Long emailId)
     {
-        EmailPersonal emailPersonal = new EmailPersonal();
-        emailPersonal.setEmailId(emailId);
-        emailPersonal.setIsStarred(isStarred);
-        return emailPersonalMapper.updateEmailPersonal(emailPersonal);
+        return emailPersonalMapper.markAsStarred(emailId);
+    }
+
+    /**
+     * 标记邮件为重要
+     * 
+     * @param emailId 邮件ID
+     * @return 结果
+     */
+    @Override
+    public int markAsImportant(Long emailId)
+    {
+        return emailPersonalMapper.markAsImportant(emailId);
+    }
+
+    /**
+     * 恢复已删除邮件
+     * 
+     * @param emailId 邮件ID
+     * @return 结果
+     */
+    @Override
+    public int restoreEmail(Long emailId)
+    {
+        return emailPersonalMapper.restoreEmail(emailId);
+    }
+
+    /**
+     * 彻底删除邮件
+     * 
+     * @param emailId 邮件ID
+     * @return 结果
+     */
+    @Override
+    public int deletePermanently(Long emailId)
+    {
+        return emailPersonalMapper.deletePermanently(emailId);
     }
 
     /**
      * 获取未读邮件数量
      * 
-     * @return 未读邮件数量
+     * @param userId 用户ID
+     * @return 未读数量
      */
     @Override
-    public int getUnreadCount()
+    public int getUnreadCount(Long userId)
     {
-        EmailPersonal emailPersonal = new EmailPersonal();
-        emailPersonal.setIsRead("0"); // 未读
-        List<EmailPersonal> list = emailPersonalMapper.selectEmailPersonalList(emailPersonal);
-        return list != null ? list.size() : 0;
+        return emailPersonalMapper.getUnreadCount(userId);
+    }
+
+    /**
+     * 获取收件箱未读数量
+     * 
+     * @param userId 用户ID
+     * @return 未读数量
+     */
+    @Override
+    public int getInboxUnreadCount(Long userId)
+    {
+        return emailPersonalMapper.getInboxUnreadCount(userId);
+    }
+
+    /**
+     * 获取发件箱未读数量
+     * 
+     * @param userId 用户ID
+     * @return 未读数量
+     */
+    @Override
+    public int getSentUnreadCount(Long userId)
+    {
+        return emailPersonalMapper.getSentUnreadCount(userId);
+    }
+
+    /**
+     * 获取星标邮件未读数量
+     * 
+     * @param userId 用户ID
+     * @return 未读数量
+     */
+    @Override
+    public int getStarredUnreadCount(Long userId)
+    {
+        return emailPersonalMapper.getStarredUnreadCount(userId);
+    }
+
+    /**
+     * 获取已删除邮件未读数量
+     * 
+     * @param userId 用户ID
+     * @return 未读数量
+     */
+    @Override
+    public int getDeletedUnreadCount(Long userId)
+    {
+        return emailPersonalMapper.getDeletedUnreadCount(userId);
     }
 }

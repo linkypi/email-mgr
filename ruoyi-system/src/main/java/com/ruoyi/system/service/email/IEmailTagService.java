@@ -67,3 +67,5 @@ public interface IEmailTagService
      */
     public int updateTagContactCount(Long tagId);
 }
+
+

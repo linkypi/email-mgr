@@ -20,6 +20,7 @@ import com.ruoyi.system.domain.email.EmailContact;
 import com.ruoyi.system.service.email.IEmailContactService;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.core.page.TableDataInfo;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 邮件联系人Controller
@@ -108,10 +109,10 @@ public class EmailContactController extends BaseController
     @PreAuthorize("@ss.hasPermi('email:contact:import')")
     @Log(title = "邮件联系人", businessType = BusinessType.IMPORT)
     @PostMapping("/importData")
-    public AjaxResult importData(List<EmailContact> contactList, Boolean isUpdateSupport) throws Exception
+    public AjaxResult importData(MultipartFile file, Boolean isUpdateSupport) throws Exception
     {
         String operName = getUsername();
-        String message = emailContactService.importContact(contactList, isUpdateSupport, operName);
+        String message = emailContactService.importContact(file, isUpdateSupport, operName);
         return success(message);
     }
 
@@ -152,6 +153,16 @@ public class EmailContactController extends BaseController
     public AjaxResult topReplyRate(@PathVariable("limit") int limit)
     {
         List<EmailContact> list = emailContactService.selectTopReplyRateContacts(limit);
+        return success(list);
+    }
+
+    /**
+     * 获取所有联系人列表（用于下拉选择）
+     */
+    @GetMapping("/all")
+    public AjaxResult getAllContacts()
+    {
+        List<EmailContact> list = emailContactService.selectEmailContactList(new EmailContact());
         return success(list);
     }
 }

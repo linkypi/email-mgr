@@ -1,5 +1,9 @@
 package com.ruoyi.system.domain.email;
 
+import java.math.BigDecimal;
+import java.util.Date;
+
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -16,87 +20,96 @@ public class EmailStatistics extends BaseEntity
     private static final long serialVersionUID = 1L;
 
     /** 统计ID */
-    private Long statisticsId;
+    private Long statId;
 
     /** 统计日期 */
+    @JsonFormat(pattern = "yyyy-MM-dd")
     @Excel(name = "统计日期", width = 30, dateFormat = "yyyy-MM-dd")
-    private String statisticsDate;
+    private Date statDate;
 
-    /** 邮箱账号ID */
-    @Excel(name = "邮箱账号ID")
-    private Long accountId;
+    /** 统计类型(1日统计 2月统计 3年统计) */
+    @Excel(name = "统计类型", readConverterExp = "1=日统计,2=月统计,3=年统计")
+    private String statType;
 
-    /** 邮箱账号名称 */
-    @Excel(name = "邮箱账号名称")
-    private String accountName;
-
-    /** 发送数量 */
-    @Excel(name = "发送数量")
+    /** 总发送数 */
+    @Excel(name = "总发送数")
     private Integer totalSent;
 
-    /** 送达数量 */
-    @Excel(name = "送达数量")
-    private Integer delivered;
+    /** 总送达数 */
+    @Excel(name = "总送达数")
+    private Integer totalDelivered;
 
-    /** 打开数量 */
-    @Excel(name = "打开数量")
-    private Integer opened;
+    /** 总打开数 */
+    @Excel(name = "总打开数")
+    private Integer totalOpened;
 
-    /** 回复数量 */
-    @Excel(name = "回复数量")
-    private Integer replied;
+    /** 总回复数 */
+    @Excel(name = "总回复数")
+    private Integer totalReplied;
 
     /** 送达率 */
     @Excel(name = "送达率")
-    private Double deliveryRate;
+    private BigDecimal deliveryRate;
 
     /** 打开率 */
     @Excel(name = "打开率")
-    private Double openRate;
+    private BigDecimal openRate;
 
     /** 回复率 */
     @Excel(name = "回复率")
-    private Double replyRate;
+    private BigDecimal replyRate;
 
-    /** 统计类型(1日报 2周报 3月报 4年报) */
-    @Excel(name = "统计类型", readConverterExp = "1=日报,2=周报,3=月报,4=年报")
-    private String statisticsType;
+    /** 邮件Message-ID */
+    private String messageId;
 
-    public void setStatisticsId(Long statisticsId) 
-    {
-        this.statisticsId = statisticsId;
-    }
+    /** 邮件状态 */
+    private String status;
 
-    public Long getStatisticsId() 
-    {
-        return statisticsId;
-    }
-    public void setStatisticsDate(String statisticsDate) 
-    {
-        this.statisticsDate = statisticsDate;
-    }
+    /** 送达时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private Date deliveredTime;
 
-    public String getStatisticsDate() 
-    {
-        return statisticsDate;
-    }
-    public void setAccountId(Long accountId) 
-    {
-        this.accountId = accountId;
-    }
+    /** 打开时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private Date openedTime;
 
-    public Long getAccountId() 
+    /** 回复时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private Date repliedTime;
+
+    /** 点击时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    private Date clickedTime;
+
+    /** 邮箱账号ID */
+    private Long accountId;
+
+    public void setStatId(Long statId) 
     {
-        return accountId;
-    }
-    public void setAccountName(String accountName) 
-    {
-        this.accountName = accountName;
+        this.statId = statId;
     }
 
-    public String getAccountName() 
+    public Long getStatId() 
     {
-        return accountName;
+        return statId;
+    }
+    public void setStatDate(Date statDate) 
+    {
+        this.statDate = statDate;
+    }
+
+    public Date getStatDate() 
+    {
+        return statDate;
+    }
+    public void setStatType(String statType) 
+    {
+        this.statType = statType;
+    }
+
+    public String getStatType() 
+    {
+        return statType;
     }
     public void setTotalSent(Integer totalSent) 
     {
@@ -107,90 +120,153 @@ public class EmailStatistics extends BaseEntity
     {
         return totalSent;
     }
-    public void setDelivered(Integer delivered) 
+    public void setTotalDelivered(Integer totalDelivered) 
     {
-        this.delivered = delivered;
+        this.totalDelivered = totalDelivered;
     }
 
-    public Integer getDelivered() 
+    public Integer getTotalDelivered() 
     {
-        return delivered;
+        return totalDelivered;
     }
-    public void setOpened(Integer opened) 
+    public void setTotalOpened(Integer totalOpened) 
     {
-        this.opened = opened;
-    }
-
-    public Integer getOpened() 
-    {
-        return opened;
-    }
-    public void setReplied(Integer replied) 
-    {
-        this.replied = replied;
+        this.totalOpened = totalOpened;
     }
 
-    public Integer getReplied() 
+    public Integer getTotalOpened() 
     {
-        return replied;
+        return totalOpened;
     }
-    public void setDeliveryRate(Double deliveryRate) 
+    public void setTotalReplied(Integer totalReplied) 
+    {
+        this.totalReplied = totalReplied;
+    }
+
+    public Integer getTotalReplied() 
+    {
+        return totalReplied;
+    }
+    public void setDeliveryRate(BigDecimal deliveryRate) 
     {
         this.deliveryRate = deliveryRate;
     }
 
-    public Double getDeliveryRate() 
+    public BigDecimal getDeliveryRate() 
     {
         return deliveryRate;
     }
-    public void setOpenRate(Double openRate) 
+    public void setOpenRate(BigDecimal openRate) 
     {
         this.openRate = openRate;
     }
 
-    public Double getOpenRate() 
+    public BigDecimal getOpenRate() 
     {
         return openRate;
     }
-    public void setReplyRate(Double replyRate) 
+    public void setReplyRate(BigDecimal replyRate) 
     {
         this.replyRate = replyRate;
     }
 
-    public Double getReplyRate() 
+    public BigDecimal getReplyRate() 
     {
         return replyRate;
     }
-    public void setStatisticsType(String statisticsType) 
+
+    public String getMessageId() 
     {
-        this.statisticsType = statisticsType;
+        return messageId;
     }
 
-    public String getStatisticsType() 
+    public void setMessageId(String messageId) 
     {
-        return statisticsType;
+        this.messageId = messageId;
+    }
+
+    public String getStatus() 
+    {
+        return status;
+    }
+
+    public void setStatus(String status) 
+    {
+        this.status = status;
+    }
+
+    public Date getDeliveredTime() 
+    {
+        return deliveredTime;
+    }
+
+    public void setDeliveredTime(Date deliveredTime) 
+    {
+        this.deliveredTime = deliveredTime;
+    }
+
+    public Date getOpenedTime() 
+    {
+        return openedTime;
+    }
+
+    public void setOpenedTime(Date openedTime) 
+    {
+        this.openedTime = openedTime;
+    }
+
+    public Date getRepliedTime() 
+    {
+        return repliedTime;
+    }
+
+    public void setRepliedTime(Date repliedTime) 
+    {
+        this.repliedTime = repliedTime;
+    }
+
+    public Date getClickedTime() 
+    {
+        return clickedTime;
+    }
+
+    public void setClickedTime(Date clickedTime) 
+    {
+        this.clickedTime = clickedTime;
+    }
+
+    public Long getAccountId() 
+    {
+        return accountId;
+    }
+
+    public void setAccountId(Long accountId) 
+    {
+        this.accountId = accountId;
     }
 
     @Override
     public String toString() {
         return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
-            .append("statisticsId", getStatisticsId())
-            .append("statisticsDate", getStatisticsDate())
+            .append("statId", getStatId())
             .append("accountId", getAccountId())
-            .append("accountName", getAccountName())
+            .append("statDate", getStatDate())
+            .append("statType", getStatType())
             .append("totalSent", getTotalSent())
-            .append("delivered", getDelivered())
-            .append("opened", getOpened())
-            .append("replied", getReplied())
+            .append("totalDelivered", getTotalDelivered())
+            .append("totalOpened", getTotalOpened())
+            .append("totalReplied", getTotalReplied())
             .append("deliveryRate", getDeliveryRate())
             .append("openRate", getOpenRate())
             .append("replyRate", getReplyRate())
-            .append("statisticsType", getStatisticsType())
-            .append("createBy", getCreateBy())
+            .append("messageId", getMessageId())
+            .append("status", getStatus())
+            .append("deliveredTime", getDeliveredTime())
+            .append("openedTime", getOpenedTime())
+            .append("repliedTime", getRepliedTime())
+            .append("clickedTime", getClickedTime())
             .append("createTime", getCreateTime())
-            .append("updateBy", getUpdateBy())
             .append("updateTime", getUpdateTime())
-            .append("remark", getRemark())
             .toString();
     }
 }

@@ -118,7 +118,6 @@ public class MyBatisConfig
     {
         String typeAliasesPackage = env.getProperty("mybatis.typeAliasesPackage");
         String mapperLocations = env.getProperty("mybatis.mapperLocations");
-        String configLocation = env.getProperty("mybatis.configLocation");
         typeAliasesPackage = setTypeAliasesPackage(typeAliasesPackage);
         VFS.addImplClass(SpringBootVFS.class);
 
@@ -126,7 +125,15 @@ public class MyBatisConfig
         sessionFactory.setDataSource(dataSource);
         sessionFactory.setTypeAliasesPackage(typeAliasesPackage);
         sessionFactory.setMapperLocations(resolveMapperLocations(StringUtils.split(mapperLocations, ",")));
-        sessionFactory.setConfigLocation(new DefaultResourceLoader().getResource(configLocation));
+        
+        // 直接在代码中配置 MyBatis 设置，不依赖外部配置文件
+        org.apache.ibatis.session.Configuration configuration = new org.apache.ibatis.session.Configuration();
+        configuration.setCacheEnabled(true);
+        configuration.setUseGeneratedKeys(true);
+        configuration.setDefaultExecutorType(org.apache.ibatis.session.ExecutorType.SIMPLE);
+        configuration.setLogImpl(org.apache.ibatis.logging.slf4j.Slf4jImpl.class);
+        sessionFactory.setConfiguration(configuration);
+        
         return sessionFactory.getObject();
     }
 }

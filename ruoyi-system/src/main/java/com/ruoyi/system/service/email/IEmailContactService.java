@@ -2,12 +2,13 @@ package com.ruoyi.system.service.email;
 
 import java.util.List;
 import com.ruoyi.system.domain.email.EmailContact;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 邮件联系人Service接口
  * 
  * @author ruoyi
- * @date 2023-12-01
+ * @date 2024-01-01
  */
 public interface IEmailContactService 
 {
@@ -60,12 +61,14 @@ public interface IEmailContactService
     public int deleteEmailContactByContactId(Long contactId);
 
     /**
-     * 根据邮箱地址查询联系人
+     * 导入联系人数据
      * 
-     * @param email 邮箱地址
-     * @return 联系人
+     * @param file 上传文件
+     * @param isUpdateSupport 是否更新支持，如果已存在，则进行更新数据
+     * @param operName 操作用户
+     * @return 结果
      */
-    public EmailContact selectEmailContactByEmail(String email);
+    public String importContact(MultipartFile file, Boolean isUpdateSupport, String operName) throws Exception;
 
     /**
      * 根据群组ID查询联系人列表
@@ -84,28 +87,34 @@ public interface IEmailContactService
     public List<EmailContact> selectEmailContactByTag(String tag);
 
     /**
-     * 批量导入联系人
-     * 
-     * @param contactList 联系人列表
-     * @param isUpdateSupport 是否支持更新
-     * @param operName 操作用户
-     * @return 结果
-     */
-    public String importContact(List<EmailContact> contactList, Boolean isUpdateSupport, String operName);
-
-    /**
-     * 更新联系人统计信息
-     * 
-     * @param contactId 联系人ID
-     * @return 结果
-     */
-    public int updateContactStatistics(Long contactId);
-
-    /**
      * 查询回复率最高的联系人
      * 
      * @param limit 限制数量
      * @return 联系人列表
      */
     public List<EmailContact> selectTopReplyRateContacts(int limit);
+
+    /**
+     * 根据群组ID列表查询联系人
+     * 
+     * @param groupIds 群组ID列表
+     * @return 联系人列表
+     */
+    public List<EmailContact> selectContactsByGroupIds(List<String> groupIds);
+
+    /**
+     * 根据标签ID列表查询联系人
+     * 
+     * @param tagIds 标签ID列表
+     * @return 联系人列表
+     */
+    public List<EmailContact> selectContactsByTagIds(List<String> tagIds);
+
+    /**
+     * 根据联系人ID列表查询联系人
+     * 
+     * @param contactIds 联系人ID列表
+     * @return 联系人列表
+     */
+    public List<EmailContact> selectContactsByIds(List<String> contactIds);
 }

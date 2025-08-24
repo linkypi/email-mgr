@@ -6,7 +6,7 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
 /**
- * 联系人群组对象 email_contact_group
+ * 邮件联系人群组对象 email_contact_group
  * 
  * @author ruoyi
  * @date 2024-01-01
@@ -26,12 +26,13 @@ public class EmailContactGroup extends BaseEntity
     @Excel(name = "群组描述")
     private String description;
 
+    /** 联系人数量 */
+    @Excel(name = "联系人数量")
+    private Integer contactCount;
+
     /** 状态 */
     @Excel(name = "状态", readConverterExp = "0=正常,1=停用")
     private String status;
-
-    /** 联系人数量 */
-    private Integer contactCount;
 
     public void setGroupId(Long groupId) 
     {
@@ -63,6 +64,16 @@ public class EmailContactGroup extends BaseEntity
         return description;
     }
 
+    public void setContactCount(Integer contactCount) 
+    {
+        this.contactCount = contactCount;
+    }
+
+    public Integer getContactCount() 
+    {
+        return contactCount;
+    }
+
     public void setStatus(String status) 
     {
         this.status = status;
@@ -73,29 +84,19 @@ public class EmailContactGroup extends BaseEntity
         return status;
     }
 
-    public Integer getContactCount() 
-    {
-        return contactCount;
-    }
-
-    public void setContactCount(Integer contactCount) 
-    {
-        this.contactCount = contactCount;
-    }
-
     @Override
     public String toString() {
         return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
             .append("groupId", getGroupId())
             .append("groupName", getGroupName())
             .append("description", getDescription())
+            .append("contactCount", getContactCount())
             .append("status", getStatus())
-            .append("remark", getRemark())
             .append("createBy", getCreateBy())
             .append("createTime", getCreateTime())
             .append("updateBy", getUpdateBy())
             .append("updateTime", getUpdateTime())
-            .append("deleted", 0)
+            .append("remark", getRemark())
             .toString();
     }
 }

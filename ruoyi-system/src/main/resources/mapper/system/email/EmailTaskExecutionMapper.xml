@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.email.EmailTaskExecutionMapper">
+    
+    <resultMap type="EmailTaskExecution" id="EmailTaskExecutionResult">
+        <result property="executionId"    column="execution_id"    />
+        <result property="taskId"    column="task_id"    />
+        <result property="executionStatus"    column="execution_status"    />
+        <result property="startTime"    column="start_time"    />
+        <result property="endTime"    column="end_time"    />
+        <result property="executionUser"    column="execution_user"    />
+        <result property="executionIp"    column="execution_ip"    />
+        <result property="totalCount"    column="total_count"    />
+        <result property="sentCount"    column="sent_count"    />
+        <result property="successCount"    column="success_count"    />
+        <result property="failedCount"    column="failed_count"    />
+        <result property="errorMessage"    column="error_message"    />
+        <result property="executionLog"    column="execution_log"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="taskName"    column="task_name"    />
+        <result property="taskStatus"    column="task_status"    />
+    </resultMap>
+
+    <sql id="selectEmailTaskExecutionVo">
+        select e.execution_id, e.task_id, e.execution_status, e.start_time, e.end_time, e.execution_user, e.execution_ip, e.total_count, e.sent_count, e.success_count, e.failed_count, e.error_message, e.execution_log, e.create_time, e.update_time,
+        t.task_name, t.status as task_status
+        from email_task_execution e
+        left join email_send_task t on e.task_id = t.task_id
+    </sql>
+
+    <select id="selectEmailTaskExecutionList" parameterType="EmailTaskExecution" resultMap="EmailTaskExecutionResult">
+        <include refid="selectEmailTaskExecutionVo"/>
+        <where>  
+            <if test="taskId != null "> and e.task_id = #{taskId}</if>
+            <if test="executionStatus != null  and executionStatus != ''"> and e.execution_status = #{executionStatus}</if>
+            <if test="executionUser != null  and executionUser != ''"> and e.execution_user like concat('%', #{executionUser}, '%')</if>
+            <if test="executionIp != null  and executionIp != ''"> and e.execution_ip like concat('%', #{executionIp}, '%')</if>
+            <if test="params.beginTime != null and params.beginTime != ''"><!-- 开始时间检索 -->
+                and date_format(e.create_time,'%y%m%d') &gt;= date_format(#{params.beginTime},'%y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''"><!-- 结束时间检索 -->
+                and date_format(e.create_time,'%y%m%d') &lt;= date_format(#{params.endTime},'%y%m%d')
+            </if>
+        </where>
+        order by e.create_time desc
+    </select>
+    
+    <select id="selectEmailTaskExecutionByExecutionId" parameterType="Long" resultMap="EmailTaskExecutionResult">
+        <include refid="selectEmailTaskExecutionVo"/>
+        where e.execution_id = #{executionId}
+    </select>
+
+    <select id="selectLatestExecutionByTaskId" parameterType="Long" resultMap="EmailTaskExecutionResult">
+        <include refid="selectEmailTaskExecutionVo"/>
+        where e.task_id = #{taskId}
+        order by e.create_time desc
+        limit 1
+    </select>
+
+    <select id="selectExecutionsByTaskId" parameterType="Long" resultMap="EmailTaskExecutionResult">
+        <include refid="selectEmailTaskExecutionVo"/>
+        where e.task_id = #{taskId}
+        order by e.create_time desc
+    </select>
+        
+    <insert id="insertEmailTaskExecution" parameterType="EmailTaskExecution" useGeneratedKeys="true" keyProperty="executionId">
+        insert into email_task_execution
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="taskId != null">task_id,</if>
+            <if test="executionStatus != null">execution_status,</if>
+            <if test="startTime != null">start_time,</if>
+            <if test="endTime != null">end_time,</if>
+            <if test="executionUser != null">execution_user,</if>
+            <if test="executionIp != null">execution_ip,</if>
+            <if test="totalCount != null">total_count,</if>
+            <if test="sentCount != null">sent_count,</if>
+            <if test="successCount != null">success_count,</if>
+            <if test="failedCount != null">failed_count,</if>
+            <if test="errorMessage != null">error_message,</if>
+            <if test="executionLog != null">execution_log,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="taskId != null">#{taskId},</if>
+            <if test="executionStatus != null">#{executionStatus},</if>
+            <if test="startTime != null">#{startTime},</if>
+            <if test="endTime != null">#{endTime},</if>
+            <if test="executionUser != null">#{executionUser},</if>
+            <if test="executionIp != null">#{executionIp},</if>
+            <if test="totalCount != null">#{totalCount},</if>
+            <if test="sentCount != null">#{sentCount},</if>
+            <if test="successCount != null">#{successCount},</if>
+            <if test="failedCount != null">#{failedCount},</if>
+            <if test="errorMessage != null">#{errorMessage},</if>
+            <if test="executionLog != null">#{executionLog},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+         </trim>
+    </insert>
+
+    <update id="updateEmailTaskExecution" parameterType="EmailTaskExecution">
+        update email_task_execution
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="taskId != null">task_id = #{taskId},</if>
+            <if test="executionStatus != null">execution_status = #{executionStatus},</if>
+            <if test="startTime != null">start_time = #{startTime},</if>
+            <if test="endTime != null">end_time = #{endTime},</if>
+            <if test="executionUser != null">execution_user = #{executionUser},</if>
+            <if test="executionIp != null">execution_ip = #{executionIp},</if>
+            <if test="totalCount != null">total_count = #{totalCount},</if>
+            <if test="sentCount != null">sent_count = #{sentCount},</if>
+            <if test="successCount != null">success_count = #{successCount},</if>
+            <if test="failedCount != null">failed_count = #{failedCount},</if>
+            <if test="errorMessage != null">error_message = #{errorMessage},</if>
+            <if test="executionLog != null">execution_log = #{executionLog},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where execution_id = #{executionId}
+    </update>
+
+    <delete id="deleteEmailTaskExecutionByExecutionId" parameterType="Long">
+        delete from email_task_execution where execution_id = #{executionId}
+    </delete>
+
+    <delete id="deleteEmailTaskExecutionByExecutionIds" parameterType="String">
+        delete from email_task_execution where execution_id in 
+        <foreach item="executionId" collection="array" open="(" separator="," close=")">
+            #{executionId}
+        </foreach>
+    </delete>
+</mapper>

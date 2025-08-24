@@ -5,11 +5,13 @@ import com.ruoyi.common.core.domain.BaseEntity;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
+import java.util.Date;
+
 /**
  * 个人邮件对象 email_personal
  * 
  * @author ruoyi
- * @date 2024-01-01
+ * @date 2024-01-15
  */
 public class EmailPersonal extends BaseEntity
 {
@@ -18,60 +20,54 @@ public class EmailPersonal extends BaseEntity
     /** 邮件ID */
     private Long emailId;
 
-    /** 邮件类型(1收件 2发件) */
-    @Excel(name = "邮件类型", readConverterExp = "1=收件,2=发件")
-    private String emailType;
-
-    /** 发件人地址 */
-    @Excel(name = "发件人地址")
+    /** 发件人邮箱 */
+    @Excel(name = "发件人邮箱")
     private String fromAddress;
 
-    /** 收件人地址 */
-    @Excel(name = "收件人地址")
+    /** 收件人邮箱 */
+    @Excel(name = "收件人邮箱")
     private String toAddress;
-
-    /** 抄送地址 */
-    private String ccAddress;
-
-    /** 密送地址 */
-    private String bccAddress;
 
     /** 邮件主题 */
     @Excel(name = "邮件主题")
     private String subject;
 
     /** 邮件内容 */
+    @Excel(name = "邮件内容")
     private String content;
 
-    /** 附件列表(JSON格式) */
-    private String attachments;
+    /** HTML内容 */
+    private String htmlContent;
 
-    /** 是否已读(0未读 1已读) */
-    @Excel(name = "是否已读", readConverterExp = "0=未读,1=已读")
-    private String isRead;
+    /** 邮件状态 */
+    @Excel(name = "邮件状态", readConverterExp = "unread=未读,read=已读,starred=星标,deleted=已删除")
+    private String status;
 
-    /** 是否星标(0否 1是) */
+    /** 是否星标 */
     @Excel(name = "是否星标", readConverterExp = "0=否,1=是")
-    private String isStarred;
+    private Integer isStarred;
 
-    /** 是否重要(0否 1是) */
+    /** 是否重要 */
     @Excel(name = "是否重要", readConverterExp = "0=否,1=是")
-    private String isImportant;
-
-    /** 标签(逗号分隔) */
-    private String tags;
-
-    /** 发送时间 */
-    @Excel(name = "发送时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
-    private String sendTime;
+    private Integer isImportant;
 
     /** 接收时间 */
     @Excel(name = "接收时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
-    private String receiveTime;
+    private Date receiveTime;
 
-    /** 状态(0正常 1已删除) */
-    @Excel(name = "状态", readConverterExp = "0=正常,1=已删除")
-    private String status;
+    /** 发送时间 */
+    @Excel(name = "发送时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
+    private Date sendTime;
+
+    /** 邮件类型 */
+    @Excel(name = "邮件类型", readConverterExp = "inbox=收件箱,sent=发件箱,starred=星标,deleted=已删除")
+    private String emailType;
+
+    /** 附件数量 */
+    private Integer attachmentCount;
+
+    /** 删除时间 */
+    private Date deleteTime;
 
     public void setEmailId(Long emailId) 
     {
@@ -81,15 +77,6 @@ public class EmailPersonal extends BaseEntity
     public Long getEmailId() 
     {
         return emailId;
-    }
-    public void setEmailType(String emailType) 
-    {
-        this.emailType = emailType;
-    }
-
-    public String getEmailType() 
-    {
-        return emailType;
     }
     public void setFromAddress(String fromAddress) 
     {
@@ -109,24 +96,6 @@ public class EmailPersonal extends BaseEntity
     {
         return toAddress;
     }
-    public void setCcAddress(String ccAddress) 
-    {
-        this.ccAddress = ccAddress;
-    }
-
-    public String getCcAddress() 
-    {
-        return ccAddress;
-    }
-    public void setBccAddress(String bccAddress) 
-    {
-        this.bccAddress = bccAddress;
-    }
-
-    public String getBccAddress() 
-    {
-        return bccAddress;
-    }
     public void setSubject(String subject) 
     {
         this.subject = subject;
@@ -145,68 +114,14 @@ public class EmailPersonal extends BaseEntity
     {
         return content;
     }
-    public void setAttachments(String attachments) 
+    public void setHtmlContent(String htmlContent) 
     {
-        this.attachments = attachments;
+        this.htmlContent = htmlContent;
     }
 
-    public String getAttachments() 
+    public String getHtmlContent() 
     {
-        return attachments;
-    }
-    public void setIsRead(String isRead) 
-    {
-        this.isRead = isRead;
-    }
-
-    public String getIsRead() 
-    {
-        return isRead;
-    }
-    public void setIsStarred(String isStarred) 
-    {
-        this.isStarred = isStarred;
-    }
-
-    public String getIsStarred() 
-    {
-        return isStarred;
-    }
-    public void setIsImportant(String isImportant) 
-    {
-        this.isImportant = isImportant;
-    }
-
-    public String getIsImportant() 
-    {
-        return isImportant;
-    }
-    public void setTags(String tags) 
-    {
-        this.tags = tags;
-    }
-
-    public String getTags() 
-    {
-        return tags;
-    }
-    public void setSendTime(String sendTime) 
-    {
-        this.sendTime = sendTime;
-    }
-
-    public String getSendTime() 
-    {
-        return sendTime;
-    }
-    public void setReceiveTime(String receiveTime) 
-    {
-        this.receiveTime = receiveTime;
-    }
-
-    public String getReceiveTime() 
-    {
-        return receiveTime;
+        return htmlContent;
     }
     public void setStatus(String status) 
     {
@@ -217,26 +132,87 @@ public class EmailPersonal extends BaseEntity
     {
         return status;
     }
+    public void setIsStarred(Integer isStarred) 
+    {
+        this.isStarred = isStarred;
+    }
+
+    public Integer getIsStarred() 
+    {
+        return isStarred;
+    }
+    public void setIsImportant(Integer isImportant) 
+    {
+        this.isImportant = isImportant;
+    }
+
+    public Integer getIsImportant() 
+    {
+        return isImportant;
+    }
+    public void setReceiveTime(Date receiveTime) 
+    {
+        this.receiveTime = receiveTime;
+    }
+
+    public Date getReceiveTime() 
+    {
+        return receiveTime;
+    }
+    public void setSendTime(Date sendTime) 
+    {
+        this.sendTime = sendTime;
+    }
+
+    public Date getSendTime() 
+    {
+        return sendTime;
+    }
+    public void setEmailType(String emailType) 
+    {
+        this.emailType = emailType;
+    }
+
+    public String getEmailType() 
+    {
+        return emailType;
+    }
+    public void setAttachmentCount(Integer attachmentCount) 
+    {
+        this.attachmentCount = attachmentCount;
+    }
+
+    public Integer getAttachmentCount() 
+    {
+        return attachmentCount;
+    }
+    public void setDeleteTime(Date deleteTime) 
+    {
+        this.deleteTime = deleteTime;
+    }
+
+    public Date getDeleteTime() 
+    {
+        return deleteTime;
+    }
 
     @Override
     public String toString() {
         return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
             .append("emailId", getEmailId())
-            .append("emailType", getEmailType())
             .append("fromAddress", getFromAddress())
             .append("toAddress", getToAddress())
-            .append("ccAddress", getCcAddress())
-            .append("bccAddress", getBccAddress())
             .append("subject", getSubject())
             .append("content", getContent())
-            .append("attachments", getAttachments())
-            .append("isRead", getIsRead())
+            .append("htmlContent", getHtmlContent())
+            .append("status", getStatus())
             .append("isStarred", getIsStarred())
             .append("isImportant", getIsImportant())
-            .append("tags", getTags())
-            .append("sendTime", getSendTime())
             .append("receiveTime", getReceiveTime())
-            .append("status", getStatus())
+            .append("sendTime", getSendTime())
+            .append("emailType", getEmailType())
+            .append("attachmentCount", getAttachmentCount())
+            .append("deleteTime", getDeleteTime())
             .append("createBy", getCreateBy())
             .append("createTime", getCreateTime())
             .append("updateBy", getUpdateBy())

@@ -43,27 +43,19 @@ export function delTemplate(templateId) {
   })
 }
 
-// 导出邮件模板
-export function exportTemplate(query) {
-  return request({
-    url: '/email/template/export',
-    method: 'post',
-    data: query
-  })
-}
-
-// 预览邮件模板
-export function previewTemplate(templateId) {
-  return request({
-    url: '/email/template/preview/' + templateId,
-    method: 'get'
-  })
-}
-
-// 获取所有模板列表
+// 获取所有模板（用于下拉选择）
 export function getAllTemplates() {
   return request({
     url: '/email/template/all',
     method: 'get'
+  })
+}
+
+// 预览模板
+export function previewTemplate(data) {
+  return request({
+    url: '/email/template/preview',
+    method: 'post',
+    data: data
   })
 }

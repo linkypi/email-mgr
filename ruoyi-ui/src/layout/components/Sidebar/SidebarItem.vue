@@ -1,16 +1,26 @@
 <template>
   <div v-if="!item.hidden">
     <template v-if="hasOneShowingChild(item.children,item) && (!onlyOneChild.children||onlyOneChild.noShowingChildren)&&!item.alwaysShow">
+      <!-- 所有菜单都使用原有的AppLink -->
       <app-link v-if="onlyOneChild.meta" :to="resolvePath(onlyOneChild.path, onlyOneChild.query)">
         <el-menu-item :index="resolvePath(onlyOneChild.path)" :class="{'submenu-title-noDropdown':!isNest}">
-          <item :icon="onlyOneChild.meta.icon||(item.meta&&item.meta.icon)" :title="onlyOneChild.meta.title" />
+          <item 
+            :icon="onlyOneChild.meta.icon||(item.meta&&item.meta.icon)" 
+            :title="onlyOneChild.meta.title" 
+            :badge-type="getBadgeType(onlyOneChild)"
+          />
         </el-menu-item>
       </app-link>
     </template>
 
     <el-submenu v-else ref="subMenu" :index="resolvePath(item.path)" popper-append-to-body>
       <template slot="title">
-        <item v-if="item.meta" :icon="item.meta && item.meta.icon" :title="item.meta.title" />
+        <item 
+          v-if="item.meta" 
+          :icon="item.meta && item.meta.icon" 
+          :title="item.meta.title" 
+          :badge-type="getBadgeType(item)"
+        />
       </template>
       <sidebar-item
         v-for="(child, index) in item.children"
@@ -93,6 +103,27 @@ export default {
         return { path: path.resolve(this.basePath, routePath), query: query }
       }
       return path.resolve(this.basePath, routePath)
+    },
+    // 获取菜单项的badge类型
+    getBadgeType(menuItem) {
+      if (!menuItem) return ''
+      
+      // 通过菜单名称识别邮件类型
+      const menuName = menuItem.meta ? menuItem.meta.title : menuItem.name
+      if (!menuName) return ''
+      
+      switch (menuName) {
+        case '收件箱':
+          return 'inbox'
+        case '发件箱':
+          return 'sent'
+        case '星标邮件':
+          return 'starred'
+        case '已删除':
+          return 'deleted'
+        default:
+          return ''
+      }
     }
   }
 }

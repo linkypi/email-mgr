@@ -1,24 +1,22 @@
 package com.ruoyi.system.service.email.impl;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
-import java.math.BigDecimal;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.system.mapper.email.EmailContactMapper;
 import com.ruoyi.system.domain.email.EmailContact;
 import com.ruoyi.system.service.email.IEmailContactService;
 import com.ruoyi.common.utils.DateUtils;
-import com.ruoyi.common.utils.SecurityUtils;
-import com.ruoyi.common.exception.ServiceException;
 import com.ruoyi.common.utils.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
+import com.ruoyi.common.utils.poi.ExcelUtil;
 
 /**
  * 邮件联系人Service业务层处理
  * 
  * @author ruoyi
- * @date 2023-12-01
+ * @date 2024-01-01
  */
 @Service
 public class EmailContactServiceImpl implements IEmailContactService 
@@ -59,7 +57,6 @@ public class EmailContactServiceImpl implements IEmailContactService
     @Override
     public int insertEmailContact(EmailContact emailContact)
     {
-        emailContact.setCreateBy(SecurityUtils.getUsername());
         emailContact.setCreateTime(DateUtils.getNowDate());
         return emailContactMapper.insertEmailContact(emailContact);
     }
@@ -73,7 +70,6 @@ public class EmailContactServiceImpl implements IEmailContactService
     @Override
     public int updateEmailContact(EmailContact emailContact)
     {
-        emailContact.setUpdateBy(SecurityUtils.getUsername());
         emailContact.setUpdateTime(DateUtils.getNowDate());
         return emailContactMapper.updateEmailContact(emailContact);
     }
@@ -103,55 +99,27 @@ public class EmailContactServiceImpl implements IEmailContactService
     }
 
     /**
-     * 根据邮箱地址查询联系人
+     * 导入联系人数据
      * 
-     * @param email 邮箱地址
-     * @return 联系人
-     */
-    @Override
-    public EmailContact selectEmailContactByEmail(String email)
-    {
-        return emailContactMapper.selectEmailContactByEmail(email);
-    }
-
-    /**
-     * 根据群组ID查询联系人列表
-     * 
-     * @param groupId 群组ID
-     * @return 联系人列表
-     */
-    @Override
-    public List<EmailContact> selectEmailContactByGroupId(Long groupId)
-    {
-        return emailContactMapper.selectEmailContactByGroupId(groupId);
-    }
-
-    /**
-     * 根据标签查询联系人列表
-     * 
-     * @param tag 标签
-     * @return 联系人列表
-     */
-    @Override
-    public List<EmailContact> selectEmailContactByTag(String tag)
-    {
-        return emailContactMapper.selectEmailContactByTag(tag);
-    }
-
-    /**
-     * 批量导入联系人
-     * 
-     * @param contactList 联系人列表
-     * @param isUpdateSupport 是否支持更新
+     * @param file 上传文件
+     * @param isUpdateSupport 是否更新支持，如果已存在，则进行更新数据
      * @param operName 操作用户
      * @return 结果
      */
     @Override
-    public String importContact(List<EmailContact> contactList, Boolean isUpdateSupport, String operName)
+    public String importContact(MultipartFile file, Boolean isUpdateSupport, String operName) throws Exception
     {
+        if (file == null || file.isEmpty())
+        {
+            throw new RuntimeException("导入文件不能为空！");
+        }
+        
+        ExcelUtil<EmailContact> util = new ExcelUtil<EmailContact>(EmailContact.class);
+        List<EmailContact> contactList = util.importExcel(file.getInputStream());
+        
         if (StringUtils.isNull(contactList) || contactList.size() == 0)
         {
-            throw new ServiceException("导入联系人数据不能为空！");
+            throw new RuntimeException("导入联系人数据不能为空！");
         }
         int successNum = 0;
         int failureNum = 0;
@@ -166,7 +134,6 @@ public class EmailContactServiceImpl implements IEmailContactService
                 if (StringUtils.isNull(existContact))
                 {
                     contact.setCreateBy(operName);
-                    contact.setCreateTime(DateUtils.getNowDate());
                     this.insertEmailContact(contact);
                     successNum++;
                     successMsg.append("<br/>" + successNum + "、邮箱 " + contact.getEmail() + " 导入成功");
@@ -175,7 +142,6 @@ public class EmailContactServiceImpl implements IEmailContactService
                 {
                     contact.setContactId(existContact.getContactId());
                     contact.setUpdateBy(operName);
-                    contact.setUpdateTime(DateUtils.getNowDate());
                     this.updateEmailContact(contact);
                     successNum++;
                     successMsg.append("<br/>" + successNum + "、邮箱 " + contact.getEmail() + " 更新成功");
@@ -196,7 +162,7 @@ public class EmailContactServiceImpl implements IEmailContactService
         if (failureNum > 0)
         {
             failureMsg.insert(0, "很抱歉，导入失败！共 " + failureNum + " 条数据格式不正确，错误如下：");
-            throw new ServiceException(failureMsg.toString());
+            throw new RuntimeException(failureMsg.toString());
         }
         else
         {
@@ -206,15 +172,31 @@ public class EmailContactServiceImpl implements IEmailContactService
     }
 
     /**
-     * 更新联系人统计信息
+     * 根据群组ID查询联系人列表
      * 
-     * @param contactId 联系人ID
-     * @return 结果
+     * @param groupId 群组ID
+     * @return 联系人列表
      */
     @Override
-    public int updateContactStatistics(Long contactId)
+    public List<EmailContact> selectEmailContactByGroupId(Long groupId)
     {
-        return emailContactMapper.updateContactStatistics(contactId);
+        EmailContact emailContact = new EmailContact();
+        emailContact.setGroupId(groupId);
+        return emailContactMapper.selectEmailContactList(emailContact);
+    }
+
+    /**
+     * 根据标签查询联系人列表
+     * 
+     * @param tag 标签
+     * @return 联系人列表
+     */
+    @Override
+    public List<EmailContact> selectEmailContactByTag(String tag)
+    {
+        EmailContact emailContact = new EmailContact();
+        emailContact.setTags(tag);
+        return emailContactMapper.selectEmailContactList(emailContact);
     }
 
     /**
@@ -227,5 +209,50 @@ public class EmailContactServiceImpl implements IEmailContactService
     public List<EmailContact> selectTopReplyRateContacts(int limit)
     {
         return emailContactMapper.selectTopReplyRateContacts(limit);
+    }
+
+    /**
+     * 根据群组ID列表查询联系人
+     * 
+     * @param groupIds 群组ID列表
+     * @return 联系人列表
+     */
+    @Override
+    public List<EmailContact> selectContactsByGroupIds(List<String> groupIds)
+    {
+        if (groupIds == null || groupIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return emailContactMapper.selectContactsByGroupIds(groupIds);
+    }
+
+    /**
+     * 根据标签ID列表查询联系人
+     * 
+     * @param tagIds 标签ID列表
+     * @return 联系人列表
+     */
+    @Override
+    public List<EmailContact> selectContactsByTagIds(List<String> tagIds)
+    {
+        if (tagIds == null || tagIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return emailContactMapper.selectContactsByTagIds(tagIds);
+    }
+
+    /**
+     * 根据联系人ID列表查询联系人
+     * 
+     * @param contactIds 联系人ID列表
+     * @return 联系人列表
+     */
+    @Override
+    public List<EmailContact> selectContactsByIds(List<String> contactIds)
+    {
+        if (contactIds == null || contactIds.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return emailContactMapper.selectContactsByIds(contactIds);
     }
 }

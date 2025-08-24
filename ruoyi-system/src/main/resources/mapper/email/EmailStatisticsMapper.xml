@@ -5,152 +5,211 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 <mapper namespace="com.ruoyi.system.mapper.email.EmailStatisticsMapper">
     
     <resultMap type="EmailStatistics" id="EmailStatisticsResult">
-        <result property="statisticsId"    column="statistics_id"    />
-        <result property="statisticsDate"    column="statistics_date"    />
-        <result property="accountId"    column="account_id"    />
-        <result property="accountName"    column="account_name"    />
+        <result property="statId"    column="stat_id"    />
+        <result property="statDate"    column="stat_date"    />
+        <result property="statType"    column="stat_type"    />
         <result property="totalSent"    column="total_sent"    />
-        <result property="delivered"    column="delivered"    />
-        <result property="opened"    column="opened"    />
-        <result property="replied"    column="replied"    />
+        <result property="totalDelivered"    column="total_delivered"    />
+        <result property="totalOpened"    column="total_opened"    />
+        <result property="totalReplied"    column="total_replied"    />
         <result property="deliveryRate"    column="delivery_rate"    />
         <result property="openRate"    column="open_rate"    />
         <result property="replyRate"    column="reply_rate"    />
-        <result property="statisticsType"    column="statistics_type"    />
-        <result property="createBy"    column="create_by"    />
+        <result property="messageId"    column="message_id"    />
+        <result property="status"    column="status"    />
+        <result property="deliveredTime"    column="delivered_time"    />
+        <result property="openedTime"    column="opened_time"    />
+        <result property="repliedTime"    column="replied_time"    />
+        <result property="clickedTime"    column="clicked_time"    />
         <result property="createTime"    column="create_time"    />
-        <result property="updateBy"    column="update_by"    />
         <result property="updateTime"    column="update_time"    />
-        <result property="remark"    column="remark"    />
     </resultMap>
 
     <sql id="selectEmailStatisticsVo">
-        select statistics_id, statistics_date, account_id, account_name, total_sent, delivered, opened, replied, delivery_rate, open_rate, reply_rate, statistics_type, create_by, create_time, update_by, update_time, remark from email_statistics
+        select stat_id, stat_date, stat_type, total_sent, total_delivered, total_opened, total_replied, delivery_rate, open_rate, reply_rate, message_id, status, delivered_time, opened_time, replied_time, clicked_time, create_time, update_time from email_statistics
     </sql>
 
     <select id="selectEmailStatisticsList" parameterType="EmailStatistics" resultMap="EmailStatisticsResult">
         <include refid="selectEmailStatisticsVo"/>
         <where>  
-            <if test="statisticsDate != null  and statisticsDate != ''"> and statistics_date = #{statisticsDate}</if>
-            <if test="accountId != null "> and account_id = #{accountId}</if>
-            <if test="accountName != null  and accountName != ''"> and account_name like concat('%', #{accountName}, '%')</if>
-            <if test="statisticsType != null  and statisticsType != ''"> and statistics_type = #{statisticsType}</if>
+            <if test="statDate != null "> and stat_date = #{statDate}</if>
+            <if test="statType != null  and statType != ''"> and stat_type = #{statType}</if>
+            <if test="params.beginTime != null and params.beginTime != ''"><!-- 开始时间检索 -->
+                and date_format(create_time,'%y%m%d') &gt;= date_format(#{params.beginTime},'%y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''"><!-- 结束时间检索 -->
+                and date_format(create_time,'%y%m%d') &lt;= date_format(#{params.endTime},'%y%m%d')
+            </if>
         </where>
-        order by statistics_date desc
+        order by stat_date desc, stat_type asc
     </select>
     
-    <select id="selectEmailStatisticsByStatisticsId" parameterType="Long" resultMap="EmailStatisticsResult">
+    <select id="selectEmailStatisticsByStatId" parameterType="Long" resultMap="EmailStatisticsResult">
         <include refid="selectEmailStatisticsVo"/>
-        where statistics_id = #{statisticsId}
+        where stat_id = #{statId}
+    </select>
+
+    <select id="selectEmailStatisticsByMessageId" parameterType="String" resultMap="EmailStatisticsResult">
+        <include refid="selectEmailStatisticsVo"/>
+        where message_id = #{messageId}
     </select>
         
-    <insert id="insertEmailStatistics" parameterType="EmailStatistics" useGeneratedKeys="true" keyProperty="statisticsId">
+    <insert id="insertEmailStatistics" parameterType="EmailStatistics" useGeneratedKeys="true" keyProperty="statId">
         insert into email_statistics
         <trim prefix="(" suffix=")" suffixOverrides=",">
-            <if test="statisticsDate != null and statisticsDate != ''">statistics_date,</if>
-            <if test="accountId != null">account_id,</if>
-            <if test="accountName != null">account_name,</if>
+            <if test="statDate != null">stat_date,</if>
+            <if test="statType != null">stat_type,</if>
             <if test="totalSent != null">total_sent,</if>
-            <if test="delivered != null">delivered,</if>
-            <if test="opened != null">opened,</if>
-            <if test="replied != null">replied,</if>
+            <if test="totalDelivered != null">total_delivered,</if>
+            <if test="totalOpened != null">total_opened,</if>
+            <if test="totalReplied != null">total_replied,</if>
             <if test="deliveryRate != null">delivery_rate,</if>
             <if test="openRate != null">open_rate,</if>
             <if test="replyRate != null">reply_rate,</if>
-            <if test="statisticsType != null">statistics_type,</if>
-            <if test="createBy != null">create_by,</if>
+            <if test="messageId != null and messageId != ''">message_id,</if>
+            <if test="status != null and status != ''">status,</if>
+            <if test="deliveredTime != null">delivered_time,</if>
+            <if test="openedTime != null">opened_time,</if>
+            <if test="repliedTime != null">replied_time,</if>
+            <if test="clickedTime != null">clicked_time,</if>
             <if test="createTime != null">create_time,</if>
-            <if test="updateBy != null">update_by,</if>
             <if test="updateTime != null">update_time,</if>
-            <if test="remark != null">remark,</if>
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
-            <if test="statisticsDate != null and statisticsDate != ''">#{statisticsDate},</if>
-            <if test="accountId != null">#{accountId},</if>
-            <if test="accountName != null">#{accountName},</if>
+            <if test="statDate != null">#{statDate},</if>
+            <if test="statType != null">#{statType},</if>
             <if test="totalSent != null">#{totalSent},</if>
-            <if test="delivered != null">#{delivered},</if>
-            <if test="opened != null">#{opened},</if>
-            <if test="replied != null">#{replied},</if>
+            <if test="totalDelivered != null">#{totalDelivered},</if>
+            <if test="totalOpened != null">#{totalOpened},</if>
+            <if test="totalReplied != null">#{totalReplied},</if>
             <if test="deliveryRate != null">#{deliveryRate},</if>
             <if test="openRate != null">#{openRate},</if>
             <if test="replyRate != null">#{replyRate},</if>
-            <if test="statisticsType != null">#{statisticsType},</if>
-            <if test="createBy != null">#{createBy},</if>
+            <if test="messageId != null and messageId != ''">#{messageId},</if>
+            <if test="status != null and status != ''">#{status},</if>
+            <if test="deliveredTime != null">#{deliveredTime},</if>
+            <if test="openedTime != null">#{openedTime},</if>
+            <if test="repliedTime != null">#{repliedTime},</if>
+            <if test="clickedTime != null">#{clickedTime},</if>
             <if test="createTime != null">#{createTime},</if>
-            <if test="updateBy != null">#{updateBy},</if>
             <if test="updateTime != null">#{updateTime},</if>
-            <if test="remark != null">#{remark},</if>
          </trim>
     </insert>
 
     <update id="updateEmailStatistics" parameterType="EmailStatistics">
         update email_statistics
         <trim prefix="SET" suffixOverrides=",">
-            <if test="statisticsDate != null and statisticsDate != ''">statistics_date = #{statisticsDate},</if>
-            <if test="accountId != null">account_id = #{accountId},</if>
-            <if test="accountName != null">account_name = #{accountName},</if>
+            <if test="statDate != null">stat_date = #{statDate},</if>
+            <if test="statType != null">stat_type = #{statType},</if>
             <if test="totalSent != null">total_sent = #{totalSent},</if>
-            <if test="delivered != null">delivered = #{delivered},</if>
-            <if test="opened != null">opened = #{opened},</if>
-            <if test="replied != null">replied = #{replied},</if>
+            <if test="totalDelivered != null">total_delivered = #{totalDelivered},</if>
+            <if test="totalOpened != null">total_opened = #{totalOpened},</if>
+            <if test="totalReplied != null">total_replied = #{totalReplied},</if>
             <if test="deliveryRate != null">delivery_rate = #{deliveryRate},</if>
             <if test="openRate != null">open_rate = #{openRate},</if>
             <if test="replyRate != null">reply_rate = #{replyRate},</if>
-            <if test="statisticsType != null">statistics_type = #{statisticsType},</if>
-            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="messageId != null and messageId != ''">message_id = #{messageId},</if>
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="deliveredTime != null">delivered_time = #{deliveredTime},</if>
+            <if test="openedTime != null">opened_time = #{openedTime},</if>
+            <if test="repliedTime != null">replied_time = #{repliedTime},</if>
+            <if test="clickedTime != null">clicked_time = #{clickedTime},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
-            <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
-            <if test="remark != null">remark = #{remark},</if>
         </trim>
-        where statistics_id = #{statisticsId}
+        where stat_id = #{statId}
     </update>
 
-    <delete id="deleteEmailStatisticsByStatisticsId" parameterType="Long">
-        delete from email_statistics where statistics_id = #{statisticsId}
+    <delete id="deleteEmailStatisticsByStatId" parameterType="Long">
+        delete from email_statistics where stat_id = #{statId}
     </delete>
 
-    <delete id="deleteEmailStatisticsByStatisticsIds" parameterType="String">
-        delete from email_statistics where statistics_id in 
-        <foreach item="statisticsId" collection="array" open="(" separator="," close=")">
-            #{statisticsId}
+    <delete id="deleteEmailStatisticsByStatIds" parameterType="String">
+        delete from email_statistics where stat_id in 
+        <foreach item="statId" collection="array" open="(" separator="," close=")">
+            #{statId}
         </foreach>
     </delete>
 
-    <select id="getTodayStatistics" resultMap="EmailStatisticsResult">
-        <include refid="selectEmailStatisticsVo"/>
-        where statistics_date = date_format(now(), '%Y-%m-%d')
-        limit 1
-    </select>
+    <!-- 生成每日统计 -->
+    <insert id="generateDailyStatistics" parameterType="String">
+        INSERT INTO email_statistics (stat_date, stat_type, total_sent, total_delivered, total_opened, total_replied, delivery_rate, open_rate, reply_rate, create_time)
+        SELECT 
+            #{statDate} as stat_date,
+            '1' as stat_type,
+            COUNT(*) as total_sent,
+            COUNT(CASE WHEN status >= '2' THEN 1 END) as total_delivered,
+            COUNT(CASE WHEN status >= '3' THEN 1 END) as total_opened,
+            COUNT(CASE WHEN status >= '4' THEN 1 END) as total_replied,
+            ROUND(COUNT(CASE WHEN status >= '2' THEN 1 END) * 100.0 / COUNT(*), 2) as delivery_rate,
+            ROUND(COUNT(CASE WHEN status >= '3' THEN 1 END) * 100.0 / COUNT(*), 2) as open_rate,
+            ROUND(COUNT(CASE WHEN status >= '4' THEN 1 END) * 100.0 / COUNT(*), 2) as reply_rate,
+            NOW() as create_time
+        FROM email_send_record 
+        WHERE DATE(send_time) = #{statDate}
+        ON DUPLICATE KEY UPDATE
+            total_sent = VALUES(total_sent),
+            total_delivered = VALUES(total_delivered),
+            total_opened = VALUES(total_opened),
+            total_replied = VALUES(total_replied),
+            delivery_rate = VALUES(delivery_rate),
+            open_rate = VALUES(open_rate),
+            reply_rate = VALUES(reply_rate),
+            update_time = NOW()
+    </insert>
 
-    <select id="getTotalStatistics" resultMap="EmailStatisticsResult">
-        select 
-            sum(total_sent) as total_sent,
-            sum(delivered) as delivered,
-            sum(opened) as opened,
-            sum(replied) as replied,
-            avg(delivery_rate) as delivery_rate,
-            avg(open_rate) as open_rate,
-            avg(reply_rate) as reply_rate
-        from email_statistics
-        where statistics_type = '1'
-    </select>
+    <!-- 生成月度统计 -->
+    <insert id="generateMonthlyStatistics" parameterType="String">
+        INSERT INTO email_statistics (stat_date, stat_type, total_sent, total_delivered, total_opened, total_replied, delivery_rate, open_rate, reply_rate, create_time)
+        SELECT 
+            CONCAT(#{yearMonth}, '-01') as stat_date,
+            '2' as stat_type,
+            COUNT(*) as total_sent,
+            COUNT(CASE WHEN status >= '2' THEN 1 END) as total_delivered,
+            COUNT(CASE WHEN status >= '3' THEN 1 END) as total_opened,
+            COUNT(CASE WHEN status >= '4' THEN 1 END) as total_replied,
+            ROUND(COUNT(CASE WHEN status >= '2' THEN 1 END) * 100.0 / COUNT(*), 2) as delivery_rate,
+            ROUND(COUNT(CASE WHEN status >= '3' THEN 1 END) * 100.0 / COUNT(*), 2) as open_rate,
+            ROUND(COUNT(CASE WHEN status >= '4' THEN 1 END) * 100.0 / COUNT(*), 2) as reply_rate,
+            NOW() as create_time
+        FROM email_send_record 
+        WHERE DATE_FORMAT(send_time, '%Y-%m') = #{yearMonth}
+        ON DUPLICATE KEY UPDATE
+            total_sent = VALUES(total_sent),
+            total_delivered = VALUES(total_delivered),
+            total_opened = VALUES(total_opened),
+            total_replied = VALUES(total_replied),
+            delivery_rate = VALUES(delivery_rate),
+            open_rate = VALUES(open_rate),
+            reply_rate = VALUES(reply_rate),
+            update_time = NOW()
+    </insert>
 
-    <select id="getSendTrendData" parameterType="int" resultMap="EmailStatisticsResult">
-        <include refid="selectEmailStatisticsVo"/>
-        where statistics_date >= date_sub(curdate(), interval #{days} day)
-        and statistics_type = '1'
-        order by statistics_date asc
-    </select>
+    <!-- 生成年度统计 -->
+    <insert id="generateYearlyStatistics" parameterType="String">
+        INSERT INTO email_statistics (stat_date, stat_type, total_sent, total_delivered, total_opened, total_replied, delivery_rate, open_rate, reply_rate, create_time)
+        SELECT 
+            CONCAT(#{year}, '-01-01') as stat_date,
+            '3' as stat_type,
+            COUNT(*) as total_sent,
+            COUNT(CASE WHEN status >= '2' THEN 1 END) as total_delivered,
+            COUNT(CASE WHEN status >= '3' THEN 1 END) as total_opened,
+            COUNT(CASE WHEN status >= '4' THEN 1 END) as total_replied,
+            ROUND(COUNT(CASE WHEN status >= '2' THEN 1 END) * 100.0 / COUNT(*), 2) as delivery_rate,
+            ROUND(COUNT(CASE WHEN status >= '3' THEN 1 END) * 100.0 / COUNT(*), 2) as open_rate,
+            ROUND(COUNT(CASE WHEN status >= '4' THEN 1 END) * 100.0 / COUNT(*), 2) as reply_rate,
+            NOW() as create_time
+        FROM email_send_record 
+        WHERE YEAR(send_time) = #{year}
+        ON DUPLICATE KEY UPDATE
+            total_sent = VALUES(total_sent),
+            total_delivered = VALUES(total_delivered),
+            total_opened = VALUES(total_opened),
+            total_replied = VALUES(total_replied),
+            delivery_rate = VALUES(delivery_rate),
+            open_rate = VALUES(open_rate),
+            reply_rate = VALUES(reply_rate),
+            update_time = NOW()
+    </insert>
 
-    <select id="getReplyRateComparisonData" resultMap="EmailStatisticsResult">
-        select 
-            account_name,
-            avg(reply_rate) as reply_rate
-        from email_statistics
-        where statistics_type = '1'
-        group by account_id, account_name
-        order by reply_rate desc
-    </select>
 </mapper>

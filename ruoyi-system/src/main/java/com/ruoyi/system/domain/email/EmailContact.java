@@ -1,16 +1,15 @@
 package com.ruoyi.system.domain.email;
 
-import java.math.BigDecimal;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
+import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.builder.ToStringStyle;
 
 /**
  * 邮件联系人对象 email_contact
  * 
  * @author ruoyi
- * @date 2023-12-01
+ * @date 2024-01-01
  */
 public class EmailContact extends BaseEntity
 {
@@ -43,12 +42,12 @@ public class EmailContact extends BaseEntity
     @Excel(name = "性别", readConverterExp = "0=未知,1=男,2=女")
     private String gender;
 
-    /** 社交媒体账号 */
-    @Excel(name = "社交媒体账号")
+    /** 社交媒体 */
+    @Excel(name = "社交媒体")
     private String socialMedia;
 
-    /** 粉丝数量 */
-    @Excel(name = "粉丝数量")
+    /** 粉丝数 */
+    @Excel(name = "粉丝数")
     private Integer followers;
 
     /** 等级 */
@@ -56,35 +55,38 @@ public class EmailContact extends BaseEntity
     private String level;
 
     /** 群组ID */
-    @Excel(name = "群组ID")
     private Long groupId;
+
+    /** 群组名称 */
+    @Excel(name = "群组名称")
+    private String groupName;
 
     /** 标签 */
     @Excel(name = "标签")
     private String tags;
 
-    /** 发送邮件数量 */
-    @Excel(name = "发送邮件数量")
+    /** 发送次数 */
+    @Excel(name = "发送次数")
     private Integer sendCount;
 
-    /** 回复邮件数量 */
-    @Excel(name = "回复邮件数量")
+    /** 回复次数 */
+    @Excel(name = "回复次数")
     private Integer replyCount;
 
-    /** 打开邮件数量 */
-    @Excel(name = "打开邮件数量")
+    /** 打开次数 */
+    @Excel(name = "打开次数")
     private Integer openCount;
 
     /** 回复率 */
     @Excel(name = "回复率")
-    private BigDecimal replyRate;
+    private Double replyRate;
 
     /** 状态 */
     @Excel(name = "状态", readConverterExp = "0=正常,1=停用")
     private String status;
 
-    /** 群组名称 */
-    private String groupName;
+    /** 删除标志（0代表存在 2代表删除） */
+    private String deleted;
 
     public void setContactId(Long contactId) 
     {
@@ -95,6 +97,7 @@ public class EmailContact extends BaseEntity
     {
         return contactId;
     }
+
     public void setName(String name) 
     {
         this.name = name;
@@ -104,6 +107,7 @@ public class EmailContact extends BaseEntity
     {
         return name;
     }
+
     public void setEmail(String email) 
     {
         this.email = email;
@@ -113,6 +117,7 @@ public class EmailContact extends BaseEntity
     {
         return email;
     }
+
     public void setCompany(String company) 
     {
         this.company = company;
@@ -122,6 +127,7 @@ public class EmailContact extends BaseEntity
     {
         return company;
     }
+
     public void setAddress(String address) 
     {
         this.address = address;
@@ -131,6 +137,7 @@ public class EmailContact extends BaseEntity
     {
         return address;
     }
+
     public void setAge(Integer age) 
     {
         this.age = age;
@@ -140,6 +147,7 @@ public class EmailContact extends BaseEntity
     {
         return age;
     }
+
     public void setGender(String gender) 
     {
         this.gender = gender;
@@ -149,6 +157,7 @@ public class EmailContact extends BaseEntity
     {
         return gender;
     }
+
     public void setSocialMedia(String socialMedia) 
     {
         this.socialMedia = socialMedia;
@@ -158,6 +167,7 @@ public class EmailContact extends BaseEntity
     {
         return socialMedia;
     }
+
     public void setFollowers(Integer followers) 
     {
         this.followers = followers;
@@ -167,6 +177,7 @@ public class EmailContact extends BaseEntity
     {
         return followers;
     }
+
     public void setLevel(String level) 
     {
         this.level = level;
@@ -176,6 +187,7 @@ public class EmailContact extends BaseEntity
     {
         return level;
     }
+
     public void setGroupId(Long groupId) 
     {
         this.groupId = groupId;
@@ -185,6 +197,17 @@ public class EmailContact extends BaseEntity
     {
         return groupId;
     }
+
+    public void setGroupName(String groupName) 
+    {
+        this.groupName = groupName;
+    }
+
+    public String getGroupName() 
+    {
+        return groupName;
+    }
+
     public void setTags(String tags) 
     {
         this.tags = tags;
@@ -194,6 +217,7 @@ public class EmailContact extends BaseEntity
     {
         return tags;
     }
+
     public void setSendCount(Integer sendCount) 
     {
         this.sendCount = sendCount;
@@ -203,6 +227,7 @@ public class EmailContact extends BaseEntity
     {
         return sendCount;
     }
+
     public void setReplyCount(Integer replyCount) 
     {
         this.replyCount = replyCount;
@@ -212,6 +237,7 @@ public class EmailContact extends BaseEntity
     {
         return replyCount;
     }
+
     public void setOpenCount(Integer openCount) 
     {
         this.openCount = openCount;
@@ -221,15 +247,17 @@ public class EmailContact extends BaseEntity
     {
         return openCount;
     }
-    public void setReplyRate(BigDecimal replyRate) 
+
+    public void setReplyRate(Double replyRate) 
     {
         this.replyRate = replyRate;
     }
 
-    public BigDecimal getReplyRate() 
+    public Double getReplyRate() 
     {
         return replyRate;
     }
+
     public void setStatus(String status) 
     {
         this.status = status;
@@ -240,14 +268,14 @@ public class EmailContact extends BaseEntity
         return status;
     }
 
-    public String getGroupName() 
+    public void setDeleted(String deleted) 
     {
-        return groupName;
+        this.deleted = deleted;
     }
 
-    public void setGroupName(String groupName) 
+    public String getDeleted() 
     {
-        this.groupName = groupName;
+        return deleted;
     }
 
     @Override
@@ -264,17 +292,19 @@ public class EmailContact extends BaseEntity
             .append("followers", getFollowers())
             .append("level", getLevel())
             .append("groupId", getGroupId())
+            .append("groupName", getGroupName())
             .append("tags", getTags())
             .append("sendCount", getSendCount())
             .append("replyCount", getReplyCount())
             .append("openCount", getOpenCount())
             .append("replyRate", getReplyRate())
             .append("status", getStatus())
-            .append("remark", getRemark())
+            .append("deleted", getDeleted())
             .append("createBy", getCreateBy())
             .append("createTime", getCreateTime())
             .append("updateBy", getUpdateBy())
             .append("updateTime", getUpdateTime())
+            .append("remark", getRemark())
             .toString();
     }
 }

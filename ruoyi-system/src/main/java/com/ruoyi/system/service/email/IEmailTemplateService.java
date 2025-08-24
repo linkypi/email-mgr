@@ -76,3 +76,5 @@ public interface IEmailTemplateService
      */
     public String previewTemplate(Long templateId, String variables);
 }
+
+

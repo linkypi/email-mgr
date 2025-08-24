@@ -7,7 +7,7 @@ import com.ruoyi.system.domain.email.EmailAccount;
  * 邮箱账号Service接口
  * 
  * @author ruoyi
- * @date 2023-01-01
+ * @date 2024-01-01
  */
 public interface IEmailAccountService 
 {
@@ -60,18 +60,21 @@ public interface IEmailAccountService
     public int deleteEmailAccountByAccountId(Long accountId);
 
     /**
-     * 测试邮箱账号连接
+     * 获取邮箱账号（包含解密后的密码）
      * 
-     * @param emailAccount 邮箱账号
-     * @return 结果
+     * @param accountId 邮箱账号主键
+     * @return 邮箱账号
      */
-    public boolean testEmailAccount(EmailAccount emailAccount);
+    public EmailAccount selectEmailAccountWithDecryptedPassword(Long accountId);
+    
+
 
     /**
-     * 获取可用邮箱账号列表
+     * 批量更新邮箱账号状态
      * 
-     * @return 邮箱账号集合
+     * @param emailAccount 包含accountIds和status的邮箱账号对象
+     * @return 结果
      */
-    public List<EmailAccount> getAvailableAccounts();
+    public int batchUpdateAccountStatus(EmailAccount emailAccount);
 }
 

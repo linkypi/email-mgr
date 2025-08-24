@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.email.EmailServiceMonitorMapper">
+    
+    <resultMap type="EmailServiceMonitor" id="EmailServiceMonitorResult">
+        <result property="id"    column="id"    />
+        <result property="accountId"    column="account_id"    />
+        <result property="emailAddress"    column="email_address"    />
+        <result property="imapStatus"    column="imap_status"    />
+        <result property="smtpStatus"    column="smtp_status"    />
+        <result property="imapLastCheckTime"    column="imap_last_check_time"    />
+        <result property="smtpLastCheckTime"    column="smtp_last_check_time"    />
+        <result property="imapErrorMessage"    column="imap_error_message"    />
+        <result property="smtpErrorMessage"    column="smtp_error_message"    />
+        <result property="imapErrorTime"    column="imap_error_time"    />
+        <result property="smtpErrorTime"    column="smtp_error_time"    />
+        <result property="monitorEnabled"    column="monitor_enabled"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="remark"    column="remark"    />
+    </resultMap>
+
+    <sql id="selectEmailServiceMonitorVo">
+        select id, account_id, email_address, imap_status, smtp_status, imap_last_check_time, smtp_last_check_time, imap_error_message, smtp_error_message, imap_error_time, smtp_error_time, monitor_enabled, create_by, create_time, update_by, update_time, remark from email_service_monitor
+    </sql>
+
+    <select id="selectEmailServiceMonitorList" parameterType="EmailServiceMonitor" resultMap="EmailServiceMonitorResult">
+        <include refid="selectEmailServiceMonitorVo"/>
+        <where>  
+            <if test="emailAddress != null  and emailAddress != ''"> and email_address like concat('%', #{emailAddress}, '%')</if>
+            <if test="imapStatus != null  and imapStatus != ''"> and imap_status = #{imapStatus}</if>
+            <if test="smtpStatus != null  and smtpStatus != ''"> and smtp_status = #{smtpStatus}</if>
+            <if test="monitorEnabled != null "> and monitor_enabled = #{monitorEnabled}</if>
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectEmailServiceMonitorById" parameterType="Long" resultMap="EmailServiceMonitorResult">
+        <include refid="selectEmailServiceMonitorVo"/>
+        where id = #{id}
+    </select>
+    
+    <select id="selectEmailServiceMonitorByAccountId" parameterType="Long" resultMap="EmailServiceMonitorResult">
+        <include refid="selectEmailServiceMonitorVo"/>
+        where account_id = #{accountId}
+    </select>
+        
+    <insert id="insertEmailServiceMonitor" parameterType="EmailServiceMonitor" useGeneratedKeys="true" keyProperty="id">
+        insert into email_service_monitor
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="accountId != null">account_id,</if>
+            <if test="emailAddress != null and emailAddress != ''">email_address,</if>
+            <if test="imapStatus != null and imapStatus != ''">imap_status,</if>
+            <if test="smtpStatus != null and smtpStatus != ''">smtp_status,</if>
+            <if test="imapLastCheckTime != null">imap_last_check_time,</if>
+            <if test="smtpLastCheckTime != null">smtp_last_check_time,</if>
+            <if test="imapErrorMessage != null">imap_error_message,</if>
+            <if test="smtpErrorMessage != null">smtp_error_message,</if>
+            <if test="imapErrorTime != null">imap_error_time,</if>
+            <if test="smtpErrorTime != null">smtp_error_time,</if>
+            <if test="monitorEnabled != null">monitor_enabled,</if>
+            <if test="createBy != null and createBy != ''">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null and updateBy != ''">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="remark != null">remark,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="accountId != null">#{accountId},</if>
+            <if test="emailAddress != null and emailAddress != ''">#{emailAddress},</if>
+            <if test="imapStatus != null and imapStatus != ''">#{imapStatus},</if>
+            <if test="smtpStatus != null and smtpStatus != ''">#{smtpStatus},</if>
+            <if test="imapLastCheckTime != null">#{imapLastCheckTime},</if>
+            <if test="smtpLastCheckTime != null">#{smtpLastCheckTime},</if>
+            <if test="imapErrorMessage != null">#{imapErrorMessage},</if>
+            <if test="smtpErrorMessage != null">#{smtpErrorMessage},</if>
+            <if test="imapErrorTime != null">#{imapErrorTime},</if>
+            <if test="smtpErrorTime != null">#{smtpErrorTime},</if>
+            <if test="monitorEnabled != null">#{monitorEnabled},</if>
+            <if test="createBy != null and createBy != ''">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="remark != null">#{remark},</if>
+         </trim>
+    </insert>
+
+    <update id="updateEmailServiceMonitor" parameterType="EmailServiceMonitor">
+        update email_service_monitor
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="accountId != null">account_id = #{accountId},</if>
+            <if test="emailAddress != null and emailAddress != ''">email_address = #{emailAddress},</if>
+            <if test="imapStatus != null and imapStatus != ''">imap_status = #{imapStatus},</if>
+            <if test="smtpStatus != null and smtpStatus != ''">smtp_status = #{smtpStatus},</if>
+            <if test="imapLastCheckTime != null">imap_last_check_time = #{imapLastCheckTime},</if>
+            <if test="smtpLastCheckTime != null">smtp_last_check_time = #{smtpLastCheckTime},</if>
+            <if test="imapErrorMessage != null">imap_error_message = #{imapErrorMessage},</if>
+            <if test="smtpErrorMessage != null">smtp_error_message = #{smtpErrorMessage},</if>
+            <if test="imapErrorTime != null">imap_error_time = #{imapErrorTime},</if>
+            <if test="smtpErrorTime != null">smtp_error_time = #{smtpErrorTime},</if>
+            <if test="monitorEnabled != null">monitor_enabled = #{monitorEnabled},</if>
+            <if test="createBy != null and createBy != ''">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="remark != null">remark = #{remark},</if>
+        </trim>
+        where id = #{id}
+    </update>
+    
+    <update id="updateImapStatus" parameterType="EmailServiceMonitor">
+        update email_service_monitor
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="imapStatus != null and imapStatus != ''">imap_status = #{imapStatus},</if>
+            <if test="imapLastCheckTime != null">imap_last_check_time = #{imapLastCheckTime},</if>
+            <if test="imapErrorMessage != null">imap_error_message = #{imapErrorMessage},</if>
+            <if test="imapErrorTime != null">imap_error_time = #{imapErrorTime},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where account_id = #{accountId}
+    </update>
+    
+    <update id="updateSmtpStatus" parameterType="EmailServiceMonitor">
+        update email_service_monitor
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="smtpStatus != null and smtpStatus != ''">smtp_status = #{smtpStatus},</if>
+            <if test="smtpLastCheckTime != null">smtp_last_check_time = #{smtpLastCheckTime},</if>
+            <if test="smtpErrorMessage != null">smtp_error_message = #{smtpErrorMessage},</if>
+            <if test="smtpErrorTime != null">smtp_error_time = #{smtpErrorTime},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where account_id = #{accountId}
+    </update>
+
+    <delete id="deleteEmailServiceMonitorById" parameterType="Long">
+        delete from email_service_monitor where id = #{id}
+    </delete>
+
+    <delete id="deleteEmailServiceMonitorByIds" parameterType="String">
+        delete from email_service_monitor where id in 
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </delete>
+</mapper>

@@ -68,9 +68,9 @@ export const constantRoutes = [
     children: [
       {
         path: 'index',
-        component: () => import('@/views/index'),
+        component: () => import('@/views/email/statistics/index'),
         name: 'Index',
-        meta: { title: '首页', icon: 'dashboard', affix: true }
+        meta: { title: '数据统计', icon: 'chart', affix: true }
       }
     ]
   },
@@ -85,6 +85,19 @@ export const constantRoutes = [
         component: () => import('@/views/system/user/profile/index'),
         name: 'Profile',
         meta: { title: '个人中心', icon: 'user' }
+      }
+    ]
+  },
+  {
+    path: '/email/batch/send',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/email/batch/send'),
+        name: 'EmailBatchSend',
+        meta: { title: '邮件批量发送', icon: 'send' }
       }
     ]
   }

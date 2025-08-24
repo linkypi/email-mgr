@@ -183,5 +183,35 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{contactId}
         </foreach>
     </delete>
+
+    <!-- 根据群组ID列表查询联系人 -->
+    <select id="selectContactsByGroupIds" parameterType="list" resultMap="EmailContactResult">
+        <include refid="selectEmailContactVo"/>
+        join email_contact_group ecg on c.contact_id = ecg.contact_id
+        where c.deleted = '0' and ecg.group_id in
+        <foreach item="groupId" collection="list" open="(" separator="," close=")">
+            #{groupId}
+        </foreach>
+        group by c.contact_id
+    </select>
+
+    <!-- 根据标签ID列表查询联系人 -->
+    <select id="selectContactsByTagIds" parameterType="list" resultMap="EmailContactResult">
+        <include refid="selectEmailContactVo"/>
+        where c.deleted = '0' and (
+            <foreach item="tagId" collection="list" separator=" OR ">
+                FIND_IN_SET((SELECT tag_name FROM email_contact_tag WHERE tag_id = #{tagId} AND deleted = '0'), c.tags) > 0
+            </foreach>
+        )
+    </select>
+
+    <!-- 根据联系人ID列表查询联系人 -->
+    <select id="selectContactsByIds" parameterType="list" resultMap="EmailContactResult">
+        <include refid="selectEmailContactVo"/>
+        where c.deleted = '0' and c.contact_id in
+        <foreach item="contactId" collection="list" open="(" separator="," close=")">
+            #{contactId}
+        </foreach>
+    </select>
 </mapper>
 

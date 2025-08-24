@@ -12,20 +12,28 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="smtpHost"    column="smtp_host"    />
         <result property="smtpPort"    column="smtp_port"    />
         <result property="smtpSsl"    column="smtp_ssl"    />
+        <result property="imapHost"    column="imap_host"    />
+        <result property="imapPort"    column="imap_port"    />
+        <result property="imapSsl"    column="imap_ssl"    />
+        <result property="imapUsername"    column="imap_username"    />
+        <result property="imapPassword"    column="imap_password"    />
+        <result property="webhookUrl"    column="webhook_url"    />
+        <result property="webhookSecret"    column="webhook_secret"    />
+        <result property="trackingEnabled"    column="tracking_enabled"    />
         <result property="dailyLimit"    column="daily_limit"    />
         <result property="usedCount"    column="used_count"    />
         <result property="lastSendTime"    column="last_send_time"    />
+        <result property="lastSyncTime"    column="last_sync_time"    />
         <result property="status"    column="status"    />
-        <result property="remark"    column="remark"    />
         <result property="createBy"    column="create_by"    />
         <result property="createTime"    column="create_time"    />
         <result property="updateBy"    column="update_by"    />
         <result property="updateTime"    column="update_time"    />
-        <result property="deleted"    column="deleted"    />
+        <result property="remark"    column="remark"    />
     </resultMap>
 
     <sql id="selectEmailAccountVo">
-        select account_id, account_name, email_address, password, smtp_host, smtp_port, smtp_ssl, daily_limit, used_count, last_send_time, status, remark, create_by, create_time, update_by, update_time, deleted from email_account
+        select account_id, account_name, email_address, password, smtp_host, smtp_port, smtp_ssl, imap_host, imap_port, imap_ssl, imap_username, imap_password, webhook_url, webhook_secret, tracking_enabled, daily_limit, used_count, last_send_time, last_sync_time, status, create_by, create_time, update_by, update_time, remark from email_account
     </sql>
 
     <select id="selectEmailAccountList" parameterType="EmailAccount" resultMap="EmailAccountResult">
@@ -33,15 +41,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <where>  
             <if test="accountName != null  and accountName != ''"> and account_name like concat('%', #{accountName}, '%')</if>
             <if test="emailAddress != null  and emailAddress != ''"> and email_address like concat('%', #{emailAddress}, '%')</if>
-            <if test="smtpHost != null  and smtpHost != ''"> and smtp_host like concat('%', #{smtpHost}, '%')</if>
             <if test="status != null  and status != ''"> and status = #{status}</if>
-            and deleted = '0'
         </where>
+        order by create_time desc
     </select>
     
     <select id="selectEmailAccountByAccountId" parameterType="Long" resultMap="EmailAccountResult">
         <include refid="selectEmailAccountVo"/>
-        where account_id = #{accountId} and deleted = '0'
+        where account_id = #{accountId}
     </select>
         
     <insert id="insertEmailAccount" parameterType="EmailAccount" useGeneratedKeys="true" keyProperty="accountId">
@@ -53,16 +60,23 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="smtpHost != null and smtpHost != ''">smtp_host,</if>
             <if test="smtpPort != null">smtp_port,</if>
             <if test="smtpSsl != null and smtpSsl != ''">smtp_ssl,</if>
+            <if test="imapHost != null and imapHost != ''">imap_host,</if>
+            <if test="imapPort != null">imap_port,</if>
+            <if test="imapSsl != null and imapSsl != ''">imap_ssl,</if>
+            <if test="imapUsername != null and imapUsername != ''">imap_username,</if>
+            <if test="imapPassword != null and imapPassword != ''">imap_password,</if>
+            <if test="webhookUrl != null and webhookUrl != ''">webhook_url,</if>
+            <if test="webhookSecret != null and webhookSecret != ''">webhook_secret,</if>
+            <if test="trackingEnabled != null and trackingEnabled != ''">tracking_enabled,</if>
             <if test="dailyLimit != null">daily_limit,</if>
             <if test="usedCount != null">used_count,</if>
             <if test="lastSendTime != null">last_send_time,</if>
             <if test="status != null and status != ''">status,</if>
-            <if test="remark != null">remark,</if>
             <if test="createBy != null and createBy != ''">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null and updateBy != ''">update_by,</if>
             <if test="updateTime != null">update_time,</if>
-            <if test="deleted != null and deleted != ''">deleted,</if>
+            <if test="remark != null">remark,</if>
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="accountName != null and accountName != ''">#{accountName},</if>
@@ -71,16 +85,24 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="smtpHost != null and smtpHost != ''">#{smtpHost},</if>
             <if test="smtpPort != null">#{smtpPort},</if>
             <if test="smtpSsl != null and smtpSsl != ''">#{smtpSsl},</if>
+            <if test="imapHost != null and imapHost != ''">#{imapHost},</if>
+            <if test="imapPort != null">#{imapPort},</if>
+            <if test="imapSsl != null and imapSsl != ''">#{imapSsl},</if>
+            <if test="imapUsername != null and imapUsername != ''">#{imapUsername},</if>
+            <if test="imapPassword != null and imapPassword != ''">#{imapPassword},</if>
+            <if test="webhookUrl != null and webhookUrl != ''">#{webhookUrl},</if>
+            <if test="webhookSecret != null and webhookSecret != ''">#{webhookSecret},</if>
+            <if test="trackingEnabled != null and trackingEnabled != ''">#{trackingEnabled},</if>
             <if test="dailyLimit != null">#{dailyLimit},</if>
             <if test="usedCount != null">#{usedCount},</if>
             <if test="lastSendTime != null">#{lastSendTime},</if>
             <if test="status != null and status != ''">#{status},</if>
-            <if test="remark != null">#{remark},</if>
+
             <if test="createBy != null and createBy != ''">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null and updateBy != ''">#{updateBy},</if>
             <if test="updateTime != null">#{updateTime},</if>
-            <if test="deleted != null and deleted != ''">#{deleted},</if>
+            <if test="remark != null">#{remark},</if>
          </trim>
     </insert>
 
@@ -93,34 +115,52 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="smtpHost != null and smtpHost != ''">smtp_host = #{smtpHost},</if>
             <if test="smtpPort != null">smtp_port = #{smtpPort},</if>
             <if test="smtpSsl != null and smtpSsl != ''">smtp_ssl = #{smtpSsl},</if>
+            <if test="imapHost != null and imapHost != ''">imap_host = #{imapHost},</if>
+            <if test="imapPort != null">imap_port = #{imapPort},</if>
+            <if test="imapSsl != null and imapSsl != ''">imap_ssl = #{imapSsl},</if>
+            <if test="imapUsername != null and imapUsername != ''">imap_username = #{imapUsername},</if>
+            <if test="imapPassword != null and imapPassword != ''">imap_password = #{imapPassword},</if>
+            <if test="webhookUrl != null and webhookUrl != ''">webhook_url = #{webhookUrl},</if>
+            <if test="webhookSecret != null and webhookSecret != ''">webhook_secret = #{webhookSecret},</if>
+            <if test="trackingEnabled != null and trackingEnabled != ''">tracking_enabled = #{trackingEnabled},</if>
+            <if test="lastSyncTime != null">last_sync_time = #{lastSyncTime},</if>
             <if test="dailyLimit != null">daily_limit = #{dailyLimit},</if>
             <if test="usedCount != null">used_count = #{usedCount},</if>
             <if test="lastSendTime != null">last_send_time = #{lastSendTime},</if>
             <if test="status != null and status != ''">status = #{status},</if>
-            <if test="remark != null">remark = #{remark},</if>
+
             <if test="createBy != null and createBy != ''">create_by = #{createBy},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
-            <if test="deleted != null and deleted != ''">deleted = #{deleted},</if>
+            <if test="remark != null">remark = #{remark},</if>
         </trim>
         where account_id = #{accountId}
     </update>
 
     <delete id="deleteEmailAccountByAccountId" parameterType="Long">
-        update email_account set deleted = '2' where account_id = #{accountId}
+        delete from email_account where account_id = #{accountId}
     </delete>
 
     <delete id="deleteEmailAccountByAccountIds" parameterType="String">
-        update email_account set deleted = '2' where account_id in 
+        delete from email_account where account_id in 
         <foreach item="accountId" collection="array" open="(" separator="," close=")">
             #{accountId}
         </foreach>
     </delete>
+    
 
-    <select id="selectAvailableAccounts" resultMap="EmailAccountResult">
-        <include refid="selectEmailAccountVo"/>
-        where status = '0' and deleted = '0' and used_count &lt; daily_limit
-        order by used_count asc
-    </select>
+
+    <update id="batchUpdateAccountStatus" parameterType="EmailAccount">
+        update email_account
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="status != null and status != ''">status = #{status},</if>
+            <if test="updateBy != null and updateBy != ''">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where account_id in
+        <foreach item="accountId" collection="accountIds" open="(" separator="," close=")">
+            #{accountId}
+        </foreach>
+    </update>
 </mapper>

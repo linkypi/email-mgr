@@ -7,7 +7,7 @@ import com.ruoyi.system.domain.email.EmailPersonal;
  * 个人邮件Service接口
  * 
  * @author ruoyi
- * @date 2024-01-01
+ * @date 2024-01-15
  */
 public interface IEmailPersonalService 
 {
@@ -26,6 +26,38 @@ public interface IEmailPersonalService
      * @return 个人邮件集合
      */
     public List<EmailPersonal> selectEmailPersonalList(EmailPersonal emailPersonal);
+
+    /**
+     * 查询收件箱列表
+     * 
+     * @param emailPersonal 个人邮件
+     * @return 个人邮件集合
+     */
+    public List<EmailPersonal> selectInboxList(EmailPersonal emailPersonal);
+
+    /**
+     * 查询发件箱列表
+     * 
+     * @param emailPersonal 个人邮件
+     * @return 个人邮件集合
+     */
+    public List<EmailPersonal> selectSentList(EmailPersonal emailPersonal);
+
+    /**
+     * 查询星标邮件列表
+     * 
+     * @param emailPersonal 个人邮件
+     * @return 个人邮件集合
+     */
+    public List<EmailPersonal> selectStarredList(EmailPersonal emailPersonal);
+
+    /**
+     * 查询已删除邮件列表
+     * 
+     * @param emailPersonal 个人邮件
+     * @return 个人邮件集合
+     */
+    public List<EmailPersonal> selectDeletedList(EmailPersonal emailPersonal);
 
     /**
      * 新增个人邮件
@@ -60,38 +92,6 @@ public interface IEmailPersonalService
     public int deleteEmailPersonalByEmailId(Long emailId);
 
     /**
-     * 查询收件箱邮件
-     * 
-     * @param emailPersonal 查询条件
-     * @return 邮件列表
-     */
-    public List<EmailPersonal> selectInboxList(EmailPersonal emailPersonal);
-
-    /**
-     * 查询发件箱邮件
-     * 
-     * @param emailPersonal 查询条件
-     * @return 邮件列表
-     */
-    public List<EmailPersonal> selectSentList(EmailPersonal emailPersonal);
-
-    /**
-     * 查询星标邮件
-     * 
-     * @param emailPersonal 查询条件
-     * @return 邮件列表
-     */
-    public List<EmailPersonal> selectStarredList(EmailPersonal emailPersonal);
-
-    /**
-     * 查询已删除邮件
-     * 
-     * @param emailPersonal 查询条件
-     * @return 邮件列表
-     */
-    public List<EmailPersonal> selectDeletedList(EmailPersonal emailPersonal);
-
-    /**
      * 标记邮件为已读
      * 
      * @param emailId 邮件ID
@@ -103,15 +103,71 @@ public interface IEmailPersonalService
      * 标记邮件为星标
      * 
      * @param emailId 邮件ID
-     * @param isStarred 是否星标
      * @return 结果
      */
-    public int markAsStarred(Long emailId, String isStarred);
+    public int markAsStarred(Long emailId);
+
+    /**
+     * 标记邮件为重要
+     * 
+     * @param emailId 邮件ID
+     * @return 结果
+     */
+    public int markAsImportant(Long emailId);
+
+    /**
+     * 恢复已删除邮件
+     * 
+     * @param emailId 邮件ID
+     * @return 结果
+     */
+    public int restoreEmail(Long emailId);
+
+    /**
+     * 彻底删除邮件
+     * 
+     * @param emailId 邮件ID
+     * @return 结果
+     */
+    public int deletePermanently(Long emailId);
 
     /**
      * 获取未读邮件数量
      * 
-     * @return 未读邮件数量
+     * @param userId 用户ID
+     * @return 未读数量
      */
-    public int getUnreadCount();
+    public int getUnreadCount(Long userId);
+
+    /**
+     * 获取收件箱未读数量
+     * 
+     * @param userId 用户ID
+     * @return 未读数量
+     */
+    public int getInboxUnreadCount(Long userId);
+
+    /**
+     * 获取发件箱未读数量
+     * 
+     * @param userId 用户ID
+     * @return 未读数量
+     */
+    public int getSentUnreadCount(Long userId);
+
+    /**
+     * 获取星标邮件未读数量
+     * 
+     * @param userId 用户ID
+     * @return 未读数量
+     */
+    public int getStarredUnreadCount(Long userId);
+
+    /**
+     * 获取已删除邮件未读数量
+     * 
+     * @param userId 用户ID
+     * @return 未读数量
+     */
+    public int getDeletedUnreadCount(Long userId);
 }
