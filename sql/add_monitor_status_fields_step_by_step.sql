@@ -58,3 +58,4 @@ DESCRIBE `email_service_monitor`;
 -- ========================================
 -- 执行这条语句：
 SHOW INDEX FROM `email_service_monitor`;
+

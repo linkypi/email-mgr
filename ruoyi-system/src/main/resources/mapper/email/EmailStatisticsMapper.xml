@@ -21,12 +21,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="openedTime"    column="opened_time"    />
         <result property="repliedTime"    column="replied_time"    />
         <result property="clickedTime"    column="clicked_time"    />
+        <result property="accountId"    column="account_id"    />
         <result property="createTime"    column="create_time"    />
         <result property="updateTime"    column="update_time"    />
     </resultMap>
 
     <sql id="selectEmailStatisticsVo">
-        select stat_id, stat_date, stat_type, total_sent, total_delivered, total_opened, total_replied, delivery_rate, open_rate, reply_rate, message_id, status, delivered_time, opened_time, replied_time, clicked_time, create_time, update_time from email_statistics
+        select stat_id, stat_date, stat_type, total_sent, total_delivered, total_opened, total_replied, delivery_rate, open_rate, reply_rate, message_id, status, delivered_time, opened_time, replied_time, clicked_time, account_id, create_time, update_time from email_statistics
     </sql>
 
     <select id="selectEmailStatisticsList" parameterType="EmailStatistics" resultMap="EmailStatisticsResult">
@@ -72,6 +73,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="openedTime != null">opened_time,</if>
             <if test="repliedTime != null">replied_time,</if>
             <if test="clickedTime != null">clicked_time,</if>
+            <if test="accountId != null">account_id,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateTime != null">update_time,</if>
          </trim>
@@ -91,6 +93,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="openedTime != null">#{openedTime},</if>
             <if test="repliedTime != null">#{repliedTime},</if>
             <if test="clickedTime != null">#{clickedTime},</if>
+            <if test="accountId != null">#{accountId},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateTime != null">#{updateTime},</if>
          </trim>
@@ -114,6 +117,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="openedTime != null">opened_time = #{openedTime},</if>
             <if test="repliedTime != null">replied_time = #{repliedTime},</if>
             <if test="clickedTime != null">clicked_time = #{clickedTime},</if>
+            <if test="accountId != null">account_id = #{accountId},</if>
             <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </trim>

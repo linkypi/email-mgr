@@ -92,7 +92,7 @@ public class EmailImapController extends BaseController
             
             // 更新最后同步时间
             account.setLastSyncTime(DateUtils.getTime());
-            emailAccountService.updateEmailAccount(account);
+            emailAccountService.updateEmailAccountStatistics(account);
             
             return success("启动成功");
         } catch (Exception e) {
@@ -116,7 +116,7 @@ public class EmailImapController extends BaseController
             
             // 更新最后同步时间
             account.setLastSyncTime(DateUtils.getTime());
-            emailAccountService.updateEmailAccount(account);
+            emailAccountService.updateEmailAccountStatistics(account);
             
             // TODO: 这里应该调用实际的IMAP监听服务停止逻辑
             // 例如：imapListenerService.stopListener(account);
@@ -143,14 +143,14 @@ public class EmailImapController extends BaseController
             
             // 先停止监听
             account.setLastSyncTime(DateUtils.getTime());
-            emailAccountService.updateEmailAccount(account);
+            emailAccountService.updateEmailAccountStatistics(account);
             
             // TODO: 这里应该调用实际的IMAP监听服务停止逻辑
             // 例如：imapListenerService.stopListener(account);
             
             // 再启动监听
             account.setLastSyncTime(DateUtils.getTime());
-            emailAccountService.updateEmailAccount(account);
+            emailAccountService.updateEmailAccountStatistics(account);
             
             // TODO: 这里应该调用实际的IMAP监听服务启动逻辑
             // 例如：imapListenerService.startListener(account);
@@ -186,7 +186,7 @@ public class EmailImapController extends BaseController
             
             // 更新最后同步时间
             account.setLastSyncTime(DateUtils.getTime());
-            emailAccountService.updateEmailAccount(account);
+            emailAccountService.updateEmailAccountStatistics(account);
             
             return success("同步成功");
         } catch (Exception e) {

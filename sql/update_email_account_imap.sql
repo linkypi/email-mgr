@@ -89,3 +89,4 @@ ORDER BY account_id;
 CREATE INDEX IF NOT EXISTS `idx_email_account_imap` ON `email_account` (`imap_host`, `imap_port`);
 CREATE INDEX IF NOT EXISTS `idx_email_account_tracking` ON `email_account` (`tracking_enabled`);
 CREATE INDEX IF NOT EXISTS `idx_email_account_sync_time` ON `email_account` (`last_sync_time`);
+

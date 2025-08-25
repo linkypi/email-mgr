@@ -20,3 +20,4 @@ ADD COLUMN `contact_ids` text DEFAULT NULL COMMENT '联系人ID列表(逗号分�
 -- 5. 为account_id添加索引
 ALTER TABLE `email_send_task` 
 ADD INDEX `idx_account_id` (`account_id`);
+

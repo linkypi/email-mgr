@@ -62,3 +62,4 @@ DESCRIBE `email_service_monitor`;
 
 -- 8. 验证索引添加成功
 SHOW INDEX FROM `email_service_monitor`;
+

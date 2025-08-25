@@ -27,3 +27,4 @@ SELECT dict_sort, dict_label, dict_value, list_class, remark
 FROM sys_dict_data 
 WHERE dict_type = 'email_service_status' 
 ORDER BY dict_sort;
+

@@ -36,3 +36,4 @@ CREATE TABLE IF NOT EXISTS `email_statistics` (
 -- 添加索引以提高查询性能
 CREATE INDEX IF NOT EXISTS `idx_email_statistics_task_status` ON `email_statistics` (`task_id`, `status`);
 CREATE INDEX IF NOT EXISTS `idx_email_statistics_create_time` ON `email_statistics` (`create_time`);
+

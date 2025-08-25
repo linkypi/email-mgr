@@ -111,3 +111,4 @@ WHERE a.deleted = '0';
 -- 11. 显示视图数据
 SELECT '账号状态视图' as info;
 SELECT * FROM v_email_account_status ORDER BY account_id;
+

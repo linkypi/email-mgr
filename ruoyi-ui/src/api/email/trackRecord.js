@@ -123,3 +123,4 @@ export function exportEmailTrackRecord(query) {
     data: query
   })
 }
+

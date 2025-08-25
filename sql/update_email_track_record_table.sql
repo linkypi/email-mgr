@@ -22,3 +22,4 @@ DESCRIBE email_track_record;
 
 -- 查看更新后的索引
 SHOW INDEX FROM email_track_record;
+

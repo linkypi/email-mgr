@@ -76,3 +76,4 @@ public interface EmailTaskExecutionMapper
      */
     public List<EmailTaskExecution> selectExecutionsByTaskId(Long taskId);
 }
+

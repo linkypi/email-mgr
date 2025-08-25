@@ -42,6 +42,14 @@ public interface IEmailAccountService
      * @return 结果
      */
     public int updateEmailAccount(EmailAccount emailAccount);
+    
+    /**
+     * 更新邮箱账号统计信息（不加密密码）
+     * 
+     * @param emailAccount 邮箱账号
+     * @return 结果
+     */
+    public int updateEmailAccountStatistics(EmailAccount emailAccount);
 
     /**
      * 批量删除邮箱账号

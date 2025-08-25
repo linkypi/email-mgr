@@ -123,3 +123,4 @@ public interface EmailTrackRecordMapper
      */
     public List<EmailTrackRecord> selectEmailTrackRecordStatsByAccountId(Long accountId);
 }
+

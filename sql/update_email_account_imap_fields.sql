@@ -48,3 +48,4 @@ CREATE INDEX idx_email_account_tracking_enabled ON email_account(tracking_enable
 
 -- 查看表结构
 DESCRIBE email_account;
+

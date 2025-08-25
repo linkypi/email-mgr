@@ -63,3 +63,4 @@ DESCRIBE email_service_monitor_log;
 -- 查看索引
 SHOW INDEX FROM email_service_monitor;
 SHOW INDEX FROM email_service_monitor_log;
+

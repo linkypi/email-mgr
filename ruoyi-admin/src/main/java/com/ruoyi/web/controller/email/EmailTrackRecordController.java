@@ -200,3 +200,4 @@ public class EmailTrackRecordController extends BaseController
         return toAjax(emailTrackRecordService.updateEmailStatus(messageId, status));
     }
 }
+

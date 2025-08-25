@@ -49,3 +49,4 @@ INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`
 UPDATE `sys_menu` SET `order_num` = 7 WHERE `menu_id` = 2200; -- 任务管理
 UPDATE `sys_menu` SET `order_num` = 8 WHERE `menu_id` = 2300; -- IMAP监听
 UPDATE `sys_menu` SET `order_num` = 9 WHERE `menu_id` = 2100; -- 邮件统计
+

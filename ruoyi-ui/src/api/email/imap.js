@@ -40,3 +40,4 @@ export function syncImapListener(accountId) {
     method: 'post'
   })
 }
+

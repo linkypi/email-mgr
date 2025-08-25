@@ -76,3 +76,4 @@ public interface IEmailTaskExecutionService
      */
     public List<EmailTaskExecution> selectExecutionsByTaskId(Long taskId);
 }
+

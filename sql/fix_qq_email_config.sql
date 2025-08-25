@@ -14,3 +14,4 @@ WHERE email_address LIKE '%@qq.com' AND smtp_ssl = '0';
 SELECT account_name, email_address, smtp_host, smtp_port, smtp_ssl 
 FROM email_account 
 WHERE email_address LIKE '%@qq.com';
+

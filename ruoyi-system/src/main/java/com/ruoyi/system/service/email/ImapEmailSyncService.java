@@ -5,9 +5,11 @@ import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.system.domain.email.EmailAccount;
 import com.ruoyi.system.domain.email.EmailStatistics;
 import com.ruoyi.system.domain.email.EmailTrackRecord;
+import com.ruoyi.system.domain.email.EmailPersonal;
 import com.ruoyi.system.service.email.IEmailAccountService;
 import com.ruoyi.system.service.email.IEmailStatisticsService;
 import com.ruoyi.system.service.email.IEmailTrackRecordService;
+import com.ruoyi.system.service.email.IEmailPersonalService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +18,8 @@ import org.springframework.stereotype.Service;
 import javax.mail.*;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeUtility;
+import javax.mail.internet.MimeMultipart;
+import javax.mail.internet.MimeBodyPart;
 import java.io.UnsupportedEncodingException;
 import java.util.*;
 import java.util.concurrent.Executors;
@@ -39,6 +43,9 @@ public class ImapEmailSyncService {
     
     @Autowired
     private IEmailTrackRecordService emailTrackRecordService;
+    
+    @Autowired
+    private IEmailPersonalService emailPersonalService;
     
     @Autowired
     private SmtpService smtpService;
@@ -169,11 +176,6 @@ public class ImapEmailSyncService {
                 EmailStatistics statistics = new EmailStatistics();
                 statistics.setAccountId(account.getAccountId());
                 statistics.setMessageId(messageId);
-                // 注意：EmailStatistics可能没有这些字段，需要根据实际实体类调整
-                // statistics.setSubject(subject);
-                // statistics.setSender(from);
-                // statistics.setRecipient(to);
-                // statistics.setSentTime(sentDate);
                 statistics.setStatus(EmailStatus.SEND_SUCCESS.name());
                 statistics.setCreateBy("system");
                 statistics.setCreateTime(new Date());
@@ -255,7 +257,7 @@ public class ImapEmailSyncService {
         try {
             // 更新账户最后同步时间
             account.setLastSyncTime(DateUtils.getTime());
-            emailAccountService.updateEmailAccount(account);
+            emailAccountService.updateEmailAccountStatistics(account);
             
             logger.info("IMAP监听器启动成功: {}", account.getEmailAddress());
         } catch (Exception e) {
@@ -548,7 +550,7 @@ public class ImapEmailSyncService {
         try {
             // 只更新最后同步时间，同步计数现在由EmailServiceMonitor表管理
             account.setLastSyncTime(DateUtils.getTime());
-            emailAccountService.updateEmailAccount(account);
+            emailAccountService.updateEmailAccountStatistics(account);
             
             logger.debug("更新账户 {} 同步时间: {}", account.getEmailAddress(), account.getLastSyncTime());
         } catch (Exception e) {
@@ -578,5 +580,226 @@ public class ImapEmailSyncService {
         }
         
         logger.info("批量同步完成，成功: {} 个，失败: {} 个", successCount, failCount);
+    }
+    
+    /**
+     * 处理新邮件并同步到个人邮件表
+     */
+    public void processNewMessages(Long accountId, EmailAccount account, Message[] messages) {
+        logger.info("处理 {} 封新邮件", messages.length);
+        
+        for (Message message : messages) {
+            try {
+                if (message instanceof MimeMessage) {
+                    MimeMessage mimeMessage = (MimeMessage) message;
+                    
+                    // 同步到个人邮件表
+                    syncToPersonalEmail(mimeMessage, account);
+                    
+                    // 处理邮件跟踪记录
+                    processEmailTracking(mimeMessage, account);
+                    
+                }
+            } catch (Exception e) {
+                logger.error("处理新邮件失败", e);
+            }
+        }
+    }
+    
+    /**
+     * 同步邮件到个人邮件表
+     */
+    private void syncToPersonalEmail(MimeMessage message, EmailAccount account) {
+        try {
+            // 提取邮件信息
+            String messageId = message.getMessageID();
+            String subject = decodeMimeText(message.getSubject());
+            String from = extractEmailAddress(message.getFrom());
+            String to = extractEmailAddress(message.getRecipients(Message.RecipientType.TO));
+            String cc = extractEmailAddress(message.getRecipients(Message.RecipientType.CC));
+            String bcc = extractEmailAddress(message.getRecipients(Message.RecipientType.BCC));
+            Date sentDate = message.getSentDate();
+            Date receivedDate = message.getReceivedDate();
+            
+            // 检查是否已存在该邮件
+            EmailPersonal existingEmail = emailPersonalService.selectEmailPersonalByMessageId(messageId);
+            if (existingEmail != null) {
+                return; // 邮件已存在，跳过处理
+            }
+            
+            // 获取邮件内容
+            String content = extractMessageContent(message);
+            String htmlContent = extractHtmlContent(message);
+            
+            // 判断邮件类型（收件箱或发件箱）
+            String emailType = determineEmailType(from, account.getEmailAddress());
+            
+            // 判断邮件状态
+            String status = determineEmailStatus(message);
+            
+            // 判断是否星标
+            boolean isStarred = message.isSet(Flags.Flag.FLAGGED);
+            
+            // 判断是否重要
+            boolean isImportant = message.isSet(Flags.Flag.SEEN) ? false : true; // 未读邮件标记为重要
+            
+            // 创建个人邮件记录
+            EmailPersonal personalEmail = new EmailPersonal();
+            personalEmail.setFromAddress(from);
+            personalEmail.setToAddress(to);
+            personalEmail.setSubject(subject);
+            personalEmail.setContent(content);
+            personalEmail.setHtmlContent(htmlContent);
+            personalEmail.setStatus(status);
+            personalEmail.setIsStarred(isStarred ? 1 : 0);
+            personalEmail.setIsImportant(isImportant ? 1 : 0);
+            personalEmail.setReceiveTime(receivedDate);
+            personalEmail.setSendTime(sentDate);
+            personalEmail.setEmailType(emailType);
+            personalEmail.setAttachmentCount(countAttachments(message));
+            personalEmail.setCreateBy(SecurityUtils.getUsername());
+            personalEmail.setCreateTime(new Date());
+            
+            emailPersonalService.insertEmailPersonal(personalEmail);
+            
+            logger.info("邮件已同步到个人邮件表: {}", subject);
+            
+        } catch (Exception e) {
+            logger.error("同步邮件到个人邮件表失败", e);
+        }
+    }
+    
+    /**
+     * 判断邮件类型
+     */
+    private String determineEmailType(String from, String accountEmail) {
+        if (from != null && from.contains(accountEmail)) {
+            return "sent"; // 发件箱
+        } else {
+            return "inbox"; // 收件箱
+        }
+    }
+    
+    /**
+     * 判断邮件状态
+     */
+    private String determineEmailStatus(Message message) {
+        try {
+            if (message.isSet(Flags.Flag.SEEN)) {
+                return "read"; // 已读
+            } else {
+                return "unread"; // 未读
+            }
+        } catch (Exception e) {
+            return "unread"; // 默认未读
+        }
+    }
+    
+    /**
+     * 提取邮件内容
+     */
+    public String extractMessageContent(Message message) {
+        try {
+            Object content = message.getContent();
+            if (content instanceof String) {
+                return (String) content;
+            } else if (content instanceof Multipart) {
+                Multipart multipart = (Multipart) content;
+                StringBuilder contentBuilder = new StringBuilder();
+                
+                for (int i = 0; i < multipart.getCount(); i++) {
+                    BodyPart bodyPart = multipart.getBodyPart(i);
+                    if (bodyPart.isMimeType("text/plain")) {
+                        contentBuilder.append(bodyPart.getContent());
+                    }
+                }
+                
+                return contentBuilder.toString();
+            }
+        } catch (Exception e) {
+            logger.warn("提取邮件内容失败", e);
+        }
+        return "";
+    }
+    
+    /**
+     * 提取HTML内容
+     */
+    public String extractHtmlContent(Message message) {
+        try {
+            Object content = message.getContent();
+            if (content instanceof Multipart) {
+                Multipart multipart = (Multipart) content;
+                
+                for (int i = 0; i < multipart.getCount(); i++) {
+                    BodyPart bodyPart = multipart.getBodyPart(i);
+                    if (bodyPart.isMimeType("text/html")) {
+                        return (String) bodyPart.getContent();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("提取HTML内容失败", e);
+        }
+        return "";
+    }
+    
+    /**
+     * 统计附件数量
+     */
+    public int countAttachments(Message message) {
+        try {
+            Object content = message.getContent();
+            if (content instanceof Multipart) {
+                Multipart multipart = (Multipart) content;
+                int attachmentCount = 0;
+                
+                for (int i = 0; i < multipart.getCount(); i++) {
+                    BodyPart bodyPart = multipart.getBodyPart(i);
+                    if (Part.ATTACHMENT.equalsIgnoreCase(bodyPart.getDisposition())) {
+                        attachmentCount++;
+                    }
+                }
+                
+                return attachmentCount;
+            }
+        } catch (Exception e) {
+            logger.warn("统计附件数量失败", e);
+        }
+        return 0;
+    }
+    
+    /**
+     * 处理邮件跟踪记录
+     */
+    private void processEmailTracking(MimeMessage message, EmailAccount account) {
+        try {
+            String messageId = message.getMessageID();
+            String subject = decodeMimeText(message.getSubject());
+            String from = extractEmailAddress(message.getFrom());
+            String to = extractEmailAddress(message.getRecipients(Message.RecipientType.TO));
+            Date sentDate = message.getSentDate();
+            
+            // 检查是否已存在该邮件跟踪记录
+            if (emailTrackRecordService.selectEmailTrackRecordByMessageId(messageId) != null) {
+                return; // 邮件已存在，跳过处理
+            }
+            
+            // 创建邮件跟踪记录
+            EmailTrackRecord trackRecord = new EmailTrackRecord();
+            trackRecord.setMessageId(messageId);
+            trackRecord.setSubject(subject);
+            trackRecord.setRecipient(to);
+            trackRecord.setSender(from);
+            trackRecord.setSentTime(sentDate);
+            trackRecord.setStatus("RECEIVED");
+            trackRecord.setAccountId(account.getAccountId());
+            trackRecord.setCreateBy(SecurityUtils.getUsername());
+            
+            emailTrackRecordService.insertEmailTrackRecord(trackRecord);
+            
+        } catch (Exception e) {
+            logger.error("处理邮件跟踪记录失败", e);
+        }
     }
 }

@@ -88,3 +88,4 @@ WHERE (icon IS NULL OR icon = '') AND menu_id IN (
     SELECT menu_id FROM sys_menu WHERE parent_id = 0
 )
 ORDER BY parent_id, order_num;
+

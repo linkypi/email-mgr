@@ -22,3 +22,4 @@ CREATE INDEX idx_email_account_email_address ON email_account(email_address);
 
 -- 查看表结构
 DESCRIBE email_account;
+

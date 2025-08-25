@@ -20,6 +20,9 @@ public class EmailPersonal extends BaseEntity
     /** 邮件ID */
     private Long emailId;
 
+    /** 邮件Message-ID */
+    private String messageId;
+
     /** 发件人邮箱 */
     @Excel(name = "发件人邮箱")
     private String fromAddress;
@@ -66,6 +69,14 @@ public class EmailPersonal extends BaseEntity
     /** 附件数量 */
     private Integer attachmentCount;
 
+    /** 是否已回复 */
+    @Excel(name = "是否已回复", readConverterExp = "0=否,1=是")
+    private Integer isReplied;
+
+    /** 是否已送达 */
+    @Excel(name = "是否已送达", readConverterExp = "0=否,1=是")
+    private Integer isDelivered;
+
     /** 删除时间 */
     private Date deleteTime;
 
@@ -77,6 +88,16 @@ public class EmailPersonal extends BaseEntity
     public Long getEmailId() 
     {
         return emailId;
+    }
+
+    public void setMessageId(String messageId) 
+    {
+        this.messageId = messageId;
+    }
+
+    public String getMessageId() 
+    {
+        return messageId;
     }
     public void setFromAddress(String fromAddress) 
     {
@@ -186,6 +207,24 @@ public class EmailPersonal extends BaseEntity
     {
         return attachmentCount;
     }
+    public void setIsReplied(Integer isReplied) 
+    {
+        this.isReplied = isReplied;
+    }
+
+    public Integer getIsReplied() 
+    {
+        return isReplied;
+    }
+    public void setIsDelivered(Integer isDelivered) 
+    {
+        this.isDelivered = isDelivered;
+    }
+
+    public Integer getIsDelivered() 
+    {
+        return isDelivered;
+    }
     public void setDeleteTime(Date deleteTime) 
     {
         this.deleteTime = deleteTime;
@@ -212,6 +251,8 @@ public class EmailPersonal extends BaseEntity
             .append("sendTime", getSendTime())
             .append("emailType", getEmailType())
             .append("attachmentCount", getAttachmentCount())
+            .append("isReplied", getIsReplied())
+            .append("isDelivered", getIsDelivered())
             .append("deleteTime", getDeleteTime())
             .append("createBy", getCreateBy())
             .append("createTime", getCreateTime())

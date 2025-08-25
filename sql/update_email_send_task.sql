@@ -15,3 +15,4 @@ UPDATE `email_send_task` SET `recipient_type` = 'all' WHERE `recipient_type` = '
 UPDATE `email_send_task` SET `recipient_type` = 'group' WHERE `recipient_type` = '2';
 UPDATE `email_send_task` SET `recipient_type` = 'tag' WHERE `recipient_type` = '3';
 UPDATE `email_send_task` SET `recipient_type` = 'manual' WHERE `recipient_type` = '4';
+

@@ -25,3 +25,4 @@ CREATE INDEX idx_email_statistics_status ON email_statistics(status);
 
 -- 查看表结构
 DESCRIBE email_statistics;
+

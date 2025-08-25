@@ -120,6 +120,19 @@ public class EmailAccountServiceImpl implements IEmailAccountService
     }
     
     /**
+     * 更新邮箱账号统计信息（不加密密码）
+     * 
+     * @param emailAccount 邮箱账号
+     * @return 结果
+     */
+    @Override
+    public int updateEmailAccountStatistics(EmailAccount emailAccount)
+    {
+        emailAccount.setUpdateTime(DateUtils.getNowDate());
+        return emailAccountMapper.updateEmailAccount(emailAccount);
+    }
+    
+    /**
      * 检查密码是否已经是加密格式
      * 
      * @param password 密码

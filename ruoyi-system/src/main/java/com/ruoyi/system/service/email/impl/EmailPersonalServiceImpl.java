@@ -32,6 +32,18 @@ public class EmailPersonalServiceImpl implements IEmailPersonalService
     }
 
     /**
+     * 根据Message-ID查询个人邮件
+     * 
+     * @param messageId 邮件Message-ID
+     * @return 个人邮件
+     */
+    @Override
+    public EmailPersonal selectEmailPersonalByMessageId(String messageId)
+    {
+        return emailPersonalMapper.selectEmailPersonalByMessageId(messageId);
+    }
+
+    /**
      * 查询个人邮件列表
      * 
      * @param emailPersonal 个人邮件

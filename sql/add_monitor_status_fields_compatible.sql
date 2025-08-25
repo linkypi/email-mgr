@@ -33,3 +33,4 @@ DESCRIBE `email_service_monitor`;
 
 -- 步骤7：验证索引添加成功
 SHOW INDEX FROM `email_service_monitor`;
+

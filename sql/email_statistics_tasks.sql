@@ -36,3 +36,4 @@ INSERT INTO `sys_menu` (`menu_id`, `menu_name`, `parent_id`, `order_num`, `path`
 UPDATE `sys_menu` SET `order_num` = 6 WHERE `menu_id` = 2100;
 UPDATE `sys_menu` SET `order_num` = 7 WHERE `menu_id` = 2007; -- 批量操作
 UPDATE `sys_menu` SET `order_num` = 8 WHERE `menu_id` = 2008; -- 其他菜单
+

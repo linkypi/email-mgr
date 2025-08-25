@@ -49,3 +49,4 @@ SELECT
 FROM `sys_job` 
 WHERE `job_name` IN ('EmailTaskScheduler', 'EmailStatisticsSync')
 ORDER BY `job_name`;
+

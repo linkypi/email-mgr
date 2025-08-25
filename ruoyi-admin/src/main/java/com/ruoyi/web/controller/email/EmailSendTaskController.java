@@ -25,6 +25,10 @@ import com.ruoyi.system.service.email.IEmailTaskExecutionService;
 import com.ruoyi.system.service.email.EmailSendService;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.core.page.TableDataInfo;
+import com.ruoyi.system.service.email.EmailSchedulerService;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static com.ruoyi.common.utils.ip.IpUtils.getIpAddr;
 
@@ -43,6 +47,9 @@ public class EmailSendTaskController extends BaseController
 
     @Autowired
     private EmailSendService emailSendService;
+
+    @Autowired
+    private EmailSchedulerService emailSchedulerService;
 
     @Autowired
     private IEmailTemplateService emailTemplateService;
@@ -207,11 +214,19 @@ public class EmailSendTaskController extends BaseController
             // 插入任务记录
             int result = emailSendTaskService.insertEmailSendTask(emailSendTask);
             if (result > 0) {
-                // 如果是立即发送，启动任务
+                // 根据sendMode参数决定执行方式
                 if ("immediate".equals(emailSendTask.getSendMode())) {
-                    emailSendService.startSendTask(emailSendTask.getTaskId());
+                    // 立即发送，使用长连接
+                    emailSendService.startSendTaskWithLongConnection(emailSendTask.getTaskId());
+                    return AjaxResult.success("发送任务已创建并开始执行", emailSendTask);
+                } else {
+                    // 定时发送，添加到调度器
+                    if (emailSendTask.getStartTime() == null) {
+                        return error("定时发送任务必须指定发送时间");
+                    }
+                    emailSchedulerService.scheduleEmailTask(emailSendTask);
+                    return AjaxResult.success("定时发送任务已创建并加入调度队列", emailSendTask);
                 }
-                return AjaxResult.success("发送任务已创建", emailSendTask);
             } else {
                 return error("创建发送任务失败");
             }
@@ -331,9 +346,14 @@ public class EmailSendTaskController extends BaseController
                 return error("任务不存在");
             }
             
-            if (!"1".equals(task.getStatus())) // 不是执行中
+            if (!"1".equals(task.getStatus()) && !"0".equals(task.getStatus())) // 不是执行中或等待中
             {
-                return error("任务不在执行中，无法停止");
+                return error("任务不在执行中或等待中，无法停止");
+            }
+            
+            // 如果是等待中的定时任务，从调度队列中移除
+            if ("0".equals(task.getStatus())) {
+                emailSchedulerService.cancelScheduledTask(taskId);
             }
             
             // 更新任务状态为中断
@@ -345,6 +365,42 @@ public class EmailSendTaskController extends BaseController
         catch (Exception e)
         {
             return error("停止任务失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 取消定时任务
+     */
+    @PreAuthorize("@ss.hasPermi('email:task:cancel')")
+    @Log(title = "取消定时邮件任务", businessType = BusinessType.UPDATE)
+    @PostMapping("/cancel-schedule/{taskId}")
+    public AjaxResult cancelSchedule(@PathVariable("taskId") Long taskId)
+    {
+        try
+        {
+            EmailSendTask task = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
+            if (task == null)
+            {
+                return error("任务不存在");
+            }
+            
+            if (!"0".equals(task.getStatus())) // 不是等待状态
+            {
+                return error("只能取消等待中的定时任务");
+            }
+            
+            // 从调度队列中移除
+            emailSchedulerService.cancelScheduledTask(taskId);
+            
+            // 更新任务状态为已取消
+            task.setStatus("5"); // 假设5表示已取消
+            emailSendTaskService.updateEmailSendTask(task);
+            
+            return success("定时任务已取消");
+        }
+        catch (Exception e)
+        {
+            return error("取消定时任务失败: " + e.getMessage());
         }
     }
 
@@ -375,6 +431,47 @@ public class EmailSendTaskController extends BaseController
         catch (Exception e)
         {
             return error("获取执行记录失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取邮件调度器状态
+     */
+    @PreAuthorize("@ss.hasPermi('email:task:scheduler')")
+    @GetMapping("/scheduler/status")
+    public AjaxResult getSchedulerStatus()
+    {
+        try
+        {
+            Map<String, Object> status = new HashMap<>();
+            status.put("running", emailSchedulerService.isRunning());
+            status.put("pendingTaskCount", emailSchedulerService.getPendingTaskCount());
+            status.put("processingTaskCount", emailSchedulerService.getProcessingTaskCount());
+            status.put("totalScheduledTaskCount", emailSchedulerService.getTotalScheduledTaskCount());
+            
+            return success(status);
+        }
+        catch (Exception e)
+        {
+            return error("获取调度器状态失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 清理过期的处理任务
+     */
+    @PreAuthorize("@ss.hasPermi('email:task:cleanup')")
+    @PostMapping("/scheduler/cleanup")
+    public AjaxResult cleanupExpiredTasks()
+    {
+        try
+        {
+            emailSchedulerService.cleanupExpiredProcessingTasks();
+            return success("过期任务清理完成");
+        }
+        catch (Exception e)
+        {
+            return error("清理过期任务失败: " + e.getMessage());
         }
     }
 }

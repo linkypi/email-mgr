@@ -47,7 +47,7 @@
           <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d}') }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
+      <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="320">
         <template slot-scope="scope">
           <el-button size="mini" type="text" icon="el-icon-view" @click="handleView(scope.row)" v-hasPermi="['email:template:query']">查看</el-button>
           <el-button size="mini" type="text" icon="el-icon-edit" @click="handleUpdate(scope.row)" v-hasPermi="['email:template:edit']">修改</el-button>
@@ -286,5 +286,27 @@ export default {
 .template-content {
   line-height: 1.6;
   color: #606266;
+}
+
+/* 确保操作列按钮在同一行显示 */
+.el-table .el-table__body-wrapper .el-table__body td .cell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 操作列按钮布局 */
+.el-table .el-table__body-wrapper .el-table__body td .cell .el-button {
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.el-table .el-table__body-wrapper .el-table__body td .cell .el-button:last-child {
+  margin-right: 0;
+}
+
+/* 确保操作列有足够空间 */
+.el-table .el-table__body-wrapper .el-table__body td.small-padding {
+  padding: 8px 0;
 }
 </style>

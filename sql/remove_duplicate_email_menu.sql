@@ -41,3 +41,4 @@ SELECT menu_id, menu_name, order_num, path
 FROM sys_menu 
 WHERE parent_id = 3000 
 ORDER BY order_num;
+

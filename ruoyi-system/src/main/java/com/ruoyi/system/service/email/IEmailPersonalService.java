@@ -20,6 +20,14 @@ public interface IEmailPersonalService
     public EmailPersonal selectEmailPersonalByEmailId(Long emailId);
 
     /**
+     * 根据Message-ID查询个人邮件
+     * 
+     * @param messageId 邮件Message-ID
+     * @return 个人邮件
+     */
+    public EmailPersonal selectEmailPersonalByMessageId(String messageId);
+
+    /**
      * 查询个人邮件列表
      * 
      * @param emailPersonal 个人邮件

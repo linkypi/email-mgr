@@ -110,3 +110,4 @@ SELECT '监控配置数据' as check_item, COUNT(*) as count FROM email_service_
 
 -- 6. 显示状态统计
 SELECT * FROM v_email_service_status_stats;
+
