@@ -12,9 +12,11 @@ docker/
 ├── nginx-proxy.conf            # 生产环境反向代理配置
 ├── docker-compose.yml          # Docker Compose部署配置
 ├── application-docker.yml      # Docker环境Spring Boot配置
-├── build.sh                    # 镜像构建脚本
-├── deploy.sh                   # 服务部署管理脚本
+├── build.sh / build.bat        # 镜像构建脚本（Linux/Windows）
+├── deploy.sh / deploy.bat      # 服务部署管理脚本（Linux/Windows）
+├── clean-config.sh / clean-config.bat  # 配置文件清理脚本
 ├── .dockerignore               # Docker构建忽略文件
+├── env.example                 # 环境变量配置示例
 └── README.md                   # 本文档
 ```
 
@@ -34,24 +36,30 @@ docker/
 cd docker
 
 # 构建所有镜像
-./build.sh
+./build.sh          # Linux/Mac
+build.bat           # Windows
 
 # 或者分别构建
 ./build.sh backend    # 只构建后端
 ./build.sh frontend   # 只构建前端
 ```
 
+**注意**: 构建脚本会自动从项目资源目录复制配置文件到docker目录，构建完成后可以使用清理脚本删除临时文件。
+
 ### 2. 启动服务
 
 ```bash
 # 启动所有服务
-./deploy.sh start
+./deploy.sh start      # Linux/Mac
+deploy.bat start       # Windows
 
 # 查看服务状态
 ./deploy.sh status
+deploy.bat status
 
 # 查看服务日志
 ./deploy.sh logs
+deploy.bat logs
 ```
 
 ### 3. 访问应用
@@ -68,6 +76,7 @@ cd docker
 - 端口: 28080
 - 健康检查: HTTP GET /
 - 数据卷: 上传文件存储
+- 配置文件: 自动从项目资源目录复制并应用Docker环境配置
 
 ### 前端服务 (ruoyi-frontend)
 - 基于Nginx Alpine镜像
@@ -88,6 +97,31 @@ cd docker
 - 端口: 6379
 - AOF持久化
 - 数据持久化
+
+## 配置文件处理
+
+### 自动配置文件复制
+构建脚本会自动执行以下操作：
+1. 从 `ruoyi-admin/src/main/resources/` 复制 `application.yml` 和 `application-druid.yml`
+2. 复制到docker目录作为Docker构建上下文
+3. 应用 `application-docker.yml` 中的Docker环境特定配置
+
+### 配置文件优先级
+Spring Boot配置加载顺序（从高到低）：
+1. `application-docker.yml` (Docker环境特定配置)
+2. `application-druid.yml` (数据源配置)
+3. `application.yml` (基础配置)
+
+### 清理临时配置文件
+构建完成后，可以清理临时复制的配置文件：
+
+```bash
+# Linux/Mac
+./clean-config.sh
+
+# Windows
+clean-config.bat
+```
 
 ## 常用命令
 
@@ -125,6 +159,7 @@ cd docker
 ```bash
 ./deploy.sh clean             # 清理所有资源
 ./build.sh clean              # 清理镜像
+./clean-config.sh             # 清理临时配置文件
 ```
 
 ## 生产环境部署
@@ -163,6 +198,7 @@ docker-compose up -d
 2. **数据库连接失败**
    - 检查MySQL容器状态: `docker-compose ps mysql`
    - 查看MySQL日志: `docker-compose logs mysql`
+   - 确认配置文件中的数据库连接地址正确
 
 3. **前端无法访问后端API**
    - 检查nginx.conf中的代理配置
@@ -171,6 +207,10 @@ docker-compose up -d
 4. **内存不足**
    - 调整JVM参数: 修改Dockerfile.backend中的JAVA_OPTS
    - 增加Docker内存限制
+
+5. **配置文件问题**
+   - 确认构建脚本已正确复制配置文件
+   - 检查application-docker.yml中的配置是否正确
 
 ### 日志分析
 ```bash
@@ -230,6 +270,9 @@ docker-compose logs | grep ERROR
 
 # 3. 启动服务
 ./deploy.sh start
+
+# 4. 清理临时配置文件（可选）
+./clean-config.sh
 ```
 
 ### 更新配置
@@ -242,5 +285,6 @@ docker-compose logs | grep ERROR
 2. 系统资源使用情况
 3. 网络配置
 4. 日志信息
+5. 配置文件是否正确复制和应用
 
 更多信息请参考项目主文档。

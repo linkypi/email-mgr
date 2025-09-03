@@ -1,6 +1,6 @@
 # 前端Vue.js应用Dockerfile
 # 构建阶段
-FROM node:16-alpine AS builder
+FROM node:18 AS builder
 
 # 设置工作目录
 WORKDIR /app
@@ -18,7 +18,7 @@ COPY ruoyi-ui/ ./
 RUN npm run build:prod
 
 # 生产阶段
-FROM nginx:alpine
+FROM nginx:1.24
 
 # 复制构建产物到nginx目录
 COPY --from=builder /app/dist /usr/share/nginx/html
