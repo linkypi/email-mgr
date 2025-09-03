@@ -1,0 +1,47 @@
+# 前端Dockerfile - 使用预编译的dist文件
+FROM nginx:stable-alpine
+
+# 设置环境变量
+ENV VUE_APP_BASE_URL=http://email-manager-backend:28080
+ENV VUE_APP_BASE_API=/api
+
+# 复制nginx配置
+COPY nginx-frontend.conf /etc/nginx/nginx.conf
+
+# 复制预编译的前端文件
+COPY ./ruoyi-ui/dist/ /usr/share/nginx/html/
+
+# 创建nginx用户并设置权限
+RUN addgroup -g 1000 nginxgroup && \
+    adduser -D -s /bin/sh -u 1000 -G nginxgroup nginxuser && \
+    chown -R nginxuser:nginxgroup /usr/share/nginx/html && \
+    chown -R nginxuser:nginxgroup /var/cache/nginx && \
+    chown -R nginxuser:nginxgroup /var/log/nginx && \
+    chown -R nginxuser:nginxgroup /etc/nginx/conf.d && \
+    mkdir -p /var/run/nginx && \
+    chown -R nginxuser:nginxgroup /var/run/nginx && \
+    chmod -R 755 /var/log/nginx && \
+    chmod -R 755 /var/cache/nginx && \
+    chmod -R 755 /var/run/nginx
+
+# 创建启动脚本
+RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
+    echo 'set -e' >> /docker-entrypoint.sh && \
+    echo 'if [ "$1" = "nginx" ]; then' >> /docker-entrypoint.sh && \
+    echo '    # 以root用户启动nginx主进程' >> /docker-entrypoint.sh && \
+    echo '    exec nginx -g "daemon off;"' >> /docker-entrypoint.sh && \
+    echo 'else' >> /docker-entrypoint.sh && \
+    echo '    exec "$@"' >> /docker-entrypoint.sh && \
+    echo 'fi' >> /docker-entrypoint.sh && \
+    chmod +x /docker-entrypoint.sh
+
+# 暴露端口
+EXPOSE 80
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:80 || exit 1
+
+# 使用启动脚本
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["nginx"]
