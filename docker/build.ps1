@@ -3,13 +3,20 @@
 param(
     [Parameter(Position=0)]
     [ValidateSet("backend", "frontend", "all")]
-    [string]$Target = "all"
+    [string]$Target = "all",
+    
+    [Parameter(Position=1)]
+    [ValidateSet("build", "dist-only")]
+    [string]$FrontendMode = "build"
 )
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Docker Image Build Script" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Target: $Target" -ForegroundColor Yellow
+if ($Target -eq "frontend" -or $Target -eq "all") {
+    Write-Host "Frontend Mode: $FrontendMode" -ForegroundColor Yellow
+}
 Write-Host "========================================" -ForegroundColor Cyan
 
 # Check Docker installation
@@ -46,39 +53,21 @@ try {
 
 Write-Host "[INFO] Docker environment check passed" -ForegroundColor Green
 
-# Copy configuration files (only needed for backend)
-if ($Target -eq "backend" -or $Target -eq "all") {
-    Write-Host "[INFO] Copying configuration files to docker directory..." -ForegroundColor Green
-    try {
-        $sourceDir = Join-Path (Get-Location) "..\ruoyi-admin\src\main\resources"
-        $appYml = Join-Path $sourceDir "application.yml"
-        $appDruidYml = Join-Path $sourceDir "application-druid.yml"
-        
-        Write-Host "[INFO] Source directory: $sourceDir" -ForegroundColor Yellow
-        Write-Host "[INFO] Looking for: $appYml" -ForegroundColor Yellow
-        Write-Host "[INFO] Looking for: $appDruidYml" -ForegroundColor Yellow
-        
-        if (-not (Test-Path $appYml)) {
-            throw "application.yml not found at: $appYml"
-        }
-        
-        if (-not (Test-Path $appDruidYml)) {
-            throw "application-druid.yml not found at: $appDruidYml"
-        }
-        
-        Copy-Item $appYml "application.yml" -Force
-        Copy-Item $appDruidYml "application-druid.yml" -Force
-        Write-Host "[INFO] Configuration files copied successfully" -ForegroundColor Green
-    } catch {
-        Write-Host "[ERROR] Failed to copy configuration files: $($_.Exception.Message)" -ForegroundColor Red
-        Read-Host "Press Enter to exit"
-        exit 1
-    }
+# 切换到项目根目录
+$projectRoot = Join-Path (Get-Location) ".."
+Set-Location $projectRoot
+Write-Host "[INFO] Working directory: $(Get-Location)" -ForegroundColor Green
+
+# Verify we're in the right directory
+if (-not (Test-Path "pom.xml")) {
+    Write-Host "[ERROR] pom.xml not found. Current directory: $(Get-Location)" -ForegroundColor Red
+    Read-Host "Press Enter to exit"
+    exit 1
 }
 
-# Build backend image
+# Build backend project (if needed)
 if ($Target -eq "backend" -or $Target -eq "all") {
-    Write-Host "[INFO] Building backend image..." -ForegroundColor Green
+    Write-Host "[INFO] Building backend project..." -ForegroundColor Green
     
     # Check Maven installation
     Write-Host "[INFO] Checking Maven environment..." -ForegroundColor Green
@@ -99,17 +88,6 @@ if ($Target -eq "backend" -or $Target -eq "all") {
 
     # Build Java project
     Write-Host "[INFO] Compiling Java project..." -ForegroundColor Green
-    $projectRoot = Join-Path (Get-Location) ".."
-    Set-Location $projectRoot
-    Write-Host "[INFO] Current directory: $(Get-Location)" -ForegroundColor Green
-
-    # Verify we're in the right directory
-    if (-not (Test-Path "pom.xml")) {
-        Write-Host "[ERROR] pom.xml not found. Current directory: $(Get-Location)" -ForegroundColor Red
-        Read-Host "Press Enter to exit"
-        exit 1
-    }
-
     try {
         & mvn clean package -DskipTests
         if ($LASTEXITCODE -ne 0) {
@@ -123,11 +101,95 @@ if ($Target -eq "backend" -or $Target -eq "all") {
         Read-Host "Press Enter to exit"
         exit 1
     }
+}
 
-    # Build backend Docker image
+# Build frontend project (if needed)
+if ($Target -eq "frontend" -or $Target -eq "all") {
+    Write-Host "[INFO] Building frontend project..." -ForegroundColor Green
+    
+    if ($FrontendMode -eq "dist-only") {
+        # 直接从 dist 目录构建，跳过编译
+        Write-Host "[INFO] Using existing dist directory (dist-only mode)" -ForegroundColor Yellow
+        
+        # 验证 dist 目录是否存在
+        if (-not (Test-Path "ruoyi-ui\dist")) {
+            Write-Host "[ERROR] ruoyi-ui\dist directory not found. Please build frontend first or use 'build' mode." -ForegroundColor Red
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+        
+        Write-Host "[INFO] Found existing dist directory, skipping compilation" -ForegroundColor Green
+    } else {
+        # 先编译再构建
+        Write-Host "[INFO] Building frontend from source (build mode)" -ForegroundColor Yellow
+        
+        # Check Node.js installation
+        Write-Host "[INFO] Checking Node.js environment..." -ForegroundColor Green
+        try {
+            $nodeVersion = node --version 2>$null
+            $npmVersion = npm --version 2>$null
+            if ($nodeVersion -and $npmVersion) {
+                Write-Host "[INFO] Node.js version: $nodeVersion" -ForegroundColor Green
+                Write-Host "[INFO] NPM version: $npmVersion" -ForegroundColor Green
+            } else {
+                Write-Host "[ERROR] Node.js or NPM not installed, please install Node.js first" -ForegroundColor Red
+                Read-Host "Press Enter to exit"
+                exit 1
+            }
+        } catch {
+            Write-Host "[ERROR] Node.js or NPM not installed, please install Node.js first" -ForegroundColor Red
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+
+        # Verify frontend directory exists
+        if (-not (Test-Path "ruoyi-ui")) {
+            Write-Host "[ERROR] ruoyi-ui directory not found. Current directory: $(Get-Location)" -ForegroundColor Red
+            Read-Host "Press Enter to exit"
+            exit 1
+        }
+
+        # Build frontend project
+        Write-Host "[INFO] Building frontend project..." -ForegroundColor Green
+        Set-Location ruoyi-ui
+        try {
+            # Install dependencies
+            Write-Host "[INFO] Installing frontend dependencies..." -ForegroundColor Green
+            & npm.cmd ci
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "[ERROR] Frontend dependencies installation failed" -ForegroundColor Red
+                Read-Host "Press Enter to exit"
+                exit 1
+            }
+
+            # Build frontend
+            Write-Host "[INFO] Building frontend application..." -ForegroundColor Green
+            & npm.cmd run build:prod
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "[ERROR] Frontend build failed" -ForegroundColor Red
+                Read-Host "Press Enter to exit"
+                exit 1
+            }
+            Write-Host "[INFO] Frontend project built successfully" -ForegroundColor Green
+        } catch {
+            Write-Host "[ERROR] Frontend build failed: $($_.Exception.Message)" -ForegroundColor Red
+            Read-Host "Press Enter to exit"
+            exit 1
+        } finally {
+            # Return to project root
+            Set-Location ..
+        }
+    }
+}
+
+# Build Docker images
+Write-Host "[INFO] Building Docker images..." -ForegroundColor Green
+
+# Build backend Docker image
+if ($Target -eq "backend" -or $Target -eq "all") {
     Write-Host "[INFO] Building backend Docker image..." -ForegroundColor Green
     try {
-        & docker build -f Dockerfile.backend -t ruoyi-backend:latest .
+        & docker build -f docker/Dockerfile.backend -t ruoyi-backend:latest .
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[ERROR] Backend image build failed" -ForegroundColor Red
             Read-Host "Press Enter to exit"
@@ -139,24 +201,13 @@ if ($Target -eq "backend" -or $Target -eq "all") {
         Read-Host "Press Enter to exit"
         exit 1
     }
-    
-    # Return to docker directory
-    Set-Location docker
 }
 
-# Build frontend image
+# Build frontend Docker image
 if ($Target -eq "frontend" -or $Target -eq "all") {
-    Write-Host "[INFO] Building frontend image..." -ForegroundColor Green
-    
-    # Check if we need to go to project root for frontend build
-    if ($Target -eq "frontend") {
-        $projectRoot = Join-Path (Get-Location) ".."
-        Set-Location $projectRoot
-        Write-Host "[INFO] Current directory: $(Get-Location)" -ForegroundColor Green
-    }
-    
+    Write-Host "[INFO] Building frontend Docker image..." -ForegroundColor Green
     try {
-        & docker build -f Dockerfile.frontend -t ruoyi-frontend:latest .
+        & docker build -f docker/Dockerfile.frontend -t ruoyi-frontend:latest .
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[ERROR] Frontend image build failed" -ForegroundColor Red
             Read-Host "Press Enter to exit"
@@ -168,10 +219,10 @@ if ($Target -eq "frontend" -or $Target -eq "all") {
         Read-Host "Press Enter to exit"
         exit 1
     }
-    
-    # Return to docker directory
-    Set-Location docker
 }
+
+# Return to docker directory
+Set-Location docker
 
 # Final message
 Write-Host "[INFO] Build completed successfully!" -ForegroundColor Green
