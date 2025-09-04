@@ -38,3 +38,4 @@ logging:
     com.ruoyi: info
     org.springframework: warn
     root: info
+

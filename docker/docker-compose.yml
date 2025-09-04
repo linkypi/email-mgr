@@ -23,8 +23,8 @@ services:
 #      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
 #      timeout: 20s
 #      retries: 10
-#
-#  # Redis缓存
+
+  # Redis缓存
 #  redis:
 #    image: redis:7-alpine
 #    container_name: ruoyi-redis
@@ -50,9 +50,6 @@ services:
     restart: unless-stopped
     volumes:
       - upload_data:/home/ruoyi/uploadPath
-      # 挂载宿主机配置文件
-      - ./application.yml:/app/application.yml:ro
-      - ./application-druid.yml:/app/application-druid.yml:ro
     ports:
       - "28080:28080"
     depends_on:
@@ -116,4 +113,5 @@ networks:
     driver: bridge
     ipam:
       config:
-        - subnet: 172.20.0.0/16
+        - subnet: 192.168.2.0/24
+          gateway: 192.168.2.1

@@ -237,3 +237,4 @@ if ($Target -eq "frontend" -or $Target -eq "all") {
 Write-Host ""
 Write-Host "Next step: Run .\deploy.bat start to start services" -ForegroundColor Yellow
 Read-Host "Press Enter to exit"
+
