@@ -23,36 +23,37 @@ services:
 #      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
 #      timeout: 20s
 #      retries: 10
-#
-#  # Redis缓存
-#  redis:
-#    image: redis:7-alpine
-#    container_name: ruoyi-redis
-#    restart: unless-stopped
-#    command: redis-server --appendonly yes
-#    volumes:
-#      - redis_data:/data
-#    ports:
-#      - "6379:6379"
-#    networks:
-#      - ruoyi-network
-#    healthcheck:
-#      test: ["CMD", "redis-cli", "ping"]
-#      timeout: 20s
-#      retries: 10
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: ruoyi-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - ruoyi-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 20s
+      retries: 10
 
   # 后端应用
   backend:
     image: ruoyi-backend:latest
     container_name: ruoyi-backend
     restart: unless-stopped
+    # network_mode: host
     volumes:
       - upload_data:/home/ruoyi/uploadPath
       # 挂载宿主机配置文件
       - ./application.yml:/app/application.yml:ro
       - ./application-druid.yml:/app/application-druid.yml:ro
     ports:
-      - "28080:28080"
+       - "28080:28080"
     # depends_on:
     #   mysql:
     #     condition: service_healthy
@@ -66,21 +67,21 @@ services:
       retries: 10
 
   # 前端应用
-#  frontend:
-#    image: ruoyi-frontend:latest
-#    container_name: ruoyi-frontend
-#    restart: unless-stopped
-#    ports:
-#      - "80:80"
-#    depends_on:
-#      backend:
-#        condition: service_healthy
-#    networks:
-#      - ruoyi-network
-#    healthcheck:
-#      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
-#      timeout: 20s
-#      retries: 10
+  frontend:
+     image: ruoyi-frontend:latest
+     container_name: ruoyi-frontend
+     restart: unless-stopped
+     ports:
+       - "80:80"
+     depends_on:
+       backend:
+         condition: service_healthy
+     networks:
+       - ruoyi-network
+     healthcheck:
+       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+       timeout: 20s
+       retries: 10
 
   # Nginx反向代理（可选，用于生产环境）
 #  nginx-proxy:
@@ -100,10 +101,10 @@ services:
 #      - production
 
 volumes:
-  # mysql_data:
-  #   driver: local
-  # redis_data:
-  #   driver: local
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
   upload_data:
     driver: local
 
