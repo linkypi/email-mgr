@@ -8,8 +8,8 @@ WORKDIR /app
 # 强制更新为国内镜像源，防止下载过慢
 # RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
 
-# 安装必要的工具
-RUN apk add --no-cache curl
+# 安装必要的工具和字体支持
+RUN apk add --no-cache curl fontconfig ttf-dejavu
 
 # 复制Maven构建的jar包（从宿主机构建完成）
 COPY ruoyi-admin/target/ruoyi-admin.jar app.jar
