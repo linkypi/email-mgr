@@ -1,0 +1,42 @@
+# Docker环境专用配置文件
+# 此文件通过docker-compose挂载到容器中
+
+# 数据库连接配置（Docker环境）
+spring:
+  datasource:
+    druid:
+      master:
+        # 使用Docker服务名连接MySQL
+        url: jdbc:mysql://mysql:3306/email_mgr?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=true&serverTimezone=GMT%2B8
+        username: ruoyi
+        password: ruoyi123
+      slave:
+        enabled: false
+  
+  # Redis配置（Docker环境）
+  redis:
+    # 使用Docker服务名连接Redis
+    host: redis
+    port: 6379
+    database: 0
+    password:
+    timeout: 10s
+    lettuce:
+      pool:
+        min-idle: 0
+        max-idle: 8
+        max-active: 8
+        max-wait: -1ms
+
+# 文件上传路径配置
+ruoyi:
+  profile: /home/ruoyi/uploadPath
+
+# 日志级别配置
+logging:
+  level:
+    com.ruoyi: info
+    org.springframework: warn
+    root: info
+
+

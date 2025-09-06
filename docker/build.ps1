@@ -3,14 +3,34 @@
 param(
     [Parameter(Position=0)]
     [ValidateSet("backend", "frontend", "all")]
-    [string]$Target = "all"
+    [string]$Target = "all",
+    
+    [Parameter(Position=1)]
+    [ValidateSet("build", "dist-only")]
+    [string]$FrontendMode = "build"
 )
+
+# 记录原始目录
+$originalDirectory = Get-Location
 
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Docker Image Build Script" -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host "Target: $Target" -ForegroundColor Yellow
+if ($Target -eq "frontend" -or $Target -eq "all") {
+    Write-Host "Frontend Mode: $FrontendMode" -ForegroundColor Yellow
+}
 Write-Host "========================================" -ForegroundColor Cyan
+
+# 错误处理函数
+function Handle-Error {
+    param([string]$ErrorMessage)
+    Write-Host "[ERROR] $ErrorMessage" -ForegroundColor Red
+    Write-Host "[INFO] Returning to original directory: $originalDirectory" -ForegroundColor Yellow
+    Set-Location $originalDirectory
+    Read-Host "Press Enter to exit"
+    exit 1
+}
 
 # Check Docker installation
 Write-Host "[INFO] Checking Docker environment..." -ForegroundColor Green
@@ -19,14 +39,10 @@ try {
     if ($dockerVersion) {
         Write-Host "[INFO] Docker version: $dockerVersion" -ForegroundColor Green
     } else {
-        Write-Host "[ERROR] Docker not installed, please install Docker first" -ForegroundColor Red
-        Read-Host "Press Enter to exit"
-        exit 1
+        Handle-Error "Docker not installed, please install Docker first"
     }
 } catch {
-    Write-Host "[ERROR] Docker not installed, please install Docker first" -ForegroundColor Red
-    Read-Host "Press Enter to exit"
-    exit 1
+    Handle-Error "Docker not installed, please install Docker first"
 }
 
 try {
@@ -34,51 +50,27 @@ try {
     if ($composeVersion) {
         Write-Host "[INFO] Docker Compose version: $composeVersion" -ForegroundColor Green
     } else {
-        Write-Host "[ERROR] Docker Compose not installed, please install Docker Compose first" -ForegroundColor Red
-        Read-Host "Press Enter to exit"
-        exit 1
+        Handle-Error "Docker Compose not installed, please install Docker Compose first"
     }
 } catch {
-    Write-Host "[ERROR] Docker Compose not installed, please install Docker Compose first" -ForegroundColor Red
-    Read-Host "Press Enter to exit"
-    exit 1
+    Handle-Error "Docker Compose not installed, please install Docker Compose first"
 }
 
 Write-Host "[INFO] Docker environment check passed" -ForegroundColor Green
 
-# Copy configuration files (only needed for backend)
-if ($Target -eq "backend" -or $Target -eq "all") {
-    Write-Host "[INFO] Copying configuration files to docker directory..." -ForegroundColor Green
-    try {
-        $sourceDir = Join-Path (Get-Location) "..\ruoyi-admin\src\main\resources"
-        $appYml = Join-Path $sourceDir "application.yml"
-        $appDruidYml = Join-Path $sourceDir "application-druid.yml"
-        
-        Write-Host "[INFO] Source directory: $sourceDir" -ForegroundColor Yellow
-        Write-Host "[INFO] Looking for: $appYml" -ForegroundColor Yellow
-        Write-Host "[INFO] Looking for: $appDruidYml" -ForegroundColor Yellow
-        
-        if (-not (Test-Path $appYml)) {
-            throw "application.yml not found at: $appYml"
-        }
-        
-        if (-not (Test-Path $appDruidYml)) {
-            throw "application-druid.yml not found at: $appDruidYml"
-        }
-        
-        Copy-Item $appYml "application.yml" -Force
-        Copy-Item $appDruidYml "application-druid.yml" -Force
-        Write-Host "[INFO] Configuration files copied successfully" -ForegroundColor Green
-    } catch {
-        Write-Host "[ERROR] Failed to copy configuration files: $($_.Exception.Message)" -ForegroundColor Red
-        Read-Host "Press Enter to exit"
-        exit 1
-    }
+# 切换到项目根目录
+$projectRoot = Join-Path (Get-Location) ".."
+Set-Location $projectRoot
+Write-Host "[INFO] Working directory: $(Get-Location)" -ForegroundColor Green
+
+# Verify we're in the right directory
+if (-not (Test-Path "pom.xml")) {
+    Handle-Error "pom.xml not found. Current directory: $(Get-Location)"
 }
 
-# Build backend image
+# Build backend project (if needed)
 if ($Target -eq "backend" -or $Target -eq "all") {
-    Write-Host "[INFO] Building backend image..." -ForegroundColor Green
+    Write-Host "[INFO] Building backend project..." -ForegroundColor Green
     
     # Check Maven installation
     Write-Host "[INFO] Checking Maven environment..." -ForegroundColor Green
@@ -87,91 +79,124 @@ if ($Target -eq "backend" -or $Target -eq "all") {
         if ($mvnVersion) {
             Write-Host "[INFO] Maven environment check passed" -ForegroundColor Green
         } else {
-            Write-Host "[ERROR] Maven not installed, please install Maven first" -ForegroundColor Red
-            Read-Host "Press Enter to exit"
-            exit 1
+            Handle-Error "Maven not installed, please install Maven first"
         }
     } catch {
-        Write-Host "[ERROR] Maven not installed, please install Maven first" -ForegroundColor Red
-        Read-Host "Press Enter to exit"
-        exit 1
+        Handle-Error "Maven not installed, please install Maven first"
     }
 
     # Build Java project
     Write-Host "[INFO] Compiling Java project..." -ForegroundColor Green
-    $projectRoot = Join-Path (Get-Location) ".."
-    Set-Location $projectRoot
-    Write-Host "[INFO] Current directory: $(Get-Location)" -ForegroundColor Green
-
-    # Verify we're in the right directory
-    if (-not (Test-Path "pom.xml")) {
-        Write-Host "[ERROR] pom.xml not found. Current directory: $(Get-Location)" -ForegroundColor Red
-        Read-Host "Press Enter to exit"
-        exit 1
-    }
-
     try {
         & mvn clean package -DskipTests
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "[ERROR] Java project compilation failed" -ForegroundColor Red
-            Read-Host "Press Enter to exit"
-            exit 1
+            Handle-Error "Java project compilation failed"
         }
         Write-Host "[INFO] Java project compiled successfully" -ForegroundColor Green
     } catch {
-        Write-Host "[ERROR] Java project compilation failed: $($_.Exception.Message)" -ForegroundColor Red
-        Read-Host "Press Enter to exit"
-        exit 1
+        Handle-Error "Java project compilation failed: $($_.Exception.Message)"
     }
+}
 
-    # Build backend Docker image
+# Build frontend project (if needed)
+if ($Target -eq "frontend" -or $Target -eq "all") {
+    Write-Host "[INFO] Building frontend project..." -ForegroundColor Green
+    
+    if ($FrontendMode -eq "dist-only") {
+        # 直接从 dist 目录构建，跳过编译
+        Write-Host "[INFO] Using existing dist directory (dist-only mode)" -ForegroundColor Yellow
+        
+        # 验证 dist 目录是否存在
+        if (-not (Test-Path "ruoyi-ui\dist")) {
+            Handle-Error "ruoyi-ui\dist directory not found. Please build frontend first or use 'build' mode."
+        }
+        
+        Write-Host "[INFO] Found existing dist directory, skipping compilation" -ForegroundColor Green
+    } else {
+        # 先编译再构建
+        Write-Host "[INFO] Building frontend from source (build mode)" -ForegroundColor Yellow
+        
+        # Check Node.js installation
+        Write-Host "[INFO] Checking Node.js environment..." -ForegroundColor Green
+        try {
+            $nodeVersion = node --version 2>$null
+            $npmVersion = npm --version 2>$null
+            if ($nodeVersion -and $npmVersion) {
+                Write-Host "[INFO] Node.js version: $nodeVersion" -ForegroundColor Green
+                Write-Host "[INFO] NPM version: $npmVersion" -ForegroundColor Green
+            } else {
+                Handle-Error "Node.js or NPM not installed, please install Node.js first"
+            }
+        } catch {
+            Handle-Error "Node.js or NPM not installed, please install Node.js first"
+        }
+
+        # Verify frontend directory exists
+        if (-not (Test-Path "ruoyi-ui")) {
+            Handle-Error "ruoyi-ui directory not found. Current directory: $(Get-Location)"
+        }
+
+        # Build frontend project
+        Write-Host "[INFO] Building frontend project..." -ForegroundColor Green
+        Set-Location ruoyi-ui
+        try {
+            # Install dependencies
+            Write-Host "[INFO] Installing frontend dependencies..." -ForegroundColor Green
+            & npm.cmd ci
+            if ($LASTEXITCODE -ne 0) {
+                Handle-Error "Frontend dependencies installation failed"
+            }
+
+            # Build frontend
+            Write-Host "[INFO] Building frontend application..." -ForegroundColor Green
+            & npm.cmd run build:prod
+            if ($LASTEXITCODE -ne 0) {
+                Handle-Error "Frontend build failed"
+            }
+            Write-Host "[INFO] Frontend project built successfully" -ForegroundColor Green
+        } catch {
+            Handle-Error "Frontend build failed: $($_.Exception.Message)"
+        } finally {
+            # Return to project root
+            Set-Location ..
+        }
+    }
+}
+
+# Build Docker images
+Write-Host "[INFO] Building Docker images..." -ForegroundColor Green
+
+# Build backend Docker image
+if ($Target -eq "backend" -or $Target -eq "all") {
     Write-Host "[INFO] Building backend Docker image..." -ForegroundColor Green
     try {
-        & docker build -f Dockerfile.backend -t ruoyi-backend:latest .
+        & docker build -f docker/Dockerfile.backend -t ruoyi-backend:latest .
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "[ERROR] Backend image build failed" -ForegroundColor Red
-            Read-Host "Press Enter to exit"
-            exit 1
+            Handle-Error "Backend image build failed"
         }
         Write-Host "[INFO] Backend image built successfully" -ForegroundColor Green
     } catch {
-        Write-Host "[ERROR] Backend image build failed: $($_.Exception.Message)" -ForegroundColor Red
-        Read-Host "Press Enter to exit"
-        exit 1
+        Handle-Error "Backend image build failed: $($_.Exception.Message)"
     }
-    
-    # Return to docker directory
-    Set-Location docker
 }
 
-# Build frontend image
+# Build frontend Docker image
 if ($Target -eq "frontend" -or $Target -eq "all") {
-    Write-Host "[INFO] Building frontend image..." -ForegroundColor Green
-    
-    # Check if we need to go to project root for frontend build
-    if ($Target -eq "frontend") {
-        $projectRoot = Join-Path (Get-Location) ".."
-        Set-Location $projectRoot
-        Write-Host "[INFO] Current directory: $(Get-Location)" -ForegroundColor Green
-    }
-    
+    Write-Host "[INFO] Building frontend Docker image..." -ForegroundColor Green
     try {
-        & docker build -f Dockerfile.frontend -t ruoyi-frontend:latest .
+        & docker build -f docker/Dockerfile.frontend -t ruoyi-frontend:latest .
         if ($LASTEXITCODE -ne 0) {
-            Write-Host "[ERROR] Frontend image build failed" -ForegroundColor Red
-            Read-Host "Press Enter to exit"
-            exit 1
+            Handle-Error "Frontend image build failed"
         }
         Write-Host "[INFO] Frontend image built successfully" -ForegroundColor Green
     } catch {
-        Write-Host "[ERROR] Frontend image build failed: $($_.Exception.Message)" -ForegroundColor Red
-        Read-Host "Press Enter to exit"
-        exit 1
+        Handle-Error "Frontend image build failed: $($_.Exception.Message)"
     }
-    
-    # Return to docker directory
-    Set-Location docker
 }
+
+# Return to original directory
+Write-Host "[INFO] Returning to original directory: $originalDirectory" -ForegroundColor Yellow
+Set-Location $originalDirectory
 
 # Final message
 Write-Host "[INFO] Build completed successfully!" -ForegroundColor Green
@@ -186,3 +211,5 @@ if ($Target -eq "frontend" -or $Target -eq "all") {
 Write-Host ""
 Write-Host "Next step: Run .\deploy.bat start to start services" -ForegroundColor Yellow
 Read-Host "Press Enter to exit"
+
+

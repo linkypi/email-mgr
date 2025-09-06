@@ -1,17 +1,21 @@
 # 后端Java应用Dockerfile
-FROM openjdk:8-jdk-alpine
+# 后端项目已在宿主机构建完成，直接复制构建产物
+FROM openjdk:8-alpine
 
 # 设置工作目录
 WORKDIR /app
 
-# 安装必要的工具
-RUN apk add --no-cache curl
+# 强制更新为国内镜像源，防止下载过慢
+# RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
 
-# 复制Maven构建的jar包
+# 安装必要的工具和字体支持
+RUN apk add --no-cache curl fontconfig ttf-dejavu
+
+# 复制Maven构建的jar包（从宿主机构建完成）
 COPY ruoyi-admin/target/ruoyi-admin.jar app.jar
 
-# 从当前目录复制配置文件
-COPY application.yml /app/application.yml
+# 配置文件现在通过docker-compose挂载，不需要复制
+# COPY application.yml /app/application.yml
 # COPY application-druid.yml /app/application-druid.yml
 # COPY application-docker.yml /app/application-docker.yml
 
@@ -24,6 +28,7 @@ EXPOSE 28080
 # 设置JVM参数和Spring profiles
 ENV JAVA_OPTS="-Xms512m -Xmx1024m -Djava.security.egd=file:/dev/./urandom"
 ENV SPRING_PROFILES_ACTIVE=""
+ENV SPRING_CONFIG_LOCATION="classpath:/application.yml,file:/app/application.yml,file:/app/application-druid.yml"
 
 # 健康检查
 HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
