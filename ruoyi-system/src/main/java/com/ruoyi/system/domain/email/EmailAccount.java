@@ -75,6 +75,18 @@ public class EmailAccount extends BaseEntity
     @Excel(name = "每日发送限制")
     private Integer dailyLimit;
 
+    /** 发送时间间隔(秒) */
+    @Excel(name = "发送时间间隔(秒)")
+    private Integer sendIntervalSeconds;
+
+    /** 当天已发送数量 */
+    @Excel(name = "当天已发送数量")
+    private Integer dailySentCount;
+
+    /** 最后发送日期 */
+    @Excel(name = "最后发送日期", width = 30, dateFormat = "yyyy-MM-dd")
+    private String lastSendDate;
+
     /** 今日已发送数量 */
     @Excel(name = "今日已发送数量")
     private Integer usedCount;
@@ -241,6 +253,33 @@ public class EmailAccount extends BaseEntity
     {
         return dailyLimit;
     }
+    public void setSendIntervalSeconds(Integer sendIntervalSeconds) 
+    {
+        this.sendIntervalSeconds = sendIntervalSeconds;
+    }
+
+    public Integer getSendIntervalSeconds() 
+    {
+        return sendIntervalSeconds;
+    }
+    public void setDailySentCount(Integer dailySentCount) 
+    {
+        this.dailySentCount = dailySentCount;
+    }
+
+    public Integer getDailySentCount() 
+    {
+        return dailySentCount;
+    }
+    public void setLastSendDate(String lastSendDate) 
+    {
+        this.lastSendDate = lastSendDate;
+    }
+
+    public String getLastSendDate() 
+    {
+        return lastSendDate;
+    }
     public void setUsedCount(Integer usedCount) 
     {
         this.usedCount = usedCount;
@@ -317,6 +356,9 @@ public class EmailAccount extends BaseEntity
             .append("webhookSecret", getWebhookSecret())
             .append("trackingEnabled", getTrackingEnabled())
             .append("dailyLimit", getDailyLimit())
+            .append("sendIntervalSeconds", getSendIntervalSeconds())
+            .append("dailySentCount", getDailySentCount())
+            .append("lastSendDate", getLastSendDate())
             .append("usedCount", getUsedCount())
             .append("lastSendTime", getLastSendTime())
             .append("lastSyncTime", getLastSyncTime())

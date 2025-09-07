@@ -24,8 +24,8 @@
             <el-input v-model="sendForm.taskName" placeholder="请输入任务名称"></el-input>
           </el-form-item>
           
-          <el-form-item label="发件邮箱" prop="accountId">
-            <el-select v-model="sendForm.accountId" placeholder="选择发件邮箱" style="width: 100%">
+          <el-form-item label="发件邮箱" prop="accountIds">
+            <el-select v-model="sendForm.accountIds" multiple placeholder="选择发件邮箱（可多选）" style="width: 100%">
               <el-option
                 v-for="item in accountOptions"
                 :key="item.accountId"
@@ -33,6 +33,10 @@
                 :value="item.accountId">
               </el-option>
             </el-select>
+            <div class="form-tip">
+              <i class="el-icon-info"></i>
+              支持选择多个发件邮箱，系统将自动轮换使用，避免单个邮箱发送上限
+            </div>
           </el-form-item>
           
           <el-form-item label="收件人类型" prop="recipientType">
@@ -118,19 +122,6 @@
           </div>
         </el-card>
 
-        <!-- 模板参数 -->
-        <el-card class="box-card" style="margin-bottom: 20px;" v-if="templateVariables.length > 0 && sendForm.sendType === 'template'">
-          <div slot="header" class="clearfix">
-            <span>模板参数设置</span>
-          </div>
-          <el-row :gutter="20">
-            <el-col :span="12" v-for="variable in templateVariables" :key="variable">
-              <el-form-item :label="variable" :prop="'variables.' + variable">
-                <el-input v-model="sendForm.variables[variable]" :placeholder="'请输入' + variable" style="width: 100%"></el-input>
-              </el-form-item>
-            </el-col>
-          </el-row>
-        </el-card>
 
         <!-- 直接发送内容 -->
         <el-card class="box-card" style="margin-bottom: 20px;" v-if="sendForm.sendType === 'direct'">
@@ -321,7 +312,7 @@ export default {
       sending: false,
       sendForm: {
         taskName: '',
-        accountId: '',
+        accountIds: [],
         recipientType: 'all',
         groupIds: [],
         tagIds: [],
@@ -332,8 +323,7 @@ export default {
         content: '',
         sendMode: 'immediate',
         sendInterval: 10,
-        sendTime: null,
-        variables: {}
+        sendTime: null
       },
       // 选项数据
       accountOptions: [],
@@ -343,7 +333,6 @@ export default {
       templateOptions: [],
       // 模板相关
       selectedTemplate: null,
-      templateVariables: [],
       previewOpen: false,
       previewData: null,
       // 表单验证规则
@@ -351,7 +340,7 @@ export default {
         taskName: [
           { required: true, message: "任务名称不能为空", trigger: "blur" }
         ],
-        accountId: [
+        accountIds: [
           { required: true, message: "请选择发件邮箱", trigger: "change" }
         ],
         recipientType: [
@@ -471,7 +460,7 @@ export default {
         if (taskData) {
           // 填充表单数据
           this.sendForm.taskName = taskData.taskName + '_复制';
-          this.sendForm.accountId = taskData.accountId;
+          this.sendForm.accountIds = taskData.accountIds || [taskData.accountId];
           this.sendForm.recipientType = taskData.recipientType;
           this.sendForm.groupIds = taskData.groupIds ? taskData.groupIds.split(',').map(id => parseInt(id)) : [];
           this.sendForm.tagIds = taskData.tagIds ? taskData.tagIds.split(',').map(id => parseInt(id)) : [];
@@ -483,7 +472,6 @@ export default {
           this.sendForm.sendMode = taskData.sendTime ? 'scheduled' : 'immediate';
           this.sendForm.sendInterval = taskData.sendInterval || 10;
           this.sendForm.sendTime = taskData.sendTime;
-          this.sendForm.variables = taskData.variables ? JSON.parse(taskData.variables) : {};
           
           // 如果有模板，加载模板信息
           if (taskData.templateId) {
@@ -537,8 +525,6 @@ export default {
       if (type === 'direct') {
         this.sendForm.templateId = null;
         this.selectedTemplate = null;
-        this.templateVariables = [];
-        this.sendForm.variables = {};
       }
     },
     /** 发送模式变化 */
@@ -564,56 +550,10 @@ export default {
       if (templateId) {
         getTemplate(templateId).then(response => {
           this.selectedTemplate = response.data;
-          this.extractTemplateVariables();
         });
       } else {
         this.selectedTemplate = null;
-        this.templateVariables = [];
-        this.sendForm.variables = {};
       }
-    },
-    /** 提取模板变量 - 支持 {{name}} 和 ${name} 格式 */
-    extractTemplateVariables() {
-      if (!this.selectedTemplate) return;
-      
-      const content = this.selectedTemplate.content;
-      const subject = this.selectedTemplate.subject;
-      const variables = [];
-      
-      // 支持 {{name}} 格式的占位符
-      const regex1 = /\{\{([^}]+)\}\}/g;
-      let match1;
-      while ((match1 = regex1.exec(content)) !== null) {
-        if (!variables.includes(match1[1])) {
-          variables.push(match1[1]);
-        }
-      }
-      while ((match1 = regex1.exec(subject)) !== null) {
-        if (!variables.includes(match1[1])) {
-          variables.push(match1[1]);
-        }
-      }
-      
-      // 支持 ${name} 格式的占位符
-      const regex2 = /\$\{([^}]+)\}/g;
-      let match2;
-      while ((match2 = regex2.exec(content)) !== null) {
-        if (!variables.includes(match2[1])) {
-          variables.push(match2[1]);
-        }
-      }
-      while ((match2 = regex2.exec(subject)) !== null) {
-        if (!variables.includes(match2[1])) {
-          variables.push(match2[1]);
-        }
-      }
-      
-      this.templateVariables = variables;
-      // 使用 Vue.set 确保响应式
-      this.$set(this.sendForm, 'variables', {});
-      variables.forEach(variable => {
-        this.$set(this.sendForm.variables, variable, '');
-      });
     },
 
     /** 预览模板 */
@@ -623,20 +563,8 @@ export default {
         return;
       }
       
-      let content = this.selectedTemplate.content;
-      let subject = this.selectedTemplate.subject;
-      
-      // 替换 {{name}} 格式的变量
-      this.templateVariables.forEach(variable => {
-        const value = this.sendForm.variables[variable] || `[${variable}]`;
-        const regex1 = new RegExp(`\\{\\{${variable}\\}\\}`, 'g');
-        const regex2 = new RegExp(`\\$\\{${variable}\\}`, 'g');
-        content = content.replace(regex1, value).replace(regex2, value);
-        subject = subject.replace(regex1, value).replace(regex2, value);
-      });
-      
       // 获取发件人信息
-      const senderAccount = this.accountOptions.find(account => account.accountId === this.sendForm.accountId);
+      const senderAccount = this.accountOptions.find(account => this.sendForm.accountIds.includes(account.accountId));
       
       // 获取收件人信息
       let recipientInfo = this.getRecipientInfo();
@@ -644,8 +572,8 @@ export default {
       this.previewData = {
         sender: senderAccount,
         recipient: recipientInfo,
-        subject: subject,
-        content: content
+        subject: this.selectedTemplate.subject,
+        content: this.selectedTemplate.content
       };
       this.previewOpen = true;
     },
@@ -746,18 +674,10 @@ export default {
             return;
           }
 
-          // 验证模板参数
+          // 验证模板选择
           if (this.sendForm.sendType === 'template') {
             if (!this.sendForm.templateId) {
               this.$message.error('请选择邮件模板');
-              return;
-            }
-            // 检查必填参数
-            const missingVars = this.templateVariables.filter(variable => 
-              !this.sendForm.variables[variable] || this.sendForm.variables[variable].trim() === ''
-            );
-            if (missingVars.length > 0) {
-              this.$message.error(`请填写模板参数: ${missingVars.join(', ')}`);
               return;
             }
           } else {
@@ -777,7 +697,7 @@ export default {
             // 构建发送任务数据
             const taskData = {
               taskName: this.sendForm.taskName,
-              accountId: this.sendForm.accountId,
+              accountIds: this.sendForm.accountIds.join(','),
               sendMode: this.sendForm.sendMode,
               sendInterval: this.sendForm.sendInterval,
               sendTime: this.sendForm.sendTime
@@ -789,10 +709,6 @@ export default {
             // 设置模板ID（如果使用模板）
             if (this.sendForm.sendType === 'template' && this.sendForm.templateId) {
               taskData.templateId = this.sendForm.templateId;
-              // 添加模板变量
-              if (Object.keys(this.sendForm.variables).length > 0) {
-                taskData.templateVariables = JSON.stringify(this.sendForm.variables);
-              }
             }
 
             // 根据发送类型设置subject和content
@@ -843,7 +759,7 @@ export default {
     handleReset() {
       this.sendForm = {
         taskName: '',
-        accountId: '',
+        accountIds: [],
         recipientType: 'all',
         groupIds: [],
         tagIds: [],
@@ -854,11 +770,9 @@ export default {
         content: '',
         sendMode: 'immediate',
         sendInterval: 10,
-        sendTime: null,
-        variables: {}
+        sendTime: null
       };
       this.selectedTemplate = null;
-      this.templateVariables = [];
       this.$refs.sendForm.resetFields();
     }
   }
@@ -1036,5 +950,19 @@ export default {
 .send-mode-selector .el-tag:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 表单提示样式 */
+.form-tip {
+  margin-top: 5px;
+  font-size: 12px;
+  color: #909399;
+  display: flex;
+  align-items: center;
+}
+
+.form-tip i {
+  margin-right: 4px;
+  color: #409EFF;
 }
 </style>

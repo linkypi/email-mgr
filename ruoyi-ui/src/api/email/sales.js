@@ -1,7 +1,7 @@
 import request from '@/utils/request'
 
 // 查询销售数据列表
-export function listSales(query) {
+export function getSalesDataList(query) {
   return request({
     url: '/email/sales/list',
     method: 'get',
@@ -10,7 +10,7 @@ export function listSales(query) {
 }
 
 // 查询销售数据详细
-export function getSales(salesId) {
+export function getSalesData(salesId) {
   return request({
     url: '/email/sales/' + salesId,
     method: 'get'
@@ -18,7 +18,7 @@ export function getSales(salesId) {
 }
 
 // 新增销售数据
-export function addSales(data) {
+export function addSalesData(data) {
   return request({
     url: '/email/sales',
     method: 'post',
@@ -27,7 +27,7 @@ export function addSales(data) {
 }
 
 // 修改销售数据
-export function updateSales(data) {
+export function updateSalesData(data) {
   return request({
     url: '/email/sales',
     method: 'put',
@@ -36,15 +36,24 @@ export function updateSales(data) {
 }
 
 // 删除销售数据
-export function delSales(salesId) {
+export function delSalesData(salesId) {
   return request({
     url: '/email/sales/' + salesId,
     method: 'delete'
   })
 }
 
+// 批量删除销售数据
+export function delSalesDataBatch(salesIds) {
+  return request({
+    url: '/email/sales/batch',
+    method: 'delete',
+    data: salesIds
+  })
+}
+
 // 导出销售数据
-export function exportSales(query) {
+export function exportSalesData(query) {
   return request({
     url: '/email/sales/export',
     method: 'post',
@@ -52,19 +61,11 @@ export function exportSales(query) {
   })
 }
 
-// 根据联系人ID查询销售数据
-export function getSalesByContactId(contactId) {
+// 获取销售数据统计
+export function getSalesStatistics(query) {
   return request({
-    url: '/email/sales/contact/' + contactId,
-    method: 'get'
-  })
-}
-
-// 批量导入销售数据
-export function importSales(data) {
-  return request({
-    url: '/email/sales/importData',
-    method: 'post',
-    data: data
+    url: '/email/sales/statistics',
+    method: 'get',
+    params: query
   })
 }

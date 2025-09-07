@@ -188,18 +188,6 @@ public class EmailSendTaskController extends BaseController
                         emailSendTask.setContent(template.getContent());
                     }
                     
-                    // 处理模板变量替换
-                    if (emailSendTask.getTemplateVariables() != null && !emailSendTask.getTemplateVariables().trim().isEmpty()) {
-                        try {
-                            // 使用模板服务预览功能来处理变量替换
-                            String processedSubject = emailTemplateService.previewTemplate(emailSendTask.getTemplateId(), emailSendTask.getTemplateVariables());
-                            if (processedSubject != null && !processedSubject.trim().isEmpty()) {
-                                emailSendTask.setSubject(processedSubject);
-                            }
-                        } catch (Exception e) {
-                            logger.warn("处理模板变量失败: " + e.getMessage());
-                        }
-                    }
                 }
             }
             

@@ -53,6 +53,7 @@
         </template>
       </el-table-column>
       <el-table-column label="每日限制" align="center" prop="dailyLimit" />
+      <el-table-column label="发送间隔(秒)" align="center" prop="sendIntervalSeconds" />
       <el-table-column label="已发送" align="center" prop="usedCount" />
       <el-table-column label="启用状态" align="center" prop="status">
         <template slot-scope="scope">
@@ -104,6 +105,13 @@
         </el-form-item>
         <el-form-item label="每日发送限制" prop="dailyLimit">
           <el-input-number v-model="form.dailyLimit" :min="1" :max="10000" placeholder="请输入每日发送限制" />
+        </el-form-item>
+        <el-form-item label="发送时间间隔(秒)" prop="sendIntervalSeconds">
+          <el-input-number v-model="form.sendIntervalSeconds" :min="1" :max="3600" placeholder="请输入发送时间间隔" />
+          <div class="form-tip">
+            <i class="el-icon-info"></i>
+            设置邮件发送之间的间隔时间，建议30-300秒，避免被识别为垃圾邮件
+          </div>
         </el-form-item>
         
         <!-- IMAP 配置部分 -->
@@ -168,6 +176,7 @@
         <el-descriptions-item label="SMTP端口">{{ detailData.smtpPort }}</el-descriptions-item>
         <el-descriptions-item label="SMTP SSL">{{ detailData.smtpSsl === '1' ? '启用' : '禁用' }}</el-descriptions-item>
         <el-descriptions-item label="每日限制">{{ detailData.dailyLimit }}</el-descriptions-item>
+        <el-descriptions-item label="发送间隔(秒)">{{ detailData.sendIntervalSeconds }}</el-descriptions-item>
         <el-descriptions-item label="已发送">{{ detailData.usedCount }}</el-descriptions-item>
         <el-descriptions-item label="发送状态">{{ detailData.status === '0' ? '启用发送邮件' : '禁用发送邮件' }}</el-descriptions-item>
         <el-descriptions-item label="IMAP服务器">{{ detailData.imapHost }}</el-descriptions-item>
@@ -245,6 +254,9 @@ export default {
         ],
         dailyLimit: [
           { required: true, message: "每日发送限制不能为空", trigger: "blur" }
+        ],
+        sendIntervalSeconds: [
+          { required: true, message: "发送时间间隔不能为空", trigger: "blur" }
         ]
       }
     };
@@ -283,9 +295,10 @@ export default {
         webhookSecret: null,
         trackingEnabled: "0",
         dailyLimit: 100,
+        sendIntervalSeconds: 60,
         usedCount: 0,
-                 status: "0",
-         remark: null
+        status: "0",
+        remark: null
       };
       this.resetForm("form");
     },

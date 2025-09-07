@@ -68,4 +68,11 @@ public interface EmailAccountMapper
      * @return 结果
      */
     public int batchUpdateAccountStatus(EmailAccount emailAccount);
+    
+    /**
+     * 重置每日发送计数
+     * 
+     * @return 结果
+     */
+    public int resetDailySendCount();
 }

@@ -6,10 +6,9 @@
       </el-form-item>
       <el-form-item label="模板类型" prop="templateType">
         <el-select v-model="queryParams.templateType" placeholder="模板类型" clearable>
-          <el-option label="产品推广" value="product" />
-          <el-option label="节日问候" value="holiday" />
-          <el-option label="活动邀请" value="activity" />
-          <el-option label="其他" value="other" />
+          <el-option label="普通" value="1" />
+          <el-option label="营销" value="2" />
+          <el-option label="通知" value="3" />
         </el-select>
       </el-form-item>
       <el-form-item>
@@ -70,14 +69,90 @@
         </el-form-item>
         <el-form-item label="模板类型" prop="templateType">
           <el-select v-model="form.templateType" placeholder="请选择模板类型">
-            <el-option label="产品推广" value="product"></el-option>
-            <el-option label="节日问候" value="holiday"></el-option>
-            <el-option label="活动邀请" value="activity"></el-option>
-            <el-option label="其他" value="other"></el-option>
+            <el-option label="普通" value="1"></el-option>
+            <el-option label="营销" value="2"></el-option>
+            <el-option label="通知" value="3"></el-option>
           </el-select>
         </el-form-item>
         <el-form-item label="邮件内容" prop="content">
-          <el-input type="textarea" v-model="form.content" placeholder="请输入邮件内容" :rows="10" />
+          <div class="content-editor">
+            <!-- 占位符选择器 -->
+            <div class="placeholder-selector">
+              <div class="selector-header">
+                <span class="selector-title">可用占位符：</span>
+                <el-button size="mini" type="text" @click="showPlaceholderHelp = !showPlaceholderHelp">
+                  {{ showPlaceholderHelp ? '隐藏说明' : '查看说明' }}
+                </el-button>
+              </div>
+              
+              <!-- 占位符说明 -->
+              <div v-if="showPlaceholderHelp" class="placeholder-help">
+                <p>占位符将在发送邮件时自动替换为收件人的实际信息：</p>
+                <ul>
+                  <li><strong>基本信息：</strong>姓名、邮箱、企业名称、地址等</li>
+                  <li><strong>个人属性：</strong>年龄、性别、等级、群组等</li>
+                  <li><strong>统计信息：</strong>发送次数、回复次数、打开次数等</li>
+                </ul>
+              </div>
+              
+              <!-- 占位符按钮组 -->
+              <div class="placeholder-buttons">
+                <div class="button-group">
+                  <span class="group-label">基本信息：</span>
+                  <el-button size="mini" @click="insertPlaceholder('{name}')">姓名</el-button>
+                  <el-button size="mini" @click="insertPlaceholder('{email}')">邮箱</el-button>
+                  <el-button size="mini" @click="insertPlaceholder('{company}')">企业名称</el-button>
+                  <el-button size="mini" @click="insertPlaceholder('{address}')">地址</el-button>
+                </div>
+                
+                <div class="button-group">
+                  <span class="group-label">个人属性：</span>
+                  <el-button size="mini" @click="insertPlaceholder('{age}')">年龄</el-button>
+                  <el-button size="mini" @click="insertPlaceholder('{gender}')">性别</el-button>
+                  <el-button size="mini" @click="insertPlaceholder('{level}')">等级</el-button>
+                  <el-button size="mini" @click="insertPlaceholder('{groupName}')">群组</el-button>
+                </div>
+                
+                <div class="button-group">
+                  <span class="group-label">统计信息：</span>
+                  <el-button size="mini" @click="insertPlaceholder('{sendCount}')">发送次数</el-button>
+                  <el-button size="mini" @click="insertPlaceholder('{replyCount}')">回复次数</el-button>
+                  <el-button size="mini" @click="insertPlaceholder('{openCount}')">打开次数</el-button>
+                  <el-button size="mini" @click="insertPlaceholder('{replyRate}')">回复率</el-button>
+                </div>
+                
+                <div class="button-group">
+                  <span class="group-label">其他：</span>
+                  <el-button size="mini" @click="insertPlaceholder('{tags}')">标签</el-button>
+                  <el-button size="mini" @click="insertPlaceholder('{socialMedia}')">社交媒体</el-button>
+                  <el-button size="mini" @click="insertPlaceholder('{followers}')">粉丝数</el-button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 内容编辑器 -->
+            <el-input 
+              type="textarea" 
+              v-model="form.content" 
+              placeholder="请输入邮件内容，可使用上方的占位符按钮快速插入收件人信息" 
+              :rows="10"
+              ref="contentInput"
+              @focus="contentFocused = true"
+              @blur="contentFocused = false" />
+            
+            <!-- 占位符预览 -->
+            <div v-if="form.content && hasPlaceholders" class="placeholder-preview">
+              <div class="preview-header">
+                <span>占位符预览：</span>
+                <el-button size="mini" type="text" @click="showPreview = !showPreview">
+                  {{ showPreview ? '隐藏预览' : '显示预览' }}
+                </el-button>
+              </div>
+              <div v-if="showPreview" class="preview-content">
+                <div v-html="previewContent"></div>
+              </div>
+            </div>
+          </div>
         </el-form-item>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" type="textarea" placeholder="请输入内容" />
@@ -141,6 +216,10 @@ export default {
       form: {},
       // 预览数据
       previewData: {},
+      // 占位符相关
+      showPlaceholderHelp: false,
+      showPreview: false,
+      contentFocused: false,
       // 表单校验
       rules: {
         templateName: [
@@ -157,6 +236,45 @@ export default {
         ]
       }
     };
+  },
+  computed: {
+    // 检查内容中是否包含占位符
+    hasPlaceholders() {
+      if (!this.form.content) return false;
+      const placeholderRegex = /\{[^}]+\}/g;
+      return placeholderRegex.test(this.form.content);
+    },
+    
+    // 预览内容（将占位符替换为示例数据）
+    previewContent() {
+      if (!this.form.content) return '';
+      
+      const sampleData = {
+        name: '张三',
+        email: 'zhangsan@example.com',
+        company: '示例科技有限公司',
+        address: '北京市朝阳区示例大厦',
+        age: '28',
+        gender: '男',
+        level: '重要客户',
+        groupName: 'VIP客户群',
+        sendCount: '5',
+        replyCount: '2',
+        openCount: '8',
+        replyRate: '40%',
+        tags: '重要客户,活跃用户',
+        socialMedia: '微信:zhangsan123',
+        followers: '1000'
+      };
+      
+      let content = this.form.content;
+      Object.keys(sampleData).forEach(key => {
+        const regex = new RegExp(`\\{${key}\\}`, 'g');
+        content = content.replace(regex, `<span class="placeholder-value">${sampleData[key]}</span>`);
+      });
+      
+      return content;
+    }
   },
   created() {
     this.getList();
@@ -263,6 +381,27 @@ export default {
         this.getList();
         this.$modal.msgSuccess("删除成功");
       }).catch(() => {});
+    },
+    
+    /** 插入占位符 */
+    insertPlaceholder(placeholder) {
+      const textarea = this.$refs.contentInput.$refs.textarea;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+      const content = this.form.content;
+      
+      // 在光标位置插入占位符
+      const newContent = content.substring(0, start) + placeholder + content.substring(end);
+      this.form.content = newContent;
+      
+      // 设置光标位置到插入的占位符后面
+      this.$nextTick(() => {
+        const newPosition = start + placeholder.length;
+        textarea.setSelectionRange(newPosition, newPosition);
+        textarea.focus();
+      });
+      
+      this.$message.success(`已插入占位符: ${placeholder}`);
     }
   }
 };
@@ -308,5 +447,114 @@ export default {
 /* 确保操作列有足够空间 */
 .el-table .el-table__body-wrapper .el-table__body td.small-padding {
   padding: 8px 0;
+}
+
+/* 内容编辑器样式 */
+.content-editor {
+  width: 100%;
+}
+
+.placeholder-selector {
+  margin-bottom: 15px;
+  padding: 15px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  background-color: #fafafa;
+}
+
+.selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.selector-title {
+  font-weight: bold;
+  color: #303133;
+}
+
+.placeholder-help {
+  margin-bottom: 15px;
+  padding: 10px;
+  background-color: #f0f9ff;
+  border: 1px solid #b3d8ff;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #606266;
+}
+
+.placeholder-help p {
+  margin: 0 0 8px 0;
+}
+
+.placeholder-help ul {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.placeholder-help li {
+  margin-bottom: 4px;
+}
+
+.placeholder-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.button-group {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.group-label {
+  font-weight: bold;
+  color: #606266;
+  min-width: 80px;
+  font-size: 13px;
+}
+
+.button-group .el-button {
+  margin: 0;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.placeholder-preview {
+  margin-top: 15px;
+  padding: 15px;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  background-color: #f9f9f9;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-weight: bold;
+  color: #303133;
+}
+
+.preview-content {
+  padding: 10px;
+  background-color: white;
+  border: 1px solid #e4e7ed;
+  border-radius: 4px;
+  line-height: 1.6;
+  color: #606266;
+}
+
+.placeholder-value {
+  background-color: #e1f5fe;
+  color: #0277bd;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-weight: bold;
+  border: 1px solid #b3e5fc;
 }
 </style>

@@ -21,6 +21,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="webhookSecret"    column="webhook_secret"    />
         <result property="trackingEnabled"    column="tracking_enabled"    />
         <result property="dailyLimit"    column="daily_limit"    />
+        <result property="sendIntervalSeconds"    column="send_interval_seconds"    />
+        <result property="dailySentCount"    column="daily_sent_count"    />
+        <result property="lastSendDate"    column="last_send_date"    />
         <result property="usedCount"    column="used_count"    />
         <result property="lastSendTime"    column="last_send_time"    />
         <result property="lastSyncTime"    column="last_sync_time"    />
@@ -33,7 +36,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectEmailAccountVo">
-        select account_id, account_name, email_address, password, smtp_host, smtp_port, smtp_ssl, imap_host, imap_port, imap_ssl, imap_username, imap_password, webhook_url, webhook_secret, tracking_enabled, daily_limit, used_count, last_send_time, last_sync_time, status, create_by, create_time, update_by, update_time, remark from email_account
+        select account_id, account_name, email_address, password, smtp_host, smtp_port, smtp_ssl, imap_host, imap_port, imap_ssl, imap_username, imap_password, webhook_url, webhook_secret, tracking_enabled, daily_limit, send_interval_seconds, daily_sent_count, last_send_date, used_count, last_send_time, last_sync_time, status, create_by, create_time, update_by, update_time, remark from email_account
     </sql>
 
     <select id="selectEmailAccountList" parameterType="EmailAccount" resultMap="EmailAccountResult">
@@ -69,6 +72,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="webhookSecret != null and webhookSecret != ''">webhook_secret,</if>
             <if test="trackingEnabled != null and trackingEnabled != ''">tracking_enabled,</if>
             <if test="dailyLimit != null">daily_limit,</if>
+            <if test="sendIntervalSeconds != null">send_interval_seconds,</if>
+            <if test="dailySentCount != null">daily_sent_count,</if>
+            <if test="lastSendDate != null">last_send_date,</if>
             <if test="usedCount != null">used_count,</if>
             <if test="lastSendTime != null">last_send_time,</if>
             <if test="status != null and status != ''">status,</if>
@@ -94,6 +100,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="webhookSecret != null and webhookSecret != ''">#{webhookSecret},</if>
             <if test="trackingEnabled != null and trackingEnabled != ''">#{trackingEnabled},</if>
             <if test="dailyLimit != null">#{dailyLimit},</if>
+            <if test="sendIntervalSeconds != null">#{sendIntervalSeconds},</if>
+            <if test="dailySentCount != null">#{dailySentCount},</if>
+            <if test="lastSendDate != null">#{lastSendDate},</if>
             <if test="usedCount != null">#{usedCount},</if>
             <if test="lastSendTime != null">#{lastSendTime},</if>
             <if test="status != null and status != ''">#{status},</if>
@@ -125,6 +134,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="trackingEnabled != null and trackingEnabled != ''">tracking_enabled = #{trackingEnabled},</if>
             <if test="lastSyncTime != null">last_sync_time = #{lastSyncTime},</if>
             <if test="dailyLimit != null">daily_limit = #{dailyLimit},</if>
+            <if test="sendIntervalSeconds != null">send_interval_seconds = #{sendIntervalSeconds},</if>
+            <if test="dailySentCount != null">daily_sent_count = #{dailySentCount},</if>
+            <if test="lastSendDate != null">last_send_date = #{lastSendDate},</if>
             <if test="usedCount != null">used_count = #{usedCount},</if>
             <if test="lastSendTime != null">last_send_time = #{lastSendTime},</if>
             <if test="status != null and status != ''">status = #{status},</if>
@@ -162,5 +174,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <foreach item="accountId" collection="accountIds" open="(" separator="," close=")">
             #{accountId}
         </foreach>
+    </update>
+    
+    <!-- 重置每日发送计数 -->
+    <update id="resetDailySendCount">
+        UPDATE email_account 
+        SET daily_sent_count = 0,
+            last_send_date = CURDATE(),
+            update_time = NOW()
+        WHERE daily_sent_count > 0 
+           OR last_send_date IS NULL 
+           OR last_send_date &lt; CURDATE()
     </update>
 </mapper>

@@ -101,6 +101,32 @@ export const constantRoutes = [
       }
     ]
   },
+  {
+    path: '/management/template',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/email/template/index'),
+        name: 'EmailTemplate',
+        meta: { title: '邮件模板管理', icon: 'template' }
+      }
+    ]
+  },
+  {
+    path: '/management/tag',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/email/tag/index'),
+        name: 'EmailTag',
+        meta: { title: '标签管理', icon: 'tag' }
+      }
+    ]
+  },
 ]
 
 // 动态路由，基于用户权限动态去加载

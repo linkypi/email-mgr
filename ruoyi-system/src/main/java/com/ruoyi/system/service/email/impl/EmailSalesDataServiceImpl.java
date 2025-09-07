@@ -8,7 +8,7 @@ import com.ruoyi.system.domain.email.EmailSalesData;
 import com.ruoyi.system.service.email.IEmailSalesDataService;
 
 /**
- * 销售数据Service业务层处理
+ * 邮件销售数据Service业务层处理
  * 
  * @author ruoyi
  * @date 2024-01-01
@@ -20,10 +20,10 @@ public class EmailSalesDataServiceImpl implements IEmailSalesDataService
     private EmailSalesDataMapper emailSalesDataMapper;
 
     /**
-     * 查询销售数据
+     * 查询邮件销售数据
      * 
-     * @param salesId 销售数据主键
-     * @return 销售数据
+     * @param salesId 邮件销售数据主键
+     * @return 邮件销售数据
      */
     @Override
     public EmailSalesData selectEmailSalesDataBySalesId(Long salesId)
@@ -32,10 +32,10 @@ public class EmailSalesDataServiceImpl implements IEmailSalesDataService
     }
 
     /**
-     * 查询销售数据列表
+     * 查询邮件销售数据列表
      * 
-     * @param emailSalesData 销售数据
-     * @return 销售数据
+     * @param emailSalesData 邮件销售数据
+     * @return 邮件销售数据
      */
     @Override
     public List<EmailSalesData> selectEmailSalesDataList(EmailSalesData emailSalesData)
@@ -44,9 +44,9 @@ public class EmailSalesDataServiceImpl implements IEmailSalesDataService
     }
 
     /**
-     * 新增销售数据
+     * 新增邮件销售数据
      * 
-     * @param emailSalesData 销售数据
+     * @param emailSalesData 邮件销售数据
      * @return 结果
      */
     @Override
@@ -56,9 +56,9 @@ public class EmailSalesDataServiceImpl implements IEmailSalesDataService
     }
 
     /**
-     * 修改销售数据
+     * 修改邮件销售数据
      * 
-     * @param emailSalesData 销售数据
+     * @param emailSalesData 邮件销售数据
      * @return 结果
      */
     @Override
@@ -68,9 +68,9 @@ public class EmailSalesDataServiceImpl implements IEmailSalesDataService
     }
 
     /**
-     * 批量删除销售数据
+     * 批量删除邮件销售数据
      * 
-     * @param salesIds 需要删除的销售数据主键
+     * @param salesIds 需要删除的邮件销售数据主键
      * @return 结果
      */
     @Override
@@ -80,9 +80,9 @@ public class EmailSalesDataServiceImpl implements IEmailSalesDataService
     }
 
     /**
-     * 删除销售数据信息
+     * 删除邮件销售数据信息
      * 
-     * @param salesId 销售数据主键
+     * @param salesId 邮件销售数据主键
      * @return 结果
      */
     @Override
@@ -92,27 +92,14 @@ public class EmailSalesDataServiceImpl implements IEmailSalesDataService
     }
 
     /**
-     * 根据联系人ID查询销售数据
+     * 根据用户邮箱查询销售数据
      * 
-     * @param contactId 联系人ID
+     * @param userEmail 用户邮箱
      * @return 销售数据列表
      */
     @Override
-    public List<EmailSalesData> selectEmailSalesDataByContactId(Long contactId)
+    public List<EmailSalesData> selectEmailSalesDataByUserEmail(String userEmail)
     {
-        return emailSalesDataMapper.selectEmailSalesDataByContactId(contactId);
-    }
-
-    /**
-     * 批量插入销售数据
-     * 
-     * @param salesDataList 销售数据列表
-     * @return 结果
-     */
-    @Override
-    public int batchInsertEmailSalesData(List<EmailSalesData> salesDataList)
-    {
-        return emailSalesDataMapper.batchInsertEmailSalesData(salesDataList);
+        return emailSalesDataMapper.selectEmailSalesDataByUserEmail(userEmail);
     }
 }
-

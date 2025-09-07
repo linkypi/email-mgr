@@ -6,92 +6,109 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     
     <resultMap type="EmailSalesData" id="EmailSalesDataResult">
         <result property="salesId"    column="sales_id"    />
-        <result property="contactId"    column="contact_id"    />
-        <result property="salesAmount"    column="sales_amount"    />
+        <result property="userEmail"    column="user_email"    />
+        <result property="userName"    column="user_name"    />
         <result property="salesDate"    column="sales_date"    />
-        <result property="productName"    column="product_name"    />
-        <result property="salesStatus"    column="sales_status"    />
+        <result property="productModel"    column="product_model"    />
+        <result property="salesQuantity"    column="sales_quantity"    />
+        <result property="playCount"    column="play_count"    />
+        <result property="conversionRate"    column="conversion_rate"    />
+        <result property="discountType"    column="discount_type"    />
+        <result property="discountRatio"    column="discount_ratio"    />
+        <result property="sourceChannel"    column="source_channel"    />
         <result property="remark"    column="remark"    />
         <result property="createBy"    column="create_by"    />
         <result property="createTime"    column="create_time"    />
         <result property="updateBy"    column="update_by"    />
         <result property="updateTime"    column="update_time"    />
-        <result property="contactName"    column="contact_name"    />
-        <result property="contactEmail"    column="contact_email"    />
     </resultMap>
 
     <sql id="selectEmailSalesDataVo">
-        select s.sales_id, s.contact_id, s.sales_amount, s.sales_date, s.product_name, s.sales_status, s.remark, s.create_by, s.create_time, s.update_by, s.update_time, s.deleted,
-               c.name as contact_name, c.email as contact_email
-        from email_sales_data s
-        left join email_contact c on s.contact_id = c.contact_id
+        select sales_id, user_email, user_name, sales_date, product_model, sales_quantity, play_count, conversion_rate, discount_type, discount_ratio, source_channel, remark, create_by, create_time, update_by, update_time from email_sales_data
     </sql>
 
     <select id="selectEmailSalesDataList" parameterType="EmailSalesData" resultMap="EmailSalesDataResult">
         <include refid="selectEmailSalesDataVo"/>
         <where>  
-            <if test="contactId != null "> and s.contact_id = #{contactId}</if>
-            <if test="salesAmount != null "> and s.sales_amount = #{salesAmount}</if>
-            <if test="salesDate != null "> and s.sales_date = #{salesDate}</if>
-            <if test="productName != null  and productName != ''"> and s.product_name like concat('%', #{productName}, '%')</if>
-            <if test="salesStatus != null  and salesStatus != ''"> and s.sales_status = #{salesStatus}</if>
-            <if test="contactName != null  and contactName != ''"> and c.name like concat('%', #{contactName}, '%')</if>
-            <if test="contactEmail != null  and contactEmail != ''"> and c.email like concat('%', #{contactEmail}, '%')</if>
-            and s.deleted = '0'
+            <if test="userEmail != null  and userEmail != ''"> and user_email = #{userEmail}</if>
+            <if test="userName != null  and userName != ''"> and user_name like concat('%', #{userName}, '%')</if>
+            <if test="salesDate != null "> and sales_date = #{salesDate}</if>
+            <if test="productModel != null  and productModel != ''"> and product_model like concat('%', #{productModel}, '%')</if>
+            <if test="salesQuantity != null "> and sales_quantity = #{salesQuantity}</if>
+            <if test="playCount != null "> and play_count = #{playCount}</if>
+            <if test="conversionRate != null "> and conversion_rate = #{conversionRate}</if>
+            <if test="discountType != null  and discountType != ''"> and discount_type = #{discountType}</if>
+            <if test="discountRatio != null "> and discount_ratio = #{discountRatio}</if>
+            <if test="sourceChannel != null  and sourceChannel != ''"> and source_channel like concat('%', #{sourceChannel}, '%')</if>
         </where>
-        order by s.create_time desc
+        order by sales_date desc
     </select>
     
     <select id="selectEmailSalesDataBySalesId" parameterType="Long" resultMap="EmailSalesDataResult">
         <include refid="selectEmailSalesDataVo"/>
-        where s.sales_id = #{salesId} and s.deleted = '0'
+        where sales_id = #{salesId}
     </select>
-
-    <select id="selectEmailSalesDataByContactId" parameterType="Long" resultMap="EmailSalesDataResult">
+    
+    <select id="selectEmailSalesDataByUserEmail" parameterType="String" resultMap="EmailSalesDataResult">
         <include refid="selectEmailSalesDataVo"/>
-        where s.contact_id = #{contactId} and s.deleted = '0'
-        order by s.create_time desc
+        where user_email = #{userEmail}
+        order by sales_date desc
     </select>
         
     <insert id="insertEmailSalesData" parameterType="EmailSalesData" useGeneratedKeys="true" keyProperty="salesId">
         insert into email_sales_data
         <trim prefix="(" suffix=")" suffixOverrides=",">
-            <if test="contactId != null">contact_id,</if>
-            <if test="salesAmount != null">sales_amount,</if>
+            <if test="userEmail != null and userEmail != ''">user_email,</if>
+            <if test="userName != null">user_name,</if>
             <if test="salesDate != null">sales_date,</if>
-            <if test="productName != null">product_name,</if>
-            <if test="salesStatus != null">sales_status,</if>
+            <if test="productModel != null and productModel != ''">product_model,</if>
+            <if test="salesQuantity != null">sales_quantity,</if>
+            <if test="playCount != null">play_count,</if>
+            <if test="conversionRate != null">conversion_rate,</if>
+            <if test="discountType != null">discount_type,</if>
+            <if test="discountRatio != null">discount_ratio,</if>
+            <if test="sourceChannel != null">source_channel,</if>
             <if test="remark != null">remark,</if>
             <if test="createBy != null">create_by,</if>
             <if test="createTime != null">create_time,</if>
             <if test="updateBy != null">update_by,</if>
             <if test="updateTime != null">update_time,</if>
-            deleted
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
-            <if test="contactId != null">#{contactId},</if>
-            <if test="salesAmount != null">#{salesAmount},</if>
+            <if test="userEmail != null and userEmail != ''">#{userEmail},</if>
+            <if test="userName != null">#{userName},</if>
             <if test="salesDate != null">#{salesDate},</if>
-            <if test="productName != null">#{productName},</if>
-            <if test="salesStatus != null">#{salesStatus},</if>
+            <if test="productModel != null and productModel != ''">#{productModel},</if>
+            <if test="salesQuantity != null">#{salesQuantity},</if>
+            <if test="playCount != null">#{playCount},</if>
+            <if test="conversionRate != null">#{conversionRate},</if>
+            <if test="discountType != null">#{discountType},</if>
+            <if test="discountRatio != null">#{discountRatio},</if>
+            <if test="sourceChannel != null">#{sourceChannel},</if>
             <if test="remark != null">#{remark},</if>
             <if test="createBy != null">#{createBy},</if>
             <if test="createTime != null">#{createTime},</if>
             <if test="updateBy != null">#{updateBy},</if>
             <if test="updateTime != null">#{updateTime},</if>
-            '0'
          </trim>
     </insert>
 
     <update id="updateEmailSalesData" parameterType="EmailSalesData">
         update email_sales_data
         <trim prefix="SET" suffixOverrides=",">
-            <if test="contactId != null">contact_id = #{contactId},</if>
-            <if test="salesAmount != null">sales_amount = #{salesAmount},</if>
+            <if test="userEmail != null and userEmail != ''">user_email = #{userEmail},</if>
+            <if test="userName != null">user_name = #{userName},</if>
             <if test="salesDate != null">sales_date = #{salesDate},</if>
-            <if test="productName != null">product_name = #{productName},</if>
-            <if test="salesStatus != null">sales_status = #{salesStatus},</if>
+            <if test="productModel != null and productModel != ''">product_model = #{productModel},</if>
+            <if test="salesQuantity != null">sales_quantity = #{salesQuantity},</if>
+            <if test="playCount != null">play_count = #{playCount},</if>
+            <if test="conversionRate != null">conversion_rate = #{conversionRate},</if>
+            <if test="discountType != null">discount_type = #{discountType},</if>
+            <if test="discountRatio != null">discount_ratio = #{discountRatio},</if>
+            <if test="sourceChannel != null">source_channel = #{sourceChannel},</if>
             <if test="remark != null">remark = #{remark},</if>
+            <if test="createBy != null">create_by = #{createBy},</if>
+            <if test="createTime != null">create_time = #{createTime},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </trim>
@@ -99,21 +116,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </update>
 
     <delete id="deleteEmailSalesDataBySalesId" parameterType="Long">
-        update email_sales_data set deleted = '2' where sales_id = #{salesId}
+        delete from email_sales_data where sales_id = #{salesId}
     </delete>
 
     <delete id="deleteEmailSalesDataBySalesIds" parameterType="String">
-        update email_sales_data set deleted = '2' where sales_id in 
+        delete from email_sales_data where sales_id in 
         <foreach item="salesId" collection="array" open="(" separator="," close=")">
             #{salesId}
         </foreach>
     </delete>
-
-    <insert id="batchInsertEmailSalesData" parameterType="java.util.List">
-        insert into email_sales_data (contact_id, sales_amount, sales_date, product_name, sales_status, remark, create_by, create_time, deleted)
-        values
-        <foreach collection="list" item="item" separator=",">
-            (#{item.contactId}, #{item.salesAmount}, #{item.salesDate}, #{item.productName}, #{item.salesStatus}, #{item.remark}, #{item.createBy}, #{item.createTime}, '0')
-        </foreach>
-    </insert>
 </mapper>

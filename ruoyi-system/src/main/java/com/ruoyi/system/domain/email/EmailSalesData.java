@@ -4,13 +4,12 @@ import com.ruoyi.common.annotation.Excel;
 import com.ruoyi.common.core.domain.BaseEntity;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-import com.fasterxml.jackson.annotation.JsonFormat;
 
 import java.math.BigDecimal;
 import java.util.Date;
 
 /**
- * 销售数据对象 email_sales_data
+ * 邮件销售数据对象 email_sales_data
  * 
  * @author ruoyi
  * @date 2024-01-01
@@ -22,32 +21,49 @@ public class EmailSalesData extends BaseEntity
     /** 销售数据ID */
     private Long salesId;
 
-    /** 联系人ID */
-    @Excel(name = "联系人ID")
-    private Long contactId;
+    /** 用户邮箱 */
+    @Excel(name = "用户邮箱")
+    private String userEmail;
 
-    /** 销售金额 */
-    @Excel(name = "销售金额")
-    private BigDecimal salesAmount;
+    /** 用户姓名 */
+    @Excel(name = "用户姓名")
+    private String userName;
 
-    /** 销售日期 */
-    @JsonFormat(pattern = "yyyy-MM-dd")
-    @Excel(name = "销售日期", width = 30, dateFormat = "yyyy-MM-dd")
+    /** 带货日期 */
+    @Excel(name = "带货日期", width = 30, dateFormat = "yyyy-MM-dd")
     private Date salesDate;
 
-    /** 产品名称 */
-    @Excel(name = "产品名称")
-    private String productName;
+    /** 带货型号 */
+    @Excel(name = "带货型号")
+    private String productModel;
 
-    /** 销售状态 */
-    @Excel(name = "销售状态")
-    private String salesStatus;
+    /** 带货单量 */
+    @Excel(name = "带货单量")
+    private Integer salesQuantity;
 
-    /** 联系人姓名 */
-    private String contactName;
+    /** 播放次数 */
+    @Excel(name = "播放次数")
+    private Long playCount;
 
-    /** 联系人邮箱 */
-    private String contactEmail;
+    /** 转化率 */
+    @Excel(name = "转化率")
+    private BigDecimal conversionRate;
+
+    /** 折扣类型 */
+    @Excel(name = "折扣类型", readConverterExp = "满减=满减,折扣=折扣,优惠券=优惠券,无折扣=无折扣")
+    private String discountType;
+
+    /** 折扣比例 */
+    @Excel(name = "折扣比例")
+    private BigDecimal discountRatio;
+
+    /** 来源渠道 */
+    @Excel(name = "来源渠道")
+    private String sourceChannel;
+
+    /** 备注 */
+    @Excel(name = "备注")
+    private String remark;
 
     public void setSalesId(Long salesId) 
     {
@@ -58,27 +74,24 @@ public class EmailSalesData extends BaseEntity
     {
         return salesId;
     }
-
-    public void setContactId(Long contactId) 
+    public void setUserEmail(String userEmail) 
     {
-        this.contactId = contactId;
+        this.userEmail = userEmail;
     }
 
-    public Long getContactId() 
+    public String getUserEmail() 
     {
-        return contactId;
+        return userEmail;
+    }
+    public void setUserName(String userName) 
+    {
+        this.userName = userName;
     }
 
-    public void setSalesAmount(BigDecimal salesAmount) 
+    public String getUserName() 
     {
-        this.salesAmount = salesAmount;
+        return userName;
     }
-
-    public BigDecimal getSalesAmount() 
-    {
-        return salesAmount;
-    }
-
     public void setSalesDate(Date salesDate) 
     {
         this.salesDate = salesDate;
@@ -88,62 +101,98 @@ public class EmailSalesData extends BaseEntity
     {
         return salesDate;
     }
-
-    public void setProductName(String productName) 
+    public void setProductModel(String productModel) 
     {
-        this.productName = productName;
+        this.productModel = productModel;
     }
 
-    public String getProductName() 
+    public String getProductModel() 
     {
-        return productName;
+        return productModel;
+    }
+    public void setSalesQuantity(Integer salesQuantity) 
+    {
+        this.salesQuantity = salesQuantity;
     }
 
-    public void setSalesStatus(String salesStatus) 
+    public Integer getSalesQuantity() 
     {
-        this.salesStatus = salesStatus;
+        return salesQuantity;
+    }
+    public void setPlayCount(Long playCount) 
+    {
+        this.playCount = playCount;
     }
 
-    public String getSalesStatus() 
+    public Long getPlayCount() 
     {
-        return salesStatus;
+        return playCount;
+    }
+    public void setConversionRate(BigDecimal conversionRate) 
+    {
+        this.conversionRate = conversionRate;
     }
 
-    public String getContactName() 
+    public BigDecimal getConversionRate() 
     {
-        return contactName;
+        return conversionRate;
+    }
+    public void setDiscountType(String discountType) 
+    {
+        this.discountType = discountType;
     }
 
-    public void setContactName(String contactName) 
+    public String getDiscountType() 
     {
-        this.contactName = contactName;
+        return discountType;
+    }
+    public void setDiscountRatio(BigDecimal discountRatio) 
+    {
+        this.discountRatio = discountRatio;
     }
 
-    public String getContactEmail() 
+    public BigDecimal getDiscountRatio() 
     {
-        return contactEmail;
+        return discountRatio;
+    }
+    public void setSourceChannel(String sourceChannel) 
+    {
+        this.sourceChannel = sourceChannel;
     }
 
-    public void setContactEmail(String contactEmail) 
+    public String getSourceChannel() 
     {
-        this.contactEmail = contactEmail;
+        return sourceChannel;
+    }
+    public void setRemark(String remark) 
+    {
+        this.remark = remark;
+    }
+
+    public String getRemark() 
+    {
+        return remark;
     }
 
     @Override
     public String toString() {
         return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
             .append("salesId", getSalesId())
-            .append("contactId", getContactId())
-            .append("salesAmount", getSalesAmount())
+            .append("userEmail", getUserEmail())
+            .append("userName", getUserName())
             .append("salesDate", getSalesDate())
-            .append("productName", getProductName())
-            .append("salesStatus", getSalesStatus())
+            .append("productModel", getProductModel())
+            .append("salesQuantity", getSalesQuantity())
+            .append("playCount", getPlayCount())
+            .append("conversionRate", getConversionRate())
+            .append("discountType", getDiscountType())
+            .append("discountRatio", getDiscountRatio())
+            .append("sourceChannel", getSourceChannel())
             .append("remark", getRemark())
             .append("createBy", getCreateBy())
             .append("createTime", getCreateTime())
             .append("updateBy", getUpdateBy())
             .append("updateTime", getUpdateTime())
-            .append("deleted", 0)
             .toString();
     }
 }

@@ -20,6 +20,7 @@ import javax.mail.internet.InternetAddress;
 import javax.mail.internet.MimeMessage;
 import javax.mail.internet.MimeMultipart;
 import javax.mail.internet.MimeBodyPart;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
@@ -53,6 +54,12 @@ public class EmailSendService {
 
     @Autowired
     private EmailSchedulerService emailSchedulerService;
+
+    @Autowired
+    private EmailSendLimitService emailSendLimitService;
+
+    @Autowired
+    private EmailListener emailListener;
 
     // 使用全局线程池，避免每次创建新的
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
@@ -95,17 +102,14 @@ public class EmailSendService {
             task.setStatus("1");
             emailSendTaskService.updateEmailSendTask(task);
 
-            // 获取发件人账户
-            EmailAccount account;
-            if (task.getAccountId() != null) {
-                account = emailAccountService.selectEmailAccountByAccountId(task.getAccountId());
-            } else {
-                account = null;
+            // 获取发件人账户列表
+            List<EmailAccount> senderAccounts = getSenderAccounts(task);
+            if (senderAccounts.isEmpty()) {
+                logger.error("没有可用的发件人账户，任务ID: {}", taskId);
+                throw new RuntimeException("No available sender accounts found for task: " + taskId);
             }
-            if (account == null) {
-                logger.error("发件人账户未找到，任务ID: {}, 账户ID: {}", taskId, task.getAccountId());
-                throw new RuntimeException("Sender account not found. TaskId: " + taskId + ", AccountId: " + task.getAccountId());
-            }
+            
+            logger.info("找到 {} 个可用的发件人账户", senderAccounts.size());
 
             // 获取邮件模板（如果使用模板）
             EmailTemplate template;
@@ -135,11 +139,10 @@ public class EmailSendService {
             task.setRepliedCount(0);
             emailSendTaskService.updateEmailSendTask(task);
 
-            // 创建邮件会话
-            Session session = createMailSession(account);
-
             // 使用线程池异步发送邮件
             CompletableFuture<Void> sendingTask = CompletableFuture.runAsync(() -> {
+                int senderIndex = 0;
+                
                 for (EmailContact recipient : recipients) {
                     // 检查任务状态，如果被暂停或取消则停止发送
                     EmailSendTask currentTask = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
@@ -147,26 +150,61 @@ public class EmailSendService {
                         logger.info("任务状态已改变，停止发送, 任务名称：{}, 任务ID：{}", task.getTaskName(), taskId);
                         break;
                     }
-                    logger.info("准备发送邮件，发件箱：{}, 收件人: {}",account.getEmailAddress(), recipient.getEmail());
+                    
+                    // 获取当前可用的发件邮箱
+                    EmailAccount currentSender = getCurrentAvailableSender(senderAccounts, senderIndex);
+                    if (currentSender == null) {
+                        logger.warn("没有可用的发件邮箱，跳过剩余 {} 封邮件", recipients.size() - recipients.indexOf(recipient));
+                        break;
+                    }
+                    
+                    logger.info("准备发送邮件，发件箱：{}, 收件人: {}", currentSender.getEmailAddress(), recipient.getEmail());
+                    
                     try {
-                        // 发送邮件
-                        sendEmail(session, account, template, recipient, task);
+                        // 准备邮件内容
+                        String subject = getEmailSubject(template, task, recipient);
+                        String content = getEmailContent(template, task, recipient);
                         
-                        // 更新发送计数
-                        synchronized (this) {
-                            EmailSendTask latestTask = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
-                            latestTask.setSentCount(latestTask.getSentCount() + 1);
-                            emailSendTaskService.updateEmailSendTask(latestTask);
+                        // 使用 EmailListener 发送带跟踪的邮件
+                        String messageId = emailListener.sendEmailWithTracking(
+                            currentSender, 
+                            recipient.getEmail(), 
+                            subject, 
+                            content, 
+                            taskId
+                        );
+                        
+                        if (messageId != null) {
+                            // 更新发送计数
+                            synchronized (this) {
+                                EmailSendTask latestTask = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
+                                latestTask.setSentCount(latestTask.getSentCount() + 1);
+                                emailSendTaskService.updateEmailSendTask(latestTask);
+                            }
+                            
+                            // 更新邮箱发送计数
+                            emailSendLimitService.updateSendCount(currentSender.getAccountId());
+                            
+                            logger.debug("邮件发送成功: {} -> {}, MessageID: {}", 
+                                currentSender.getEmailAddress(), recipient.getEmail(), messageId);
+                        } else {
+                            logger.error("邮件发送失败: {} -> {}", currentSender.getEmailAddress(), recipient.getEmail());
                         }
 
-                        logger.debug("邮件发送成功: {} -> {}", account.getEmailAddress(), recipient.getEmail());
-
-                        // 发送间隔
-                        if (task.getSendInterval() != null && task.getSendInterval() > 0) {
-                            Thread.sleep(task.getSendInterval() * 1000L);
+                        // 切换到下一个发件邮箱
+                        senderIndex = (senderIndex + 1) % senderAccounts.size();
+                        
+                        // 发送间隔控制（除了最后一封邮件）
+                        if (recipients.indexOf(recipient) < recipients.size() - 1) {
+                            int interval = getSendInterval(currentSender.getAccountId());
+                            if (interval > 0) {
+                                logger.debug("等待 {} 秒后发送下一封邮件", interval);
+                                Thread.sleep(interval * 1000L);
+                            }
                         }
+                        
                     } catch (Exception e) {
-                        logger.error("发送邮件失败: {} -> {}, 错误: {}", account.getEmailAddress(), recipient.getEmail(), e.getMessage());
+                        logger.error("发送邮件失败: {} -> {}, 错误: {}", currentSender.getEmailAddress(), recipient.getEmail(), e.getMessage());
                     }
                 }
             }, executorService);
@@ -359,17 +397,45 @@ public class EmailSendService {
     
     /**
      * 替换邮件内容中的占位符
+     * 支持 {name}, {email}, {company} 等格式的占位符
      */
     private String replacePlaceholders(String text, EmailContact recipient) {
-        if (text == null) return null;
+        if (text == null || recipient == null) return text;
         
-        return text
-                .replace("${name}", recipient.getName() != null ? recipient.getName() : "")
-                .replace("${email}", recipient.getEmail() != null ? recipient.getEmail() : "")
-                .replace("${company}", recipient.getCompany() != null ? recipient.getCompany() : "")
-                .replace("{{name}}", recipient.getName() != null ? recipient.getName() : "")
-                .replace("{{email}}", recipient.getEmail() != null ? recipient.getEmail() : "")
-                .replace("{{company}}", recipient.getCompany() != null ? recipient.getCompany() : "");
+        // 基本信息占位符
+        text = text.replace("{name}", recipient.getName() != null ? recipient.getName() : "");
+        text = text.replace("{email}", recipient.getEmail() != null ? recipient.getEmail() : "");
+        text = text.replace("{company}", recipient.getCompany() != null ? recipient.getCompany() : "");
+        text = text.replace("{address}", recipient.getAddress() != null ? recipient.getAddress() : "");
+        
+        // 个人属性占位符
+        text = text.replace("{age}", recipient.getAge() != null ? recipient.getAge().toString() : "");
+        text = text.replace("{gender}", recipient.getGender() != null ? recipient.getGender() : "");
+        text = text.replace("{level}", recipient.getLevel() != null ? recipient.getLevel() : "");
+        text = text.replace("{groupName}", recipient.getGroupName() != null ? recipient.getGroupName() : "");
+        
+        // 统计信息占位符
+        text = text.replace("{sendCount}", recipient.getSendCount() != null ? recipient.getSendCount().toString() : "0");
+        text = text.replace("{replyCount}", recipient.getReplyCount() != null ? recipient.getReplyCount().toString() : "0");
+        text = text.replace("{openCount}", recipient.getOpenCount() != null ? recipient.getOpenCount().toString() : "0");
+        text = text.replace("{replyRate}", recipient.getReplyRate() != null ? String.format("%.1f%%", recipient.getReplyRate()) : "0%");
+        
+        // 其他占位符
+        text = text.replace("{tags}", recipient.getTags() != null ? recipient.getTags() : "");
+        text = text.replace("{socialMedia}", recipient.getSocialMedia() != null ? recipient.getSocialMedia() : "");
+        text = text.replace("{followers}", recipient.getFollowers() != null ? recipient.getFollowers().toString() : "0");
+        
+        // 兼容旧的占位符格式
+        text = text.replace("${name}", recipient.getName() != null ? recipient.getName() : "");
+        text = text.replace("${email}", recipient.getEmail() != null ? recipient.getEmail() : "");
+        text = text.replace("${company}", recipient.getCompany() != null ? recipient.getCompany() : "");
+        text = text.replace("{{name}}", recipient.getName() != null ? recipient.getName() : "");
+        text = text.replace("{{email}}", recipient.getEmail() != null ? recipient.getEmail() : "");
+        text = text.replace("{{company}}", recipient.getCompany() != null ? recipient.getCompany() : "");
+        
+        logger.debug("占位符替换完成，收件人: {}, 替换后内容长度: {}", recipient.getEmail(), text.length());
+        
+        return text;
     }
 
     public void pauseSendTask(Long taskId) {
@@ -801,5 +867,142 @@ public class EmailSendService {
             logger.debug("Transport健康检查异常: {}", e.getMessage());
             return false;
         }
+    }
+    
+    /**
+     * 获取发件人账户列表
+     * 
+     * @param task 发送任务
+     * @return 可用的发件人账户列表
+     */
+    private List<EmailAccount> getSenderAccounts(EmailSendTask task) {
+        List<EmailAccount> accounts = new ArrayList<>();
+        
+        // 优先使用 accountIds（多邮箱支持）
+        if (task.getAccountIds() != null && !task.getAccountIds().trim().isEmpty()) {
+            try {
+                // 解析 accountIds（假设是逗号分隔的ID列表）
+                String[] accountIdArray = task.getAccountIds().split(",");
+                for (String accountIdStr : accountIdArray) {
+                    try {
+                        Long accountId = Long.parseLong(accountIdStr.trim());
+                        EmailAccount account = emailAccountService.selectEmailAccountByAccountId(accountId);
+                        if (account != null && emailSendLimitService.canSendToday(accountId)) {
+                            accounts.add(account);
+                            logger.debug("添加可用发件箱: {} ({})", account.getAccountName(), account.getEmailAddress());
+                        } else {
+                            logger.debug("发件箱不可用: {} (ID: {})", 
+                                account != null ? account.getAccountName() : "未知", accountId);
+                        }
+                    } catch (NumberFormatException e) {
+                        logger.warn("无效的账户ID: {}", accountIdStr);
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("解析账户ID列表失败: {}", e.getMessage());
+            }
+        }
+        
+        // 如果没有多邮箱配置，回退到单个账户
+        if (accounts.isEmpty() && task.getAccountId() != null) {
+            EmailAccount account = emailAccountService.selectEmailAccountByAccountId(task.getAccountId());
+            if (account != null && emailSendLimitService.canSendToday(task.getAccountId())) {
+                accounts.add(account);
+                logger.debug("添加单个发件箱: {} ({})", account.getAccountName(), account.getEmailAddress());
+            } else {
+                logger.debug("单个发件箱不可用: {} (ID: {})", 
+                    account != null ? account.getAccountName() : "未知", task.getAccountId());
+            }
+        }
+        
+        return accounts;
+    }
+    
+    /**
+     * 获取当前可用的发件邮箱
+     * 
+     * @param availableSenders 可用发件邮箱列表
+     * @param index 当前索引
+     * @return 可用的发件邮箱
+     */
+    private EmailAccount getCurrentAvailableSender(List<EmailAccount> availableSenders, int index) {
+        // 过滤掉已达到每日上限的发件邮箱
+        List<EmailAccount> stillAvailable = new ArrayList<>();
+        for (EmailAccount sender : availableSenders) {
+            if (emailSendLimitService.canSendToday(sender.getAccountId())) {
+                stillAvailable.add(sender);
+            }
+        }
+        
+        if (stillAvailable.isEmpty()) {
+            return null;
+        }
+        
+        // 轮换使用
+        return stillAvailable.get(index % stillAvailable.size());
+    }
+    
+    /**
+     * 获取发送间隔时间（秒）
+     * 
+     * @param accountId 邮箱账户ID
+     * @return 发送间隔时间（秒）
+     */
+    private int getSendInterval(Long accountId) {
+        return emailSendLimitService.getRandomSendInterval(accountId);
+    }
+    
+    /**
+     * 获取邮件主题
+     * 
+     * @param template 邮件模板
+     * @param task 发送任务
+     * @param recipient 收件人
+     * @return 邮件主题
+     */
+    private String getEmailSubject(EmailTemplate template, EmailSendTask task, EmailContact recipient) {
+        String subject;
+        
+        if (template != null && template.getSubject() != null) {
+            subject = template.getSubject();
+        } else if (task.getSubject() != null) {
+            subject = task.getSubject();
+        } else {
+            subject = "";
+        }
+        
+        // 替换占位符
+        if (subject != null && recipient != null) {
+            subject = replacePlaceholders(subject, recipient);
+        }
+        
+        return subject;
+    }
+    
+    /**
+     * 获取邮件内容
+     * 
+     * @param template 邮件模板
+     * @param task 发送任务
+     * @param recipient 收件人
+     * @return 邮件内容
+     */
+    private String getEmailContent(EmailTemplate template, EmailSendTask task, EmailContact recipient) {
+        String content;
+        
+        if (template != null && template.getContent() != null) {
+            content = template.getContent();
+        } else if (task.getContent() != null) {
+            content = task.getContent();
+        } else {
+            content = "";
+        }
+        
+        // 替换占位符
+        if (content != null && recipient != null) {
+            content = replacePlaceholders(content, recipient);
+        }
+        
+        return content;
     }
 }

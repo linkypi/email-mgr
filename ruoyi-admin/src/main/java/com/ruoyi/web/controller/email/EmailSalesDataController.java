@@ -22,7 +22,7 @@ import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.core.page.TableDataInfo;
 
 /**
- * 销售数据Controller
+ * 邮件销售数据Controller
  * 
  * @author ruoyi
  * @date 2024-01-01
@@ -35,7 +35,7 @@ public class EmailSalesDataController extends BaseController
     private IEmailSalesDataService emailSalesDataService;
 
     /**
-     * 查询销售数据列表
+     * 查询邮件销售数据列表
      */
     @PreAuthorize("@ss.hasPermi('email:sales:list')")
     @GetMapping("/list")
@@ -47,20 +47,20 @@ public class EmailSalesDataController extends BaseController
     }
 
     /**
-     * 导出销售数据列表
+     * 导出邮件销售数据列表
      */
     @PreAuthorize("@ss.hasPermi('email:sales:export')")
-    @Log(title = "销售数据", businessType = BusinessType.EXPORT)
+    @Log(title = "邮件销售数据", businessType = BusinessType.EXPORT)
     @PostMapping("/export")
     public void export(HttpServletResponse response, EmailSalesData emailSalesData)
     {
         List<EmailSalesData> list = emailSalesDataService.selectEmailSalesDataList(emailSalesData);
         ExcelUtil<EmailSalesData> util = new ExcelUtil<EmailSalesData>(EmailSalesData.class);
-        util.exportExcel(response, list, "销售数据");
+        util.exportExcel(response, list, "邮件销售数据数据");
     }
 
     /**
-     * 获取销售数据详细信息
+     * 获取邮件销售数据详细信息
      */
     @PreAuthorize("@ss.hasPermi('email:sales:query')")
     @GetMapping(value = "/{salesId}")
@@ -70,10 +70,10 @@ public class EmailSalesDataController extends BaseController
     }
 
     /**
-     * 新增销售数据
+     * 新增邮件销售数据
      */
     @PreAuthorize("@ss.hasPermi('email:sales:add')")
-    @Log(title = "销售数据", businessType = BusinessType.INSERT)
+    @Log(title = "邮件销售数据", businessType = BusinessType.INSERT)
     @PostMapping
     public AjaxResult add(@RequestBody EmailSalesData emailSalesData)
     {
@@ -81,10 +81,10 @@ public class EmailSalesDataController extends BaseController
     }
 
     /**
-     * 修改销售数据
+     * 修改邮件销售数据
      */
     @PreAuthorize("@ss.hasPermi('email:sales:edit')")
-    @Log(title = "销售数据", businessType = BusinessType.UPDATE)
+    @Log(title = "邮件销售数据", businessType = BusinessType.UPDATE)
     @PutMapping
     public AjaxResult edit(@RequestBody EmailSalesData emailSalesData)
     {
@@ -92,10 +92,10 @@ public class EmailSalesDataController extends BaseController
     }
 
     /**
-     * 删除销售数据
+     * 删除邮件销售数据
      */
     @PreAuthorize("@ss.hasPermi('email:sales:remove')")
-    @Log(title = "销售数据", businessType = BusinessType.DELETE)
+    @Log(title = "邮件销售数据", businessType = BusinessType.DELETE)
 	@DeleteMapping("/{salesIds}")
     public AjaxResult remove(@PathVariable Long[] salesIds)
     {
@@ -103,24 +103,12 @@ public class EmailSalesDataController extends BaseController
     }
 
     /**
-     * 根据联系人ID查询销售数据
+     * 根据用户邮箱查询销售数据
      */
-    @GetMapping("/contact/{contactId}")
-    public AjaxResult getSalesDataByContactId(@PathVariable("contactId") Long contactId)
+    @GetMapping("/user/{userEmail}")
+    public AjaxResult getSalesDataByUserEmail(@PathVariable("userEmail") String userEmail)
     {
-        List<EmailSalesData> list = emailSalesDataService.selectEmailSalesDataByContactId(contactId);
+        List<EmailSalesData> list = emailSalesDataService.selectEmailSalesDataByUserEmail(userEmail);
         return success(list);
     }
-
-    /**
-     * 批量导入销售数据
-     */
-    @PreAuthorize("@ss.hasPermi('email:sales:import')")
-    @Log(title = "批量导入销售数据", businessType = BusinessType.IMPORT)
-    @PostMapping("/importData")
-    public AjaxResult importData(@RequestBody List<EmailSalesData> salesDataList)
-    {
-        return toAjax(emailSalesDataService.batchInsertEmailSalesData(salesDataList));
-    }
 }
-
