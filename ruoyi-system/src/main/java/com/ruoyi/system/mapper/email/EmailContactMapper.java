@@ -68,6 +68,14 @@ public interface EmailContactMapper
     public EmailContact selectEmailContactByEmail(String email);
 
     /**
+     * 根据邮箱地址查询联系人（包括已删除的）
+     * 
+     * @param email 邮箱地址
+     * @return 联系人
+     */
+    public EmailContact selectEmailContactByEmailIncludeDeleted(String email);
+
+    /**
      * 查询回复率最高的联系人
      * 
      * @param limit 限制数量
@@ -98,5 +106,21 @@ public interface EmailContactMapper
      * @return 联系人列表
      */
     public List<EmailContact> selectContactsByIds(List<String> contactIds);
+
+    /**
+     * 更新联系人统计信息
+     * 
+     * @param contactId 联系人ID
+     * @return 结果
+     */
+    public int updateContactStatistics(Long contactId);
+
+    /**
+     * 批量更新联系人统计信息
+     * 
+     * @param contactIds 联系人ID列表
+     * @return 结果
+     */
+    public int batchUpdateContactStatistics(List<Long> contactIds);
 }
 

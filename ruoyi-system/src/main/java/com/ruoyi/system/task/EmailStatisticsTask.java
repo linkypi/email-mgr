@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component;
 import com.ruoyi.system.domain.email.EmailAccount;
 import com.ruoyi.system.service.email.IEmailAccountService;
 import com.ruoyi.system.service.email.IEmailStatisticsService;
-import com.ruoyi.system.service.email.ImapEmailSyncService;
+import com.ruoyi.system.service.email.EmailListener;
 
 /**
  * 邮件统计定时任务
@@ -32,7 +32,7 @@ public class EmailStatisticsTask
     private IEmailAccountService emailAccountService;
 
     @Autowired
-    private ImapEmailSyncService imapEmailSyncService;
+    private EmailListener emailListener;
 
     /**
      * 同步邮件统计数据
@@ -54,7 +54,7 @@ public class EmailStatisticsTask
                 logger.info("找到 {} 个邮箱账号需要同步统计数据", emailAccounts.size());
                 
                 // 批量同步所有邮箱账号的邮件统计数据
-                imapEmailSyncService.syncAllEmailAccounts(emailAccounts);
+                emailListener.syncAllEmailAccounts(emailAccounts);
             }
             else
             {

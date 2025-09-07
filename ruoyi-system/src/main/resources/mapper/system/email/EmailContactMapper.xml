@@ -63,6 +63,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where c.email = #{email} and c.deleted = '0'
     </select>
 
+    <select id="selectEmailContactByEmailIncludeDeleted" parameterType="String" resultMap="EmailContactResult">
+        <include refid="selectEmailContactVo"/>
+        where c.email = #{email}
+    </select>
+
     <select id="selectEmailContactByGroupId" parameterType="Long" resultMap="EmailContactResult">
         <include refid="selectEmailContactVo"/>
         where c.group_id = #{groupId} and c.deleted = '0'
@@ -146,6 +151,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="replyRate != null">reply_rate = #{replyRate},</if>
             <if test="status != null">status = #{status},</if>
             <if test="remark != null">remark = #{remark},</if>
+            <if test="deleted != null">deleted = #{deleted},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
             <if test="updateTime != null">update_time = #{updateTime},</if>
         </trim>
@@ -213,5 +219,30 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{contactId}
         </foreach>
     </select>
+
+    <!-- 批量更新联系人统计信息 -->
+    <update id="batchUpdateContactStatistics" parameterType="list">
+        update email_contact c
+        set c.send_count = (
+            select count(*) from email_send_record r 
+            where r.contact_id = c.contact_id and r.status in ('1','2','3','4')
+        ),
+        c.reply_count = (
+            select count(*) from email_send_record r 
+            where r.contact_id = c.contact_id and r.status = '4'
+        ),
+        c.open_count = (
+            select count(*) from email_send_record r 
+            where r.contact_id = c.contact_id and r.status in ('3','4')
+        ),
+        c.reply_rate = case 
+            when c.send_count > 0 then round(c.reply_count * 100.0 / c.send_count, 2)
+            else 0.00
+        end
+        where c.contact_id in
+        <foreach item="contactId" collection="list" open="(" separator="," close=")">
+            #{contactId}
+        </foreach>
+    </update>
 </mapper>
 

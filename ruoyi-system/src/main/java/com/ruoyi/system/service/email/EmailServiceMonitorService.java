@@ -53,16 +53,10 @@ public class EmailServiceMonitorService {
     private IEmailAccountService emailAccountService;
     
     @Autowired
-    private ImapService imapService;
-    
-    @Autowired
-    private SmtpService smtpService;
+    private EmailListener emailListener;
     
     @Autowired
     private IEmailTrackRecordService emailTrackRecordService;
-    
-    @Autowired
-    private ImapEmailSyncService imapEmailSyncService;
     
     @Autowired
     private IEmailPersonalService emailPersonalService;
@@ -543,7 +537,7 @@ public class EmailServiceMonitorService {
                 if (state.imapStore == null || !state.imapStore.isConnected()) {
                     logger.info("建立IMAP长连接: {}:{}", account.getImapHost(), account.getImapPort());
                     
-                    Properties props = imapService.createImapProperties(account);
+                    Properties props = createImapProperties(account);
                     Session session = Session.getInstance(props);
                     session.setDebug(false);
                     
@@ -728,8 +722,8 @@ public class EmailServiceMonitorService {
      */
     private void processNewMessages(Long accountId, EmailAccount account, Message[] messages) {
         try {
-            // 调用IMAP邮件同步服务处理新邮件
-            imapEmailSyncService.processNewMessages(accountId, account, messages);
+            // 调用EmailListener处理新邮件
+            emailListener.processNewMessages(accountId, account, messages);
             
             // 处理邮件状态变化（通过事件驱动，而不是轮询）
             for (Message message : messages) {
@@ -1251,16 +1245,16 @@ public class EmailServiceMonitorService {
                 personalEmail.setSendTime(sentDate);
             }
             
-            // 提取邮件内容（使用ImapEmailSyncService的方法）
-            String content = imapEmailSyncService.extractMessageContent(message);
+            // 提取邮件内容（使用EmailListener的方法）
+            String content = emailListener.extractMessageContent(message);
             personalEmail.setContent(content);
             
-            // 提取HTML内容（使用ImapEmailSyncService的方法）
-            String htmlContent = imapEmailSyncService.extractHtmlContent(message);
+            // 提取HTML内容（使用EmailListener的方法）
+            String htmlContent = emailListener.extractHtmlContent(message);
             personalEmail.setHtmlContent(htmlContent);
             
-            // 计算附件数量（使用ImapEmailSyncService的方法）
-            int attachmentCount = imapEmailSyncService.countAttachments(message);
+            // 计算附件数量（使用EmailListener的方法）
+            int attachmentCount = emailListener.countAttachments(message);
             personalEmail.setAttachmentCount(attachmentCount);
             
             // 设置创建时间
@@ -1668,7 +1662,7 @@ public class EmailServiceMonitorService {
         try {
             logger.info("开始IMAP连接测试: {}", account.getEmailAddress());
             
-            Properties props = imapService.createImapProperties(account);
+            Properties props = createImapProperties(account);
             Session session = Session.getInstance(props);
             session.setDebug(false);
             
@@ -2012,21 +2006,21 @@ public class EmailServiceMonitorService {
                 return result;
             }
             
-            ImapService.ImapTestResult result = imapService.testImapConnection(account);
-            
-            if (result.isSuccess()) {
+            // 使用EmailListener进行IMAP连接测试
+            boolean testResult = emailListener.isAccountConnected(account.getAccountId());
+            if (testResult) {
                 updateImapStatus(accountId, "TEST_SUCCESS", null);
-                recordOperation(accountId, "IMAP", "SUCCESS", "IMAP连接测试成功");
+                return new HashMap<String, Object>() {{
+                    put("success", true);
+                    put("message", "IMAP连接测试成功");
+                }};
             } else {
-                updateImapStatus(accountId, "TEST_FAILED", result.getErrorMessage());
-                recordOperation(accountId, "IMAP", "FAILED", result.getErrorMessage());
+                updateImapStatus(accountId, "TEST_FAILED", "连接失败");
+                return new HashMap<String, Object>() {{
+                    put("success", false);
+                    put("message", "IMAP连接测试失败");
+                }};
             }
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", result.isSuccess());
-            response.put("message", result.getErrorMessage());
-            response.put("connectionTime", result.getConnectionTime());
-            return response;
             
         } catch (Exception e) {
             logger.error("测试IMAP服务失败", e);
@@ -2052,21 +2046,21 @@ public class EmailServiceMonitorService {
                 return result;
             }
             
-            SmtpService.SmtpTestResult result = smtpService.testSmtpConnection(account);
-            
-            if (result.isSuccess()) {
+            // 使用EmailListener进行SMTP连接测试
+            boolean testResult = emailListener.isAccountConnected(account.getAccountId());
+            if (testResult) {
                 updateSmtpStatus(accountId, "TEST_SUCCESS", null);
-                recordOperation(accountId, "SMTP", "SUCCESS", "SMTP连接测试成功");
+                return new HashMap<String, Object>() {{
+                    put("success", true);
+                    put("message", "SMTP连接测试成功");
+                }};
             } else {
-                updateSmtpStatus(accountId, "TEST_FAILED", result.getErrorMessage());
-                recordOperation(accountId, "SMTP", "FAILED", result.getErrorMessage());
+                updateSmtpStatus(accountId, "TEST_FAILED", "连接失败");
+                return new HashMap<String, Object>() {{
+                    put("success", false);
+                    put("message", "SMTP连接测试失败");
+                }};
             }
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", result.isSuccess());
-            response.put("message", result.getErrorMessage());
-            response.put("connectionTime", result.getConnectionTime());
-            return response;
             
         } catch (Exception e) {
             logger.error("测试SMTP服务失败", e);
@@ -2287,16 +2281,15 @@ public class EmailServiceMonitorService {
                 return;
             }
             
-            // 发送邮件
-            SmtpService.SmtpSendResult result = smtpService.sendEmail(
-                senderAccount, adminEmail, subject, content, null);
+            // 使用EmailListener发送邮件
+            String messageId = emailListener.sendEmailWithTracking(senderAccount, adminEmail, subject, content, null);
                 
-            if (result.isSuccess()) {
-                logger.info("管理员通知邮件发送成功");
+            if (messageId != null) {
+                logger.info("管理员通知邮件发送成功，Message-ID: {}", messageId);
                 recordOperation(accountId, "NOTIFICATION", "SUCCESS", "管理员通知邮件发送成功");
             } else {
-                logger.error("管理员通知邮件发送失败: {}", result.getErrorMessage());
-                recordOperation(accountId, "NOTIFICATION", "FAILED", result.getErrorMessage());
+                logger.error("管理员通知邮件发送失败");
+                recordOperation(accountId, "NOTIFICATION", "FAILED", "管理员通知邮件发送失败");
             }
             
         } catch (Exception e) {
@@ -2325,8 +2318,7 @@ public class EmailServiceMonitorService {
             for (EmailAccount account : accounts) {
                 if (!account.getAccountId().equals(excludeAccountId) && "1".equals(account.getStatus())) {
                     // 测试账号是否可用
-                    SmtpService.SmtpTestResult testResult = smtpService.testSmtpConnection(account);
-                    if (testResult.isSuccess()) {
+                    if (emailListener.isAccountConnected(account.getAccountId())) {
                         return account;
                     }
                 }
@@ -2834,6 +2826,58 @@ public class EmailServiceMonitorService {
             props.put("mail.smtp.starttls.required", "true");
             props.put("mail.smtp.ssl.trust", "smtp.gmail.com");
         }
+        
+        return props;
+    }
+    
+    /**
+     * 创建IMAP连接属性
+     */
+    private Properties createImapProperties(EmailAccount account) {
+        Properties props = new Properties();
+        
+        // 基本连接设置
+        props.setProperty("mail.imap.host", account.getImapHost());
+        props.setProperty("mail.imap.port", String.valueOf(account.getImapPort()));
+        props.setProperty("mail.imap.username", account.getImapUsername());
+        props.setProperty("mail.imap.password", account.getImapPassword());
+        
+        // SSL/TLS设置 - 根据端口自动判断
+        int port = account.getImapPort();
+        if (port == 993) {
+            // SSL端口
+            props.setProperty("mail.imap.ssl.enable", "true");
+            props.setProperty("mail.imap.ssl.trust", "*");
+            props.setProperty("mail.imap.ssl.protocols", "TLSv1.2");
+        } else if (port == 143) {
+            // 非SSL端口
+            props.setProperty("mail.imap.ssl.enable", "false");
+            props.setProperty("mail.imap.starttls.enable", "true");
+            props.setProperty("mail.imap.starttls.required", "true");
+        } else {
+            // 其他端口，默认启用SSL
+            props.setProperty("mail.imap.ssl.enable", "true");
+            props.setProperty("mail.imap.ssl.trust", "*");
+        }
+        
+        // 连接超时设置 - 针对监控场景优化
+        props.setProperty("mail.imap.connectiontimeout", "30000"); // 30秒连接超时
+        props.setProperty("mail.imap.timeout", "60000"); // 60秒读取超时
+        props.setProperty("mail.imap.writetimeout", "30000"); // 30秒写入超时
+        
+        // IDLE支持设置
+        props.setProperty("mail.imap.idle.enable", "true");
+        props.setProperty("mail.imap.idle.timeout", "600000"); // 10分钟IDLE超时
+        
+        // 连接池和重试设置
+        props.setProperty("mail.imap.connectionpoolsize", "5");
+        props.setProperty("mail.imap.connectionpooltimeout", "300000"); // 5分钟连接池超时
+        
+        // 其他优化设置
+        props.setProperty("mail.imap.peek", "true"); // 不标记邮件为已读
+        props.setProperty("mail.imap.allowreadonlyselect", "true");
+        props.setProperty("mail.imap.auth.plain.disable", "false");
+        props.setProperty("mail.imap.auth.login.disable", "false");
         
         return props;
     }

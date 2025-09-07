@@ -1,6 +1,7 @@
 package com.ruoyi.system.domain.email;
 
 import com.ruoyi.common.annotation.Excel;
+import com.ruoyi.common.annotation.Excel.Type;
 import com.ruoyi.common.core.domain.BaseEntity;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
@@ -27,27 +28,21 @@ public class EmailContact extends BaseEntity
     private String email;
 
     /** 企业名称 */
-    @Excel(name = "企业名称")
     private String company;
 
     /** 地址 */
-    @Excel(name = "地址")
     private String address;
 
     /** 年龄 */
-    @Excel(name = "年龄")
     private Integer age;
 
     /** 性别 */
-    @Excel(name = "性别", readConverterExp = "0=未知,1=男,2=女")
     private String gender;
 
     /** 社交媒体 */
-    @Excel(name = "社交媒体")
     private String socialMedia;
 
     /** 粉丝数 */
-    @Excel(name = "粉丝数")
     private Integer followers;
 
     /** 等级 */
@@ -66,19 +61,19 @@ public class EmailContact extends BaseEntity
     private String tags;
 
     /** 发送次数 */
-    @Excel(name = "发送次数")
+    @Excel(name = "发送次数", type = Type.EXPORT)
     private Integer sendCount;
 
     /** 回复次数 */
-    @Excel(name = "回复次数")
+    @Excel(name = "回复次数", type = Type.EXPORT)
     private Integer replyCount;
 
     /** 打开次数 */
-    @Excel(name = "打开次数")
+    @Excel(name = "打开次数", type = Type.EXPORT)
     private Integer openCount;
 
     /** 回复率 */
-    @Excel(name = "回复率")
+    @Excel(name = "回复率", type = Type.EXPORT)
     private Double replyRate;
 
     /** 状态 */

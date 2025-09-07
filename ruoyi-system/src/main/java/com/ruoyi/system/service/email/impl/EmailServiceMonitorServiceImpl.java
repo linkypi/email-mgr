@@ -9,6 +9,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import com.ruoyi.system.service.email.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,10 +19,6 @@ import com.ruoyi.system.mapper.email.EmailServiceMonitorLogMapper;
 import com.ruoyi.system.domain.email.EmailServiceMonitor;
 import com.ruoyi.system.domain.email.EmailServiceMonitorLog;
 import com.ruoyi.system.domain.email.EmailAccount;
-import com.ruoyi.system.service.email.IEmailServiceMonitorService;
-import com.ruoyi.system.service.email.IEmailAccountService;
-import com.ruoyi.system.service.email.ImapService;
-import com.ruoyi.system.service.email.SmtpService;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.system.enums.EmailServiceStatus;
@@ -48,10 +45,7 @@ public class EmailServiceMonitorServiceImpl implements IEmailServiceMonitorServi
     private IEmailAccountService emailAccountService;
     
     @Autowired
-    private ImapService imapService;
-    
-    @Autowired
-    private SmtpService smtpService;
+    private EmailListener emailListener;
     
     // 存储正在监控的账号
     private final Map<Long, ScheduledExecutorService> imapMonitors = new ConcurrentHashMap<>();
@@ -368,9 +362,8 @@ public class EmailServiceMonitorServiceImpl implements IEmailServiceMonitorServi
                 return result;
             }
             
-            // 测试IMAP连接
-            ImapService.ImapTestResult testResult = imapService.testImapConnection(account);
-            boolean success = testResult.isSuccess();
+            // 使用EmailListener测试IMAP连接
+            boolean success = emailListener.isAccountConnected(account.getAccountId());
             long responseTime = System.currentTimeMillis() - startTime;
             
             // 记录日志
@@ -470,9 +463,8 @@ public class EmailServiceMonitorServiceImpl implements IEmailServiceMonitorServi
                 return result;
             }
             
-            // 测试SMTP连接
-            SmtpService.SmtpTestResult testResult = smtpService.testSmtpConnection(account);
-            boolean success = testResult.isSuccess();
+            // 使用EmailListener测试SMTP连接
+            boolean success = emailListener.isAccountConnected(account.getAccountId());
             long responseTime = System.currentTimeMillis() - startTime;
             
             // 记录日志

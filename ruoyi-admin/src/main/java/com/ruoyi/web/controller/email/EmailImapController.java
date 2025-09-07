@@ -20,7 +20,7 @@ import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.system.domain.email.EmailAccount;
 import com.ruoyi.system.domain.email.EmailTrackRecord;
 import com.ruoyi.system.service.email.IEmailAccountService;
-import com.ruoyi.system.service.email.ImapEmailSyncService;
+import com.ruoyi.system.service.email.EmailListener;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.utils.SecurityUtils;
@@ -40,7 +40,7 @@ public class EmailImapController extends BaseController
     private IEmailAccountService emailAccountService;
     
     @Autowired
-    private ImapEmailSyncService imapEmailSyncService;
+    private EmailListener emailListener;
 
     /**
      * 查询IMAP监听列表
@@ -87,8 +87,8 @@ public class EmailImapController extends BaseController
                 return error("IMAP配置不完整，请检查IMAP服务器、端口、用户名和密码");
             }
             
-            // 启动IMAP监听服务
-            imapEmailSyncService.startImapListener(account);
+            // 启动IMAP监听服务（现在由EmailListener统一管理）
+            // imapEmailSyncService.startImapListener(account);
             
             // 更新最后同步时间
             account.setLastSyncTime(DateUtils.getTime());
@@ -181,8 +181,8 @@ public class EmailImapController extends BaseController
                 return error("IMAP配置不完整，请检查IMAP服务器、端口、用户名和密码");
             }
             
-            // 调用IMAP同步服务
-            imapEmailSyncService.syncEmailStatistics(account);
+            // 调用EmailListener同步服务
+            emailListener.syncEmailStatistics(account);
             
             // 更新最后同步时间
             account.setLastSyncTime(DateUtils.getTime());
@@ -228,7 +228,7 @@ public class EmailImapController extends BaseController
             
             // 发送邮件并跟踪
             Long taskId = params.get("taskId") != null ? Long.parseLong(params.get("taskId")) : null;
-            String messageId = imapEmailSyncService.sendEmailWithTracking(emailAccount, recipient, subject, content, taskId);
+            String messageId = emailListener.sendEmailWithTracking(emailAccount, recipient, subject, content, taskId);
             
             return success("邮件发送成功");
         }
@@ -246,7 +246,7 @@ public class EmailImapController extends BaseController
     {
         try
         {
-            EmailTrackRecord record = imapEmailSyncService.getTrackRecord(messageId);
+            EmailTrackRecord record = emailListener.getTrackRecord(messageId);
             if (record != null)
             {
                 return success(record);

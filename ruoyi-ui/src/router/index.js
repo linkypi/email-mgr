@@ -100,7 +100,7 @@ export const constantRoutes = [
         meta: { title: '邮件批量发送', icon: 'send' }
       }
     ]
-  }
+  },
 ]
 
 // 动态路由，基于用户权限动态去加载

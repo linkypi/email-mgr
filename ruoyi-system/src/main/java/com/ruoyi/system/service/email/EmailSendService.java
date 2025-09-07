@@ -510,7 +510,7 @@ public class EmailSendService {
             logger.warn("长连接不可用 (尝试 {}/{}), 等待2秒后重新创建连接", retryAttempt, maxRetryAttempts);
             
             try {
-                Thread.sleep(2000); // 等待2秒
+                Thread.sleep(1000); // 等待1秒
                 transport = emailServiceMonitorService.createSmtpLongConnection(account.getAccountId());
                 session = emailServiceMonitorService.getSmtpSession(account.getAccountId());
                 

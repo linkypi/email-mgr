@@ -40,7 +40,6 @@
         <el-card>
           <div slot="header">快捷操作</div>
           <el-button type="primary" @click="$router.push('/email/personal')">写邮件</el-button>
-          <el-button type="success" @click="$router.push('/email/contact')">收件人管理</el-button>
           <el-button type="warning" @click="$router.push('/email/group')">群组管理</el-button>
           <el-button type="info" @click="$router.push('/email/tag')">标签管理</el-button>
           <el-button type="danger" @click="$router.push('/email/batch')">批量发送</el-button>

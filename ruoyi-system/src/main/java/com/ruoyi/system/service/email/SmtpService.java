@@ -161,6 +161,15 @@ public class SmtpService {
         props.setProperty("mail.smtp.allow8bitmime", "true");
         props.setProperty("mail.smtp.sendpartial", "true");
         
+        // 代理设置（如果需要）
+        String proxyHost = System.getProperty("mail.smtp.proxy.host");
+        String proxyPort = System.getProperty("mail.smtp.proxy.port");
+        if (proxyHost != null && proxyPort != null) {
+            props.setProperty("mail.smtp.proxy.host", proxyHost);
+            props.setProperty("mail.smtp.proxy.port", proxyPort);
+            logger.info("使用SMTP代理: {}:{}", proxyHost, proxyPort);
+        }
+        
         return props;
     }
     

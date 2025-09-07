@@ -1,6 +1,8 @@
 package com.ruoyi.web.controller.email;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.servlet.http.HttpServletResponse;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +50,34 @@ public class EmailContactController extends BaseController
     }
 
     /**
+     * 测试接口 - 检查数据库连接和数据
+     */
+    @GetMapping("/test")
+    public AjaxResult test()
+    {
+        try {
+            // 查询总数
+            EmailContact queryContact = new EmailContact();
+            List<EmailContact> allContacts = emailContactService.selectEmailContactList(queryContact);
+            int totalCount = allContacts.size();
+            
+            // 查询前5条数据
+            List<EmailContact> sampleContacts = allContacts.stream()
+                .limit(5)
+                .collect(java.util.stream.Collectors.toList());
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("totalCount", totalCount);
+            result.put("sampleContacts", sampleContacts);
+            result.put("message", "数据库连接正常");
+            
+            return success(result);
+        } catch (Exception e) {
+            return error("数据库连接异常: " + e.getMessage());
+        }
+    }
+
+    /**
      * 导出邮件联系人列表
      */
     @PreAuthorize("@ss.hasPermi('email:contact:export')")
@@ -78,7 +108,13 @@ public class EmailContactController extends BaseController
     @PostMapping
     public AjaxResult add(@RequestBody EmailContact emailContact)
     {
-        return toAjax(emailContactService.insertEmailContact(emailContact));
+        try {
+            return toAjax(emailContactService.insertEmailContact(emailContact));
+        } catch (RuntimeException e) {
+            return error(e.getMessage());
+        } catch (Exception e) {
+            return error("新增失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -89,7 +125,13 @@ public class EmailContactController extends BaseController
     @PutMapping
     public AjaxResult edit(@RequestBody EmailContact emailContact)
     {
-        return toAjax(emailContactService.updateEmailContact(emailContact));
+        try {
+            return toAjax(emailContactService.updateEmailContact(emailContact));
+        } catch (RuntimeException e) {
+            return error(e.getMessage());
+        } catch (Exception e) {
+            return error("修改失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -164,5 +206,149 @@ public class EmailContactController extends BaseController
     {
         List<EmailContact> list = emailContactService.selectEmailContactList(new EmailContact());
         return success(list);
+    }
+
+    /**
+     * 批量导入联系人
+     */
+    @PreAuthorize("@ss.hasPermi('email:contact:import')")
+    @Log(title = "邮件联系人", businessType = BusinessType.IMPORT)
+    @PostMapping("/batchImport")
+    public AjaxResult batchImport(@RequestBody List<EmailContact> contacts)
+    {
+        try {
+            String result = emailContactService.batchImportContacts(contacts);
+            return success(result);
+        } catch (Exception e) {
+            return error("批量导入失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 根据邮箱地址查询联系人
+     */
+    @GetMapping("/getByEmail/{email}")
+    public AjaxResult getByEmail(@PathVariable("email") String email)
+    {
+        EmailContact contact = emailContactService.selectEmailContactByEmail(email);
+        return success(contact);
+    }
+
+    /**
+     * 根据群组ID列表查询联系人
+     */
+    @PostMapping("/listByGroupIds")
+    public AjaxResult listByGroupIds(@RequestBody List<String> groupIds)
+    {
+        List<EmailContact> list = emailContactService.selectContactsByGroupIds(groupIds);
+        return success(list);
+    }
+
+    /**
+     * 根据标签ID列表查询联系人
+     */
+    @PostMapping("/listByTagIds")
+    public AjaxResult listByTagIds(@RequestBody List<String> tagIds)
+    {
+        List<EmailContact> list = emailContactService.selectContactsByTagIds(tagIds);
+        return success(list);
+    }
+
+    /**
+     * 根据联系人ID列表查询联系人
+     */
+    @PostMapping("/listByIds")
+    public AjaxResult listByIds(@RequestBody List<String> contactIds)
+    {
+        List<EmailContact> list = emailContactService.selectContactsByIds(contactIds);
+        return success(list);
+    }
+
+    /**
+     * 更新联系人统计信息
+     */
+    @PreAuthorize("@ss.hasPermi('email:contact:edit')")
+    @Log(title = "邮件联系人", businessType = BusinessType.UPDATE)
+    @PutMapping("/updateStatistics/{contactId}")
+    public AjaxResult updateStatistics(@PathVariable("contactId") Long contactId)
+    {
+        return toAjax(emailContactService.updateContactStatistics(contactId));
+    }
+
+    /**
+     * 批量更新联系人统计信息
+     */
+    @PreAuthorize("@ss.hasPermi('email:contact:edit')")
+    @Log(title = "邮件联系人", businessType = BusinessType.UPDATE)
+    @PutMapping("/batchUpdateStatistics")
+    public AjaxResult batchUpdateStatistics(@RequestBody List<Long> contactIds)
+    {
+        int result = emailContactService.batchUpdateContactStatistics(contactIds);
+        return success("成功更新 " + result + " 个联系人的统计信息");
+    }
+
+    /**
+     * 搜索联系人（支持多条件搜索）
+     */
+    @PostMapping("/search")
+    public TableDataInfo search(@RequestBody EmailContact searchParams)
+    {
+        startPage();
+        List<EmailContact> list = emailContactService.searchContacts(searchParams);
+        return getDataTable(list);
+    }
+
+    /**
+     * 获取联系人统计信息
+     */
+    @GetMapping("/statistics")
+    public AjaxResult getStatistics()
+    {
+        Map<String, Object> statistics = emailContactService.getContactStatistics();
+        return success(statistics);
+    }
+
+    /**
+     * 验证邮箱地址是否已存在
+     */
+    @GetMapping("/validateEmail/{email}")
+    public AjaxResult validateEmail(@PathVariable("email") String email)
+    {
+        boolean exists = emailContactService.isEmailExists(email);
+        return success(exists);
+    }
+
+    /**
+     * 批量删除联系人（软删除）
+     */
+    @PreAuthorize("@ss.hasPermi('email:contact:remove')")
+    @Log(title = "邮件联系人", businessType = BusinessType.DELETE)
+    @PostMapping("/batchDelete")
+    public AjaxResult batchDelete(@RequestBody List<Long> contactIds)
+    {
+        return toAjax(emailContactService.batchDeleteContacts(contactIds));
+    }
+
+    /**
+     * 恢复已删除的联系人
+     */
+    @PreAuthorize("@ss.hasPermi('email:contact:edit')")
+    @Log(title = "邮件联系人", businessType = BusinessType.UPDATE)
+    @PutMapping("/restore/{contactId}")
+    public AjaxResult restore(@PathVariable("contactId") Long contactId)
+    {
+        return toAjax(emailContactService.restoreContact(contactId));
+    }
+
+    /**
+     * 批量恢复已删除的联系人
+     */
+    @PreAuthorize("@ss.hasPermi('email:contact:edit')")
+    @Log(title = "邮件联系人", businessType = BusinessType.UPDATE)
+    @PostMapping("/batchRestore")
+    public AjaxResult batchRestore(@RequestBody List<Long> contactIds)
+    {
+        int result = emailContactService.batchRestoreContacts(contactIds);
+        return success("成功恢复 " + result + " 个联系人");
     }
 }

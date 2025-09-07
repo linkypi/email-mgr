@@ -4,13 +4,23 @@ import com.ruoyi.system.domain.email.EmailAccount;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import javax.annotation.PreDestroy;
 
 import javax.mail.*;
 import javax.mail.event.MessageCountAdapter;
 import javax.mail.event.MessageCountEvent;
 import javax.mail.internet.MimeMessage;
-import java.util.Date;
-import java.util.Properties;
+import javax.mail.internet.MimeMultipart;
+import javax.mail.internet.MimeBodyPart;
+import javax.mail.internet.MimeUtility;
+import java.io.UnsupportedEncodingException;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * IMAP服务
@@ -20,6 +30,23 @@ import java.util.Properties;
 public class ImapService {
     
     private static final Logger logger = LoggerFactory.getLogger(ImapService.class);
+    
+    // 邮件跟踪监控相关
+    private final Map<Long, EmailTrackingMonitor> trackingMonitors = new ConcurrentHashMap<>();
+    private final ScheduledExecutorService trackingExecutor = Executors.newScheduledThreadPool(5);
+    private volatile boolean serviceShutdown = false;
+    
+    // DSN邮件模式匹配
+    private static final Pattern DSN_PATTERN = Pattern.compile(
+        "Message-ID:\\s*<([^>]+)>", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DSN_STATUS_PATTERN = Pattern.compile(
+        "Status:\\s*(\\d+\\.\\d+\\.\\d+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern DSN_RECIPIENT_PATTERN = Pattern.compile(
+        "Final-Recipient:\\s*rfc822;\\s*([^\\s]+)", Pattern.CASE_INSENSITIVE);
+    
+    // 回复邮件模式匹配
+    private static final Pattern REPLY_PATTERN = Pattern.compile(
+        "In-Reply-To:\\s*<([^>]+)>", Pattern.CASE_INSENSITIVE);
     
     /**
      * 测试IMAP连接
@@ -450,5 +477,490 @@ public class ImapService {
         void onNewMessages(Message[] messages);
         void onIdleUpdate(Date lastUpdate);
         void onIdleError(Exception e);
+    }
+    
+    // ==================== 邮件跟踪监控功能 ====================
+    
+    /**
+     * 启动邮件跟踪监控
+     */
+    public void startEmailTracking(EmailAccount account, EmailTrackingCallback callback) {
+        if (serviceShutdown) {
+            logger.warn("服务正在关闭，无法启动邮件跟踪监控: {}", account.getEmailAddress());
+            return;
+        }
+        
+        Long accountId = account.getAccountId();
+        
+        if (trackingMonitors.containsKey(accountId)) {
+            logger.info("邮件跟踪监控已启动: {}", account.getEmailAddress());
+            return;
+        }
+        
+        EmailTrackingMonitor monitor = new EmailTrackingMonitor(account, callback);
+        trackingMonitors.put(accountId, monitor);
+        
+        // 启动监控任务
+        trackingExecutor.scheduleWithFixedDelay(() -> {
+            try {
+                if (!serviceShutdown && monitor.isRunning()) {
+                    performEmailTracking(monitor);
+                }
+            } catch (Exception e) {
+                if (!serviceShutdown) {
+                    logger.error("邮件跟踪监控异常: {}", account.getEmailAddress(), e);
+                }
+            }
+        }, 0, 30, TimeUnit.SECONDS); // 每30秒检查一次
+        
+        logger.info("启动邮件跟踪监控: {}", account.getEmailAddress());
+    }
+    
+    /**
+     * 停止邮件跟踪监控
+     */
+    public void stopEmailTracking(Long accountId) {
+        EmailTrackingMonitor monitor = trackingMonitors.remove(accountId);
+        if (monitor != null) {
+            monitor.stop();
+            logger.info("停止邮件跟踪监控: {}", monitor.getAccount().getEmailAddress());
+        }
+    }
+    
+    /**
+     * 执行邮件跟踪监控
+     */
+    private void performEmailTracking(EmailTrackingMonitor monitor) {
+        if (!monitor.isRunning() || serviceShutdown) {
+            return;
+        }
+        
+        EmailAccount account = monitor.getAccount();
+        Store store = null;
+        Folder folder = null;
+        
+        try {
+            // 建立IMAP连接
+            store = createPersistentConnection(account);
+            folder = openInboxFolder(store);
+            
+            // 扫描DSN邮件
+            scanDSNEmails(folder, monitor);
+            
+            // 扫描回复邮件
+            scanReplyEmails(folder, monitor);
+            
+            // 扫描邮件状态变化
+            scanEmailStatusChanges(folder, monitor);
+            
+            monitor.updateLastCheckTime();
+            
+        } catch (Exception e) {
+            if (!serviceShutdown) {
+                logger.error("邮件跟踪监控失败: {} - {}", account.getEmailAddress(), e.getMessage());
+                monitor.getCallback().onTrackingError(account, e);
+            }
+        } finally {
+            // 关闭连接
+            if (folder != null) {
+                try {
+                    folder.close(false);
+                } catch (Exception e) {
+                    if (!serviceShutdown) {
+                        logger.warn("关闭文件夹失败", e);
+                    }
+                }
+            }
+            if (store != null) {
+                try {
+                    store.close();
+                } catch (Exception e) {
+                    if (!serviceShutdown) {
+                        logger.warn("关闭存储失败", e);
+                    }
+                }
+            }
+        }
+    }
+    
+    /**
+     * 扫描DSN邮件
+     */
+    private void scanDSNEmails(Folder folder, EmailTrackingMonitor monitor) {
+        try {
+            // 获取最近的邮件
+            int messageCount = folder.getMessageCount();
+            if (messageCount == 0) {
+                return;
+            }
+            
+            int startIndex = Math.max(1, messageCount - 100); // 检查最近100封邮件
+            Message[] messages = folder.getMessages(startIndex, messageCount);
+            
+            for (Message message : messages) {
+                if (message instanceof MimeMessage) {
+                    MimeMessage mimeMessage = (MimeMessage) message;
+                    
+                    // 检查是否是DSN邮件
+                    if (isDSNEmail(mimeMessage)) {
+                        DSNInfo dsnInfo = parseDSNEmail(mimeMessage);
+                        if (dsnInfo != null) {
+                            logger.info("检测到DSN邮件: {} - 状态: {}", 
+                                       dsnInfo.getOriginalMessageId(), dsnInfo.getStatus());
+                            monitor.getCallback().onDSNReceived(monitor.getAccount(), dsnInfo);
+                        }
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            logger.error("扫描DSN邮件失败", e);
+        }
+    }
+    
+    /**
+     * 扫描回复邮件
+     */
+    private void scanReplyEmails(Folder folder, EmailTrackingMonitor monitor) {
+        try {
+            int messageCount = folder.getMessageCount();
+            if (messageCount == 0) {
+                return;
+            }
+            
+            int startIndex = Math.max(1, messageCount - 100);
+            Message[] messages = folder.getMessages(startIndex, messageCount);
+            
+            for (Message message : messages) {
+                if (message instanceof MimeMessage) {
+                    MimeMessage mimeMessage = (MimeMessage) message;
+                    
+                    // 检查是否是回复邮件
+                    String inReplyTo = mimeMessage.getHeader("In-Reply-To", null);
+                    if (inReplyTo != null && !inReplyTo.trim().isEmpty()) {
+                        String originalMessageId = extractMessageIdFromHeader(inReplyTo);
+                        if (originalMessageId != null) {
+                            logger.info("检测到回复邮件: {} -> {}", 
+                                       originalMessageId, mimeMessage.getMessageID());
+                            monitor.getCallback().onReplyReceived(monitor.getAccount(), 
+                                                                originalMessageId, mimeMessage);
+                        }
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            logger.error("扫描回复邮件失败", e);
+        }
+    }
+    
+    /**
+     * 扫描邮件状态变化
+     */
+    private void scanEmailStatusChanges(Folder folder, EmailTrackingMonitor monitor) {
+        try {
+            // 这里可以检查邮件的已读状态、星标状态等变化
+            // 用于统计邮件打开情况
+            
+            int messageCount = folder.getMessageCount();
+            if (messageCount == 0) {
+                return;
+            }
+            
+            int startIndex = Math.max(1, messageCount - 50);
+            Message[] messages = folder.getMessages(startIndex, messageCount);
+            
+            for (Message message : messages) {
+                if (message instanceof MimeMessage) {
+                    MimeMessage mimeMessage = (MimeMessage) message;
+                    String messageId = mimeMessage.getMessageID();
+                    
+                    if (messageId != null) {
+                        // 检查邮件状态
+                        boolean isRead = message.isSet(Flags.Flag.SEEN);
+                        boolean isFlagged = message.isSet(Flags.Flag.FLAGGED);
+                        
+                        // 通知状态变化
+                        monitor.getCallback().onEmailStatusChanged(monitor.getAccount(), 
+                                                                  messageId, isRead, isFlagged);
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            logger.error("扫描邮件状态变化失败", e);
+        }
+    }
+    
+    /**
+     * 检查是否是DSN邮件
+     */
+    private boolean isDSNEmail(MimeMessage message) {
+        try {
+            String subject = message.getSubject();
+            String contentType = message.getContentType();
+            
+            return (subject != null && subject.toLowerCase().contains("delivery status notification")) ||
+                   (contentType != null && contentType.toLowerCase().contains("multipart/report"));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    
+    /**
+     * 解析DSN邮件
+     */
+    private DSNInfo parseDSNEmail(MimeMessage message) {
+        try {
+            DSNInfo dsnInfo = new DSNInfo();
+            
+            // 解析邮件头
+            String[] messageIdHeaders = message.getHeader("Message-ID");
+            if (messageIdHeaders != null && messageIdHeaders.length > 0) {
+                dsnInfo.setDsnMessageId(messageIdHeaders[0]);
+            }
+            
+            // 解析邮件内容
+            String content = extractMessageContent(message);
+            if (content != null) {
+                // 提取原始Message-ID
+                Matcher messageIdMatcher = DSN_PATTERN.matcher(content);
+                if (messageIdMatcher.find()) {
+                    dsnInfo.setOriginalMessageId(messageIdMatcher.group(1));
+                }
+                
+                // 提取状态
+                Matcher statusMatcher = DSN_STATUS_PATTERN.matcher(content);
+                if (statusMatcher.find()) {
+                    dsnInfo.setStatus(statusMatcher.group(1));
+                }
+                
+                // 提取收件人
+                Matcher recipientMatcher = DSN_RECIPIENT_PATTERN.matcher(content);
+                if (recipientMatcher.find()) {
+                    dsnInfo.setRecipient(recipientMatcher.group(1));
+                }
+            }
+            
+            return dsnInfo;
+            
+        } catch (Exception e) {
+            logger.error("解析DSN邮件失败", e);
+            return null;
+        }
+    }
+    
+    /**
+     * 从邮件头中提取Message-ID
+     */
+    private String extractMessageIdFromHeader(String header) {
+        if (header == null) {
+            return null;
+        }
+        
+        // 移除尖括号
+        String messageId = header.trim();
+        if (messageId.startsWith("<") && messageId.endsWith(">")) {
+            messageId = messageId.substring(1, messageId.length() - 1);
+        }
+        
+        return messageId;
+    }
+    
+    /**
+     * 提取邮件内容
+     */
+    private String extractMessageContent(Message message) {
+        try {
+            Object content = message.getContent();
+            if (content instanceof String) {
+                return (String) content;
+            } else if (content instanceof MimeMultipart) {
+                MimeMultipart multipart = (MimeMultipart) content;
+                StringBuilder contentBuilder = new StringBuilder();
+                
+                for (int i = 0; i < multipart.getCount(); i++) {
+                    BodyPart bodyPart = multipart.getBodyPart(i);
+                    if (bodyPart.isMimeType("text/plain")) {
+                        contentBuilder.append(bodyPart.getContent());
+                    }
+                }
+                
+                return contentBuilder.toString();
+            }
+        } catch (Exception e) {
+            logger.warn("提取邮件内容失败", e);
+        }
+        
+        return null;
+    }
+    
+    /**
+     * 获取邮件跟踪统计
+     */
+    public EmailTrackingStats getEmailTrackingStats(Long accountId) {
+        EmailTrackingMonitor monitor = trackingMonitors.get(accountId);
+        if (monitor != null) {
+            return monitor.getStats();
+        }
+        return new EmailTrackingStats();
+    }
+    
+    /**
+     * 获取所有邮件跟踪统计
+     */
+    public Map<Long, EmailTrackingStats> getAllEmailTrackingStats() {
+        Map<Long, EmailTrackingStats> allStats = new HashMap<>();
+        for (Map.Entry<Long, EmailTrackingMonitor> entry : trackingMonitors.entrySet()) {
+            allStats.put(entry.getKey(), entry.getValue().getStats());
+        }
+        return allStats;
+    }
+    
+    /**
+     * 优雅关闭服务
+     */
+    @PreDestroy
+    public void shutdown() {
+        logger.info("开始关闭ImapService邮件跟踪监控服务...");
+        serviceShutdown = true;
+        
+        // 停止所有监控任务
+        for (EmailTrackingMonitor monitor : trackingMonitors.values()) {
+            monitor.stop();
+        }
+        trackingMonitors.clear();
+        
+        // 关闭线程池
+        trackingExecutor.shutdown();
+        try {
+            if (!trackingExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
+                logger.warn("邮件跟踪监控线程池未能在10秒内正常关闭，强制关闭");
+                trackingExecutor.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            logger.warn("等待邮件跟踪监控线程池关闭时被中断");
+            trackingExecutor.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+        
+        logger.info("ImapService邮件跟踪监控服务已关闭");
+    }
+    
+    // ==================== 内部类定义 ====================
+    
+    /**
+     * 邮件跟踪监控器
+     */
+    private static class EmailTrackingMonitor {
+        private final EmailAccount account;
+        private final EmailTrackingCallback callback;
+        private final EmailTrackingStats stats;
+        private volatile boolean running = true;
+        private volatile Date lastCheckTime;
+        
+        public EmailTrackingMonitor(EmailAccount account, EmailTrackingCallback callback) {
+            this.account = account;
+            this.callback = callback;
+            this.stats = new EmailTrackingStats();
+            this.lastCheckTime = new Date();
+        }
+        
+        public void stop() {
+            running = false;
+        }
+        
+        public boolean isRunning() {
+            return running;
+        }
+        
+        public void updateLastCheckTime() {
+            lastCheckTime = new Date();
+        }
+        
+        // Getters
+        public EmailAccount getAccount() { return account; }
+        public EmailTrackingCallback getCallback() { return callback; }
+        public EmailTrackingStats getStats() { return stats; }
+        public Date getLastCheckTime() { return lastCheckTime; }
+    }
+    
+    /**
+     * DSN信息
+     */
+    public static class DSNInfo {
+        private String dsnMessageId;
+        private String originalMessageId;
+        private String status;
+        private String recipient;
+        private Date receivedTime;
+        
+        public DSNInfo() {
+            this.receivedTime = new Date();
+        }
+        
+        // Getters and setters
+        public String getDsnMessageId() { return dsnMessageId; }
+        public void setDsnMessageId(String dsnMessageId) { this.dsnMessageId = dsnMessageId; }
+        
+        public String getOriginalMessageId() { return originalMessageId; }
+        public void setOriginalMessageId(String originalMessageId) { this.originalMessageId = originalMessageId; }
+        
+        public String getStatus() { return status; }
+        public void setStatus(String status) { this.status = status; }
+        
+        public String getRecipient() { return recipient; }
+        public void setRecipient(String recipient) { this.recipient = recipient; }
+        
+        public Date getReceivedTime() { return receivedTime; }
+        public void setReceivedTime(Date receivedTime) { this.receivedTime = receivedTime; }
+    }
+    
+    /**
+     * 邮件跟踪统计
+     */
+    public static class EmailTrackingStats {
+        private int dsnCount = 0;
+        private int replyCount = 0;
+        private int statusChangeCount = 0;
+        private Date lastUpdateTime = new Date();
+        
+        public void incrementDsnCount() {
+            dsnCount++;
+            lastUpdateTime = new Date();
+        }
+        
+        public void incrementReplyCount() {
+            replyCount++;
+            lastUpdateTime = new Date();
+        }
+        
+        public void incrementStatusChangeCount() {
+            statusChangeCount++;
+            lastUpdateTime = new Date();
+        }
+        
+        // Getters and setters
+        public int getDsnCount() { return dsnCount; }
+        public void setDsnCount(int dsnCount) { this.dsnCount = dsnCount; }
+        
+        public int getReplyCount() { return replyCount; }
+        public void setReplyCount(int replyCount) { this.replyCount = replyCount; }
+        
+        public int getStatusChangeCount() { return statusChangeCount; }
+        public void setStatusChangeCount(int statusChangeCount) { this.statusChangeCount = statusChangeCount; }
+        
+        public Date getLastUpdateTime() { return lastUpdateTime; }
+        public void setLastUpdateTime(Date lastUpdateTime) { this.lastUpdateTime = lastUpdateTime; }
+    }
+    
+    /**
+     * 邮件跟踪回调接口
+     */
+    public interface EmailTrackingCallback {
+        void onDSNReceived(EmailAccount account, DSNInfo dsnInfo);
+        void onReplyReceived(EmailAccount account, String originalMessageId, MimeMessage replyMessage);
+        void onEmailStatusChanged(EmailAccount account, String messageId, boolean isRead, boolean isFlagged);
+        void onTrackingError(EmailAccount account, Exception e);
     }
 }

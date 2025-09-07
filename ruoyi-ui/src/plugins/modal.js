@@ -25,7 +25,10 @@ export default {
   },
   // 错误提示
   alertError(content) {
-    MessageBox.alert(content, "系统提示", { type: 'error' })
+    MessageBox.alert(content, "系统提示", { 
+      type: 'error',
+      dangerouslyUseHTMLString: true
+    })
   },
   // 成功提示
   alertSuccess(content) {

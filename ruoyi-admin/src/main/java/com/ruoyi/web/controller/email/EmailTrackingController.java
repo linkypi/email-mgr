@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ruoyi.system.domain.email.EmailTrackRecord;
-import com.ruoyi.system.service.email.ImapEmailSyncService;
+import com.ruoyi.system.service.email.EmailListener;
 
 /**
  * 邮件跟踪控制器
@@ -27,7 +27,7 @@ import com.ruoyi.system.service.email.ImapEmailSyncService;
 public class EmailTrackingController
 {
     @Autowired
-    private ImapEmailSyncService imapEmailSyncService;
+    private EmailListener emailListener;
 
     /**
      * 邮件打开跟踪
@@ -38,7 +38,7 @@ public class EmailTrackingController
                               HttpServletResponse response) throws IOException
     {
         // 记录邮件打开事件
-        imapEmailSyncService.recordEmailOpened(messageId);
+        emailListener.recordEmailOpened(messageId);
         
         // 返回1x1透明像素
         response.setContentType("image/png");
@@ -58,7 +58,7 @@ public class EmailTrackingController
                                HttpServletResponse response) throws IOException
     {
         // 记录邮件点击事件
-        imapEmailSyncService.recordEmailClicked(messageId);
+        emailListener.recordEmailClicked(messageId);
         
         // 如果有目标URL，重定向到目标URL
         if (targetUrl != null && !targetUrl.trim().isEmpty()) {
@@ -76,7 +76,7 @@ public class EmailTrackingController
     @GetMapping("/status")
     public Object getEmailStatus(@RequestParam("msgid") String messageId)
     {
-        EmailTrackRecord record = imapEmailSyncService.getTrackRecord(messageId);
+        EmailTrackRecord record = emailListener.getTrackRecord(messageId);
         if (record != null) {
             return record;
         } else {

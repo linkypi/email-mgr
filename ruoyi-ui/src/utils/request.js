@@ -37,6 +37,11 @@ service.interceptors.request.use(config => {
     config.url = url
   }
   if (!isRepeatSubmit && (config.method === 'post' || config.method === 'put')) {
+    // 跳过文件上传请求的防重复提交检查
+    if (config.data instanceof FormData) {
+      return config
+    }
+    
     const requestObj = {
       url: config.url,
       data: typeof config.data === 'object' ? JSON.stringify(config.data) : config.data,
@@ -95,6 +100,10 @@ service.interceptors.response.use(res => {
     }
       return Promise.reject('无效的会话，或者会话已过期，请重新登录。')
     } else if (code === 500) {
+      // 检查是否跳过全局错误处理
+      if (res.config && res.config.skipGlobalErrorHandler) {
+        return Promise.reject(new Error(msg))
+      }
       Message({ message: msg, type: 'error' })
       return Promise.reject(new Error(msg))
     } else if (code === 601) {
