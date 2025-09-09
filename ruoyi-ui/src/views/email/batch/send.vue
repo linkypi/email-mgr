@@ -24,18 +24,26 @@
             <el-input v-model="sendForm.taskName" placeholder="请输入任务名称"></el-input>
           </el-form-item>
           
-          <el-form-item label="发件邮箱" prop="accountIds">
-            <el-select v-model="sendForm.accountIds" multiple placeholder="选择发件邮箱（可多选）" style="width: 100%">
+          <el-form-item label="发件人" prop="senderId">
+            <el-select 
+              v-model="sendForm.senderId" 
+              filterable
+              remote
+              reserve-keyword
+              placeholder="选择发件人（支持搜索）" 
+              style="width: 100%"
+              :remote-method="searchSenders"
+              :loading="senderLoading">
               <el-option
-                v-for="item in accountOptions"
-                :key="item.accountId"
-                :label="item.accountName + ' (' + item.emailAddress + ')'"
-                :value="item.accountId">
+                v-for="item in senderOptions"
+                :key="item.senderId"
+                :label="item.senderName + ' (' + item.company + ')'"
+                :value="item.senderId">
               </el-option>
             </el-select>
             <div class="form-tip">
               <i class="el-icon-info"></i>
-              支持选择多个发件邮箱，系统将自动轮换使用，避免单个邮箱发送上限
+              选择一个发件人，系统将使用其关联的邮箱账号进行发送
             </div>
           </el-form-item>
           
@@ -206,7 +214,7 @@
             <div class="info-item">
               <h4><i class="el-icon-user"></i> 发件人</h4>
               <div class="preview-content">
-                <span class="sender-info">{{ previewData.sender ? previewData.sender.emailAddress : '未选择' }}</span>
+                <span class="sender-info">{{ previewData.sender ? previewData.sender.senderName + ' (' + previewData.sender.company + ')' : '未选择' }}</span>
               </div>
             </div>
             
@@ -304,6 +312,7 @@ import { getAllContacts } from "@/api/email/contact";
 import { getAllGroups } from "@/api/email/group";
 import { getAllTags } from "@/api/email/tag";
 import { createSendTask, getTask } from "@/api/email/task";
+import { listSender, getSenderOptions } from "@/api/email/sender";
 
 export default {
   name: 'EmailSend',
@@ -312,7 +321,7 @@ export default {
       sending: false,
       sendForm: {
         taskName: '',
-        accountIds: [],
+        senderId: null,
         recipientType: 'all',
         groupIds: [],
         tagIds: [],
@@ -327,10 +336,13 @@ export default {
       },
       // 选项数据
       accountOptions: [],
+      senderOptions: [],
       contactOptions: [],
       groupOptions: [],
       tagOptions: [],
       templateOptions: [],
+      // 发件人搜索相关
+      senderLoading: false,
       // 模板相关
       selectedTemplate: null,
       previewOpen: false,
@@ -340,8 +352,8 @@ export default {
         taskName: [
           { required: true, message: "任务名称不能为空", trigger: "blur" }
         ],
-        accountIds: [
-          { required: true, message: "请选择发件邮箱", trigger: "change" }
+        senderId: [
+          { required: true, message: "请选择发件人", trigger: "change" }
         ],
         recipientType: [
           { required: true, message: "请选择收件人类型", trigger: "change" }
@@ -437,6 +449,7 @@ export default {
   },
   created() {
     this.getAccountOptions();
+    this.getSenderOptions();
     this.getContactOptions();
     this.getGroupOptions();
     this.getTagOptions();
@@ -460,7 +473,7 @@ export default {
         if (taskData) {
           // 填充表单数据
           this.sendForm.taskName = taskData.taskName + '_复制';
-          this.sendForm.accountIds = taskData.accountIds || [taskData.accountId];
+          this.sendForm.senderId = taskData.senderId;
           this.sendForm.recipientType = taskData.recipientType;
           this.sendForm.groupIds = taskData.groupIds ? taskData.groupIds.split(',').map(id => parseInt(id)) : [];
           this.sendForm.tagIds = taskData.tagIds ? taskData.tagIds.split(',').map(id => parseInt(id)) : [];
@@ -489,6 +502,36 @@ export default {
       getAllAccounts().then(response => {
         this.accountOptions = response.data;
       });
+    },
+    /** 获取发件人选项 */
+    getSenderOptions() {
+      getSenderOptions().then(response => {
+        this.senderOptions = response.data || response.rows || [];
+      }).catch(error => {
+        console.error('获取发件人选项失败:', error);
+        this.senderOptions = [];
+      });
+    },
+    /** 搜索发件人 */
+    searchSenders(query) {
+      if (query !== '') {
+        this.senderLoading = true;
+        listSender({
+          senderName: query,
+          pageNum: 1,
+          pageSize: 50
+        }).then(response => {
+          this.senderOptions = response.rows || [];
+          this.senderLoading = false;
+        }).catch(error => {
+          console.error('搜索发件人失败:', error);
+          this.senderOptions = [];
+          this.senderLoading = false;
+        });
+      } else {
+        // 如果查询为空，重新获取所有发件人选项
+        this.getSenderOptions();
+      }
     },
     /** 获取收件人选项 */
     getContactOptions() {
@@ -564,13 +607,13 @@ export default {
       }
       
       // 获取发件人信息
-      const senderAccount = this.accountOptions.find(account => this.sendForm.accountIds.includes(account.accountId));
+      const selectedSender = this.senderOptions.find(sender => sender.senderId === this.sendForm.senderId);
       
       // 获取收件人信息
       let recipientInfo = this.getRecipientInfo();
       
       this.previewData = {
-        sender: senderAccount,
+        sender: selectedSender,
         recipient: recipientInfo,
         subject: this.selectedTemplate.subject,
         content: this.selectedTemplate.content
@@ -697,7 +740,7 @@ export default {
             // 构建发送任务数据
             const taskData = {
               taskName: this.sendForm.taskName,
-              accountIds: this.sendForm.accountIds.join(','),
+              senderId: this.sendForm.senderId,
               sendMode: this.sendForm.sendMode,
               sendInterval: this.sendForm.sendInterval,
               sendTime: this.sendForm.sendTime
@@ -759,7 +802,7 @@ export default {
     handleReset() {
       this.sendForm = {
         taskName: '',
-        accountIds: [],
+        senderId: null,
         recipientType: 'all',
         groupIds: [],
         tagIds: [],

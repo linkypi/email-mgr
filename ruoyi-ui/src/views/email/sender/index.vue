@@ -7,6 +7,16 @@
       <el-form-item label="公司名称" prop="company">
         <el-input v-model="queryParams.company" placeholder="请输入公司名称" clearable />
       </el-form-item>
+      <el-form-item label="部门" prop="department">
+        <el-input v-model="queryParams.department" placeholder="请输入部门" clearable />
+      </el-form-item>
+      <el-form-item label="等级" prop="level">
+        <el-select v-model="queryParams.level" placeholder="请选择等级" clearable>
+          <el-option label="重要" value="1" />
+          <el-option label="普通" value="2" />
+          <el-option label="一般" value="3" />
+        </el-select>
+      </el-form-item>
       <el-form-item label="状态" prop="status">
         <el-select v-model="queryParams.status" placeholder="请选择状态" clearable>
           <el-option label="正常" value="0" />
@@ -21,56 +31,53 @@
 
     <el-row :gutter="10" class="mb8">
       <el-col :span="1.5">
-        <el-button type="primary" plain icon="el-icon-plus" size="mini" @click="handleAdd" v-hasPermi="['email:sender:add']">新增发件人</el-button>
+        <el-button type="primary" plain icon="el-icon-plus" size="mini" @click="handleAdd" v-hasPermi="['email:sender:add']">新增</el-button>
       </el-col>
       <el-col :span="1.5">
-        <el-button type="success" plain icon="el-icon-edit" size="mini" :disabled="single" @click="handleUpdate" v-hasPermi="['email:sender:edit']">修改发件人</el-button>
+        <el-button type="success" plain icon="el-icon-edit" size="mini" :disabled="single" @click="handleUpdate" v-hasPermi="['email:sender:edit']">修改</el-button>
       </el-col>
       <el-col :span="1.5">
-        <el-button type="danger" plain icon="el-icon-delete" size="mini" :disabled="multiple" @click="handleDelete" v-hasPermi="['email:sender:remove']">删除发件人</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button type="info" plain icon="el-icon-upload2" size="mini" @click="handleImport" v-hasPermi="['email:sender:import']">导入</el-button>
+        <el-button type="danger" plain icon="el-icon-delete" size="mini" :disabled="multiple" @click="handleDelete" v-hasPermi="['email:sender:remove']">删除</el-button>
       </el-col>
       <el-col :span="1.5">
         <el-button type="warning" plain icon="el-icon-download" size="mini" @click="handleExport" v-hasPermi="['email:sender:export']">导出</el-button>
       </el-col>
-<!--      <el-col :span="1.5">-->
-<!--        <el-button type="success" plain icon="el-icon-document" size="mini" @click="handleExportTemplate" v-hasPermi="['email:sender:export']">导出模板</el-button>-->
-<!--      </el-col>-->
       <right-toolbar :showSearch.sync="showSearch" @queryTable="getList"></right-toolbar>
     </el-row>
 
     <el-table v-loading="loading" :data="senderList" @selection-change="handleSelectionChange">
       <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="发件人ID" align="center" prop="senderId" width="80" />
+      <el-table-column label="发件人ID" align="center" prop="senderId" />
       <el-table-column label="发件人姓名" align="center" prop="senderName" />
       <el-table-column label="公司名称" align="center" prop="company" />
       <el-table-column label="部门" align="center" prop="department" />
       <el-table-column label="职位" align="center" prop="position" />
       <el-table-column label="联系电话" align="center" prop="phone" />
-      <el-table-column label="等级" align="center" prop="level" width="80">
+      <el-table-column label="等级" align="center" prop="level">
         <template slot-scope="scope">
-          <el-tag :type="scope.row.level === '1' ? 'danger' : scope.row.level === '2' ? 'warning' : 'info'" size="mini">
+          <el-tag :type="scope.row.level === '1' ? 'danger' : scope.row.level === '2' ? 'warning' : 'info'">
             {{ scope.row.level === '1' ? '重要' : scope.row.level === '2' ? '普通' : '一般' }}
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="关联账号数" align="center" prop="totalAccounts" width="100">
+      <el-table-column label="关联账号数" align="center" prop="totalAccounts" />
+      <el-table-column label="活跃账号数" align="center" prop="activeAccounts" />
+      <el-table-column label="总发送数" align="center" prop="totalSent" />
+      <el-table-column label="回复率" align="center" prop="replyRate">
         <template slot-scope="scope">
-          <el-tag type="primary" size="mini">{{ scope.row.totalAccounts || 0 }}</el-tag>
+          <span>{{ scope.row.replyRate }}%</span>
         </template>
       </el-table-column>
-      <el-table-column label="状态" align="center" prop="status" width="80">
+      <el-table-column label="状态" align="center" prop="status">
         <template slot-scope="scope">
-          <el-tag :type="scope.row.status === '0' ? 'success' : 'danger'" size="mini">
+          <el-tag :type="scope.row.status === '0' ? 'success' : 'danger'">
             {{ scope.row.status === '0' ? '正常' : '停用' }}
           </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="创建时间" align="center" prop="createTime" width="180">
         <template slot-scope="scope">
-          <span>{{ parseTime(scope.row.createTime) }}</span>
+          <span>{{ parseTime(scope.row.createTime, '{y}-{m}-{d} {h}:{i}') }}</span>
         </template>
       </el-table-column>
       <el-table-column label="操作" align="center" class-name="small-padding fixed-width" width="200">
@@ -82,10 +89,10 @@
         </template>
       </el-table-column>
     </el-table>
-
+    
     <pagination v-show="total>0" :total="total" :page.sync="queryParams.pageNum" :limit.sync="queryParams.pageSize" @pagination="getList" />
 
-    <!-- 添加或修改发件人对话框 -->
+    <!-- 添加或修改发件人信息对话框 -->
     <el-dialog :title="title" :visible.sync="open" width="800px" append-to-body>
       <el-form ref="form" :model="form" :rules="rules" label-width="100px">
         <el-row :gutter="20">
@@ -154,71 +161,41 @@
     </el-dialog>
 
     <!-- 发件人详情对话框 -->
-    <el-dialog title="发件人详情" :visible.sync="detailOpen" width="800px" append-to-body>
+    <el-dialog title="发件人详情" :visible.sync="detailOpen" width="1000px" append-to-body>
       <el-descriptions :column="2" border>
+        <el-descriptions-item label="发件人ID">{{ detailData.senderId }}</el-descriptions-item>
         <el-descriptions-item label="发件人姓名">{{ detailData.senderName }}</el-descriptions-item>
         <el-descriptions-item label="公司名称">{{ detailData.company }}</el-descriptions-item>
         <el-descriptions-item label="部门">{{ detailData.department }}</el-descriptions-item>
         <el-descriptions-item label="职位">{{ detailData.position }}</el-descriptions-item>
         <el-descriptions-item label="联系电话">{{ detailData.phone }}</el-descriptions-item>
         <el-descriptions-item label="等级">
-          <el-tag :type="detailData.level === '1' ? 'danger' : detailData.level === '2' ? 'warning' : 'info'" size="mini">
+          <el-tag :type="detailData.level === '1' ? 'danger' : detailData.level === '2' ? 'warning' : 'info'">
             {{ detailData.level === '1' ? '重要' : detailData.level === '2' ? '普通' : '一般' }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="地址">{{ detailData.address }}</el-descriptions-item>
-        <el-descriptions-item label="标签">{{ detailData.tags }}</el-descriptions-item>
         <el-descriptions-item label="状态">
-          <el-tag :type="detailData.status === '0' ? 'success' : 'danger'" size="mini">
+          <el-tag :type="detailData.status === '0' ? 'success' : 'danger'">
             {{ detailData.status === '0' ? '正常' : '停用' }}
           </el-tag>
         </el-descriptions-item>
-        <el-descriptions-item label="关联账号数">{{ detailData.totalAccounts || 0 }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ parseTime(detailData.createTime) }}</el-descriptions-item>
-        <el-descriptions-item label="更新时间">{{ parseTime(detailData.updateTime) }}</el-descriptions-item>
+        <el-descriptions-item label="关联账号数">{{ detailData.totalAccounts }}</el-descriptions-item>
+        <el-descriptions-item label="活跃账号数">{{ detailData.activeAccounts }}</el-descriptions-item>
+        <el-descriptions-item label="总发送数">{{ detailData.totalSent }}</el-descriptions-item>
+        <el-descriptions-item label="回复率">{{ detailData.replyRate }}%</el-descriptions-item>
+        <el-descriptions-item label="地址" :span="2">{{ detailData.address }}</el-descriptions-item>
+        <el-descriptions-item label="标签" :span="2">{{ detailData.tags }}</el-descriptions-item>
         <el-descriptions-item label="发件人描述" :span="2">{{ detailData.description }}</el-descriptions-item>
         <el-descriptions-item label="备注" :span="2">{{ detailData.remark }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ parseTime(detailData.createTime) }}</el-descriptions-item>
+        <el-descriptions-item label="更新时间">{{ parseTime(detailData.updateTime) }}</el-descriptions-item>
       </el-descriptions>
-      <div slot="footer" class="dialog-footer">
-        <el-button @click="detailOpen = false">关 闭</el-button>
-      </div>
-    </el-dialog>
-
-    <!-- 导入对话框 -->
-    <el-dialog :title="upload.title" :visible.sync="upload.open" width="400px" append-to-body>
-      <el-upload
-        ref="upload"
-        :limit="1"
-        accept=".xlsx, .xls"
-        :headers="upload.headers"
-        :action="upload.url + '?updateSupport=' + upload.updateSupport"
-        :disabled="upload.isUploading"
-        :on-progress="handleFileUploadProgress"
-        :on-success="handleFileSuccess"
-        :auto-upload="false"
-        drag
-      >
-        <i class="el-icon-upload"></i>
-        <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
-        <div class="el-upload__tip text-center" slot="tip">
-          <div class="el-upload__tip" slot="tip">
-            <el-checkbox v-model="upload.updateSupport" /> 是否更新已经存在的发件人数据
-          </div>
-          <span>仅允许导入xls、xlsx格式文件。</span>
-          <el-link type="primary" :underline="false" style="font-size:12px;vertical-align: baseline;" @click="importTemplate">下载模板</el-link>
-        </div>
-      </el-upload>
-      <div slot="footer" class="dialog-footer">
-        <el-button type="primary" @click="submitFileForm">确 定</el-button>
-        <el-button @click="upload.open = false">取 消</el-button>
-      </div>
     </el-dialog>
   </div>
 </template>
 
 <script>
-import { listSender, getSender, delSender, addSender, updateSender, exportSender, exportSenderTemplate } from "@/api/email/sender";
-import { getToken } from "@/utils/auth";
+import { listSender, getSender, delSender, addSender, updateSender, exportSender } from "@/api/email/sender";
 
 export default {
   name: "EmailSender",
@@ -236,7 +213,7 @@ export default {
       showSearch: true,
       // 总条数
       total: 0,
-      // 发件人表格数据
+      // 发件人信息表格数据
       senderList: [],
       // 弹出层标题
       title: "",
@@ -244,18 +221,20 @@ export default {
       open: false,
       // 是否显示详情弹出层
       detailOpen: false,
+      // 详情数据
+      detailData: {},
       // 查询参数
       queryParams: {
         pageNum: 1,
         pageSize: 10,
         senderName: null,
         company: null,
+        department: null,
+        level: null,
         status: null
       },
       // 表单参数
       form: {},
-      // 详情数据
-      detailData: {},
       // 表单校验
       rules: {
         senderName: [
@@ -263,28 +242,7 @@ export default {
         ],
         company: [
           { required: true, message: "公司名称不能为空", trigger: "blur" }
-        ],
-        level: [
-          { required: true, message: "等级不能为空", trigger: "change" }
-        ],
-        status: [
-          { required: true, message: "状态不能为空", trigger: "change" }
         ]
-      },
-      // 导入导出相关
-      upload: {
-        // 是否显示弹出层（用户导入）
-        open: false,
-        // 弹出层标题（用户导入）
-        title: "",
-        // 是否禁用上传
-        isUploading: false,
-        // 是否更新已经存在的用户数据
-        updateSupport: 0,
-        // 设置上传的请求头部
-        headers: { Authorization: "Bearer " + getToken() },
-        // 上传的地址
-        url: process.env.VUE_APP_BASE_API + "/email/sender/importData"
       }
     };
   },
@@ -292,7 +250,7 @@ export default {
     this.getList();
   },
   methods: {
-    /** 查询发件人列表 */
+    /** 查询发件人信息列表 */
     getList() {
       this.loading = true;
       listSender(this.queryParams).then(response => {
@@ -316,9 +274,14 @@ export default {
         position: null,
         phone: null,
         address: null,
-        level: "2",
-        tags: null,
         description: null,
+        level: "3",
+        tags: null,
+        totalAccounts: 0,
+        activeAccounts: 0,
+        totalSent: 0,
+        totalReplied: 0,
+        replyRate: 0.00,
         status: "0",
         remark: null
       };
@@ -344,7 +307,7 @@ export default {
     handleAdd() {
       this.reset();
       this.open = true;
-      this.title = "添加发件人";
+      this.title = "添加发件人信息";
     },
     /** 修改按钮操作 */
     handleUpdate(row) {
@@ -353,7 +316,7 @@ export default {
       getSender(senderId).then(response => {
         this.form = response.data;
         this.open = true;
-        this.title = "修改发件人";
+        this.title = "修改发件人信息";
       });
     },
     /** 查看按钮操作 */
@@ -365,9 +328,8 @@ export default {
     },
     /** 管理账号按钮操作 */
     handleManageAccounts(row) {
-      // 跳转到邮箱账号管理页面，并传递发件人ID参数
       this.$router.push({
-        path: '/management/account/detail',
+        path: '/email/account',
         query: { senderId: row.senderId, senderName: row.senderName }
       });
     },
@@ -394,7 +356,7 @@ export default {
     /** 删除按钮操作 */
     handleDelete(row) {
       const senderIds = row.senderId || this.ids;
-      this.$modal.confirm('是否确认删除发件人编号为"' + senderIds + '"的数据项？').then(function() {
+      this.$modal.confirm('是否确认删除发件人信息编号为"' + senderIds + '"的数据项？').then(function() {
         return delSender(senderIds);
       }).then(() => {
         this.getList();
@@ -405,55 +367,9 @@ export default {
     handleExport() {
       this.download('email/sender/export', {
         ...this.queryParams
-      }, `发件人_${new Date().getTime()}.xlsx`)
-    },
-    /** 导出模板按钮操作 */
-    handleExportTemplate() {
-      this.download('email/sender/exportTemplate', {
-      }, `发件人导入模板_${new Date().getTime()}.xlsx`)
-    },
-    /** 导入按钮操作 */
-    handleImport() {
-      this.upload.title = "发件人导入";
-      this.upload.open = true;
-    },
-    /** 下载模板 */
-    importTemplate() {
-      this.download('email/sender/exportTemplate', {
-      }, `发件人导入模板_${new Date().getTime()}.xlsx`)
-    },
-    // 文件上传中处理
-    handleFileUploadProgress(event, file, fileList) {
-      this.upload.isUploading = true;
-    },
-    // 文件上传成功处理
-    handleFileSuccess(response, file, fileList) {
-      this.upload.open = false;
-      this.upload.isUploading = false;
-      this.$refs.upload.clearFiles();
-      this.$alert("<div style='overflow: auto;overflow-x: hidden;max-height: 70vh;padding: 10px 20px 0;'>" + response.msg + "</div>", "导入结果", { dangerouslyUseHTMLString: true });
-      this.getList();
-    },
-    // 提交上传文件
-    submitFileForm() {
-      this.$refs.upload.submit();
+      }, `发件人信息_${new Date().getTime()}.xlsx`)
     }
   }
 };
 </script>
 
-<style scoped>
-.form-tip {
-  font-size: 12px;
-  color: #999;
-  margin-top: 4px;
-}
-
-.el-dropdown {
-  margin-left: 8px;
-}
-
-.el-table .el-button--text {
-  padding: 0 4px;
-}
-</style>

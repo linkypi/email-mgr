@@ -20,6 +20,14 @@ public interface IEmailAccountService
     public EmailAccount selectEmailAccountByAccountId(Long accountId);
 
     /**
+     * 根据发件人ID查询邮箱账号列表
+     * 
+     * @param senderId 发件人ID
+     * @return 邮箱账号集合
+     */
+    public List<EmailAccount> selectEmailAccountBySenderId(Long senderId);
+
+    /**
      * 查询邮箱账号列表
      * 
      * @param emailAccount 邮箱账号
@@ -84,5 +92,23 @@ public interface IEmailAccountService
      * @return 结果
      */
     public int batchUpdateAccountStatus(EmailAccount emailAccount);
+
+    /**
+     * 查询邮箱账号模板列表
+     * 
+     * @param emailAccount 邮箱账号
+     * @return 邮箱账号集合
+     */
+    public List<EmailAccount> selectEmailAccountTemplate(EmailAccount emailAccount);
+
+    /**
+     * 导入邮箱账号数据
+     * 
+     * @param accountList 邮箱账号列表
+     * @param isUpdateSupport 是否更新支持，如果已存在，则进行更新数据
+     * @param operName 操作用户
+     * @return 结果
+     */
+    public String importAccount(List<EmailAccount> accountList, Boolean isUpdateSupport, String operName);
 }
 

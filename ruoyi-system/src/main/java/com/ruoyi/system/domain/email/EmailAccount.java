@@ -18,6 +18,14 @@ public class EmailAccount extends BaseEntity
     /** 账号ID */
     private Long accountId;
 
+    /** 关联发件人ID */
+    @Excel(name = "关联发件人ID")
+    private Long senderId;
+
+    /** 发件人姓名 */
+    @Excel(name = "发件人姓名")
+    private String senderName;
+
     /** 账号名称 */
     @Excel(name = "账号名称")
     private String accountName;
@@ -117,6 +125,24 @@ public class EmailAccount extends BaseEntity
     public Long getAccountId() 
     {
         return accountId;
+    }
+    public void setSenderId(Long senderId) 
+    {
+        this.senderId = senderId;
+    }
+
+    public Long getSenderId() 
+    {
+        return senderId;
+    }
+    public void setSenderName(String senderName) 
+    {
+        this.senderName = senderName;
+    }
+
+    public String getSenderName() 
+    {
+        return senderName;
     }
     public void setAccountName(String accountName) 
     {

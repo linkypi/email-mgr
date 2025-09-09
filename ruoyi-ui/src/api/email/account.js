@@ -67,3 +67,21 @@ export function batchUpdateAccountStatus(data) {
     data: data
   })
 }
+
+// 导出邮箱账号
+export function exportAccount(query) {
+  return request({
+    url: '/email/account/export',
+    method: 'get',
+    params: query
+  })
+}
+
+// 导出邮箱账号模板
+export function exportAccountTemplate(query) {
+  return request({
+    url: '/email/account/exportTemplate',
+    method: 'get',
+    params: query
+  })
+}

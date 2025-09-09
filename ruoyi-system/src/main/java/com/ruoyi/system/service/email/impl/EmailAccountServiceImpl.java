@@ -46,6 +46,18 @@ public class EmailAccountServiceImpl implements IEmailAccountService
     }
 
     /**
+     * 根据发件人ID查询邮箱账号列表
+     * 
+     * @param senderId 发件人ID
+     * @return 邮箱账号集合
+     */
+    @Override
+    public List<EmailAccount> selectEmailAccountBySenderId(Long senderId)
+    {
+        return emailAccountMapper.selectEmailAccountBySenderId(senderId);
+    }
+
+    /**
      * 查询邮箱账号列表
      * 
      * @param emailAccount 邮箱账号
@@ -54,7 +66,10 @@ public class EmailAccountServiceImpl implements IEmailAccountService
     @Override
     public List<EmailAccount> selectEmailAccountList(EmailAccount emailAccount)
     {
-        return emailAccountMapper.selectEmailAccountList(emailAccount);
+        logger.info("EmailAccountService查询账号列表，senderId={}", emailAccount.getSenderId());
+        List<EmailAccount> result = emailAccountMapper.selectEmailAccountList(emailAccount);
+        logger.info("查询结果数量：{}", result.size());
+        return result;
     }
 
     /**
@@ -307,6 +322,100 @@ public class EmailAccountServiceImpl implements IEmailAccountService
             logger.info("已停止账号 {} 的监听服务", accountId);
         } catch (Exception e) {
             logger.error("停止账号 {} 服务失败", accountId, e);
+        }
+    }
+
+    /**
+     * 查询邮箱账号模板列表
+     * 
+     * @param emailAccount 邮箱账号
+     * @return 邮箱账号集合
+     */
+    @Override
+    public List<EmailAccount> selectEmailAccountTemplate(EmailAccount emailAccount)
+    {
+        // 创建一个模板对象，包含示例数据
+        EmailAccount template = new EmailAccount();
+        template.setSenderId(emailAccount.getSenderId());
+        template.setAccountName("示例账号名称");
+        template.setEmailAddress("example@example.com");
+        template.setPassword("示例密码");
+        template.setSmtpHost("smtp.example.com");
+        template.setSmtpPort(587);
+        template.setSmtpSsl("1");
+        template.setImapHost("imap.example.com");
+        template.setImapPort(993);
+        template.setImapSsl("1");
+        template.setImapUsername("example@example.com");
+        template.setImapPassword("示例密码");
+        template.setDailyLimit(100);
+        template.setSendIntervalSeconds(60);
+        template.setTrackingEnabled("0");
+        template.setWebhookUrl("");
+        template.setWebhookSecret("");
+        template.setStatus("0");
+        template.setRemark("示例备注");
+        
+        return java.util.Arrays.asList(template);
+    }
+
+    /**
+     * 导入邮箱账号数据
+     * 
+     * @param accountList 邮箱账号列表
+     * @param isUpdateSupport 是否更新支持，如果已存在，则进行更新数据
+     * @param operName 操作用户
+     * @return 结果
+     */
+    @Override
+    public String importAccount(List<EmailAccount> accountList, Boolean isUpdateSupport, String operName)
+    {
+        if (accountList == null || accountList.isEmpty()) {
+            return "导入账号数据不能为空！";
+        }
+        
+        int successNum = 0;
+        int failureNum = 0;
+        StringBuilder successMsg = new StringBuilder();
+        StringBuilder failureMsg = new StringBuilder();
+        
+        for (EmailAccount account : accountList) {
+            try {
+                // 验证是否存在这个账号
+                EmailAccount existAccount = emailAccountMapper.selectEmailAccountByEmailAddress(account.getEmailAddress());
+                if (existAccount == null) {
+                    // 新增账号
+                    account.setCreateBy(operName);
+                    account.setCreateTime(DateUtils.getNowDate());
+                    this.insertEmailAccount(account);
+                    successNum++;
+                    successMsg.append("<br/>").append(successNum).append("、账号 ").append(account.getEmailAddress()).append(" 导入成功");
+                } else if (isUpdateSupport) {
+                    // 更新账号
+                    account.setAccountId(existAccount.getAccountId());
+                    account.setUpdateBy(operName);
+                    account.setUpdateTime(DateUtils.getNowDate());
+                    this.updateEmailAccount(account);
+                    successNum++;
+                    successMsg.append("<br/>").append(successNum).append("、账号 ").append(account.getEmailAddress()).append(" 更新成功");
+                } else {
+                    failureNum++;
+                    failureMsg.append("<br/>").append(failureNum).append("、账号 ").append(account.getEmailAddress()).append(" 已存在");
+                }
+            } catch (Exception e) {
+                failureNum++;
+                String msg = "<br/>" + failureNum + "、账号 " + account.getEmailAddress() + " 导入失败：";
+                failureMsg.append(msg).append(e.getMessage());
+                logger.error(msg, e);
+            }
+        }
+        
+        if (failureNum > 0) {
+            failureMsg.insert(0, "很抱歉，导入失败！共 " + failureNum + " 条数据格式不正确，错误如下：");
+            return failureMsg.toString();
+        } else {
+            successMsg.insert(0, "恭喜您，数据已全部导入成功！共 " + successNum + " 条，数据如下：");
+            return successMsg.toString();
         }
     }
 }

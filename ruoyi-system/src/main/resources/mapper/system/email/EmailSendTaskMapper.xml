@@ -9,6 +9,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="taskName"    column="task_name"    />
         <result property="templateId"    column="template_id"    />
         <result property="accountId"    column="account_id"    />
+        <result property="senderId"    column="sender_id"    />
         <result property="subject"    column="subject"    />
         <result property="content"    column="content"    />
         <result property="recipientType"    column="recipient_type"    />
@@ -36,7 +37,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectEmailSendTaskVo">
-        select task_id, task_name, template_id, account_id, subject, content, recipient_type, recipient_ids, group_ids, tag_ids, contact_ids, account_ids, send_interval, start_time, end_time, total_count, sent_count, delivered_count, opened_count, replied_count, send_mode, status, template_variables, create_by, create_time, update_by, update_time, remark from email_send_task
+        select task_id, task_name, template_id, account_id, sender_id, subject, content, recipient_type, recipient_ids, group_ids, tag_ids, contact_ids, account_ids, send_interval, start_time, end_time, total_count, sent_count, delivered_count, opened_count, replied_count, send_mode, status, template_variables, create_by, create_time, update_by, update_time, remark from email_send_task
     </sql>
 
     <select id="selectEmailSendTaskList" parameterType="EmailSendTask" resultMap="EmailSendTaskResult">
@@ -74,6 +75,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="taskName != null and taskName != ''">task_name,</if>
             <if test="templateId != null">template_id,</if>
             <if test="accountId != null">account_id,</if>
+            <if test="senderId != null">sender_id,</if>
             <if test="subject != null and subject != ''">subject,</if>
             <if test="content != null">content,</if>
             <if test="recipientType != null">recipient_type,</if>
@@ -103,6 +105,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="taskName != null and taskName != ''">#{taskName},</if>
             <if test="templateId != null">#{templateId},</if>
             <if test="accountId != null">#{accountId},</if>
+            <if test="senderId != null">#{senderId},</if>
             <if test="subject != null and subject != ''">#{subject},</if>
             <if test="content != null">#{content},</if>
             <if test="recipientType != null">#{recipientType},</if>
@@ -136,6 +139,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="taskName != null and taskName != ''">task_name = #{taskName},</if>
             <if test="templateId != null">template_id = #{templateId},</if>
             <if test="accountId != null">account_id = #{accountId},</if>
+            <if test="senderId != null">sender_id = #{senderId},</if>
             <if test="subject != null and subject != ''">subject = #{subject},</if>
             <if test="content != null">content = #{content},</if>
             <if test="recipientType != null">recipient_type = #{recipientType},</if>

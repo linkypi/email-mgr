@@ -20,6 +20,14 @@ public interface EmailAccountMapper
     public EmailAccount selectEmailAccountByAccountId(Long accountId);
 
     /**
+     * 根据发件人ID查询邮箱账号列表
+     * 
+     * @param senderId 发件人ID
+     * @return 邮箱账号集合
+     */
+    public List<EmailAccount> selectEmailAccountBySenderId(Long senderId);
+
+    /**
      * 查询邮箱账号列表
      * 
      * @param emailAccount 邮箱账号
@@ -75,4 +83,12 @@ public interface EmailAccountMapper
      * @return 结果
      */
     public int resetDailySendCount();
+    
+    /**
+     * 根据邮箱地址查询邮箱账号
+     * 
+     * @param emailAddress 邮箱地址
+     * @return 邮箱账号
+     */
+    public EmailAccount selectEmailAccountByEmailAddress(String emailAddress);
 }

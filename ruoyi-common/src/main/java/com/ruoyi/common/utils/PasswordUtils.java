@@ -15,7 +15,8 @@ import java.nio.charset.StandardCharsets;
 public class PasswordUtils
 {
     private static final String ALGORITHM = "AES/ECB/PKCS5Padding";
-    private static final String SECRET_KEY = "RuoyiEmailManager"; // 16位密钥
+    private static final String KEY_ALGORITHM = "AES";
+    private static final String SECRET_KEY = "RuoyiEmailMgr16!"; // 16字节密钥
     
     /**
      * 加密密码
@@ -30,7 +31,7 @@ public class PasswordUtils
         }
         
         try {
-            SecretKeySpec secretKey = new SecretKeySpec(SECRET_KEY.getBytes(StandardCharsets.UTF_8), ALGORITHM);
+            SecretKeySpec secretKey = new SecretKeySpec(SECRET_KEY.getBytes(StandardCharsets.UTF_8), KEY_ALGORITHM);
             Cipher cipher = Cipher.getInstance(ALGORITHM);
             cipher.init(Cipher.ENCRYPT_MODE, secretKey);
             
@@ -54,7 +55,7 @@ public class PasswordUtils
         }
         
         try {
-            SecretKeySpec secretKey = new SecretKeySpec(SECRET_KEY.getBytes(StandardCharsets.UTF_8), ALGORITHM);
+            SecretKeySpec secretKey = new SecretKeySpec(SECRET_KEY.getBytes(StandardCharsets.UTF_8), KEY_ALGORITHM);
             Cipher cipher = Cipher.getInstance(ALGORITHM);
             cipher.init(Cipher.DECRYPT_MODE, secretKey);
             

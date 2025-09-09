@@ -151,10 +151,13 @@ public class EmailSendService {
                         break;
                     }
                     
-                    // 获取当前可用的发件邮箱
+                    // 获取当前可用的发件邮箱（每次重新检查可用性）
                     EmailAccount currentSender = getCurrentAvailableSender(senderAccounts, senderIndex);
                     if (currentSender == null) {
-                        logger.warn("没有可用的发件邮箱，跳过剩余 {} 封邮件", recipients.size() - recipients.indexOf(recipient));
+                        logger.warn("所有发件邮箱都已达到每日发送上限，停止发送。剩余 {} 封邮件未发送", recipients.size() - recipients.indexOf(recipient));
+                        // 更新任务状态为已完成
+                        currentTask.setStatus("2");
+                        emailSendTaskService.updateEmailSendTask(currentTask);
                         break;
                     }
                     
@@ -479,16 +482,22 @@ public class EmailSendService {
             task.setStatus("1");
             emailSendTaskService.updateEmailSendTask(task);
 
-            // 获取发件人账户
-            EmailAccount account;
-            if (task.getAccountId() != null) {
-                account = emailAccountService.selectEmailAccountWithDecryptedPassword(task.getAccountId());
-            } else {
-                account = null;
+            // 获取发件人账户列表
+            List<EmailAccount> senderAccounts = getSenderAccounts(task);
+            if (senderAccounts.isEmpty()) {
+                logger.error("没有可用的发件人账户，任务ID: {}", taskId);
+                throw new RuntimeException("No available sender accounts found for task: " + taskId);
             }
-            if (account == null) {
-                logger.error("发件人账户未找到，任务ID: {}, 账户ID: {}", taskId, task.getAccountId());
-                throw new RuntimeException("Sender account not found. TaskId: " + taskId + ", AccountId: " + task.getAccountId());
+            
+            // 选择第一个可用的账户进行长连接发送
+            EmailAccount account = senderAccounts.get(0);
+            
+            // 检查账户是否还有发送配额
+            if (!emailSendLimitService.canSendToday(account.getAccountId())) {
+                logger.warn("长连接账户已达到每日发送上限，回退到普通发送方式进行账号轮换，账户: {}", account.getEmailAddress());
+                // 回退到普通发送方式，支持账号轮换
+                startSendTask(taskId);
+                return;
             }
 
             // 检查账户是否有长连接且连接健康
@@ -606,6 +615,15 @@ public class EmailSendService {
                 EmailSendTask currentTask = emailSendTaskService.selectEmailSendTaskByTaskId(task.getTaskId());
                 if (currentTask == null || !"1".equals(currentTask.getStatus())) {
                     logger.info("任务状态已改变，停止发送, 任务名称：{}, 任务ID：{}", task.getTaskName(), task.getTaskId());
+                    break;
+                }
+                
+                // 检查当前账号是否还有发送配额
+                if (!emailSendLimitService.canSendToday(account.getAccountId())) {
+                    logger.warn("长连接账号已达到每日发送上限，停止发送。剩余 {} 封邮件未发送", recipients.size() - recipients.indexOf(recipient));
+                    // 更新任务状态为已完成
+                    currentTask.setStatus("2");
+                    emailSendTaskService.updateEmailSendTask(currentTask);
                     break;
                 }
                 
@@ -878,8 +896,29 @@ public class EmailSendService {
     private List<EmailAccount> getSenderAccounts(EmailSendTask task) {
         List<EmailAccount> accounts = new ArrayList<>();
         
-        // 优先使用 accountIds（多邮箱支持）
-        if (task.getAccountIds() != null && !task.getAccountIds().trim().isEmpty()) {
+        // 优先使用 senderId（根据发件人获取所有邮箱账号）
+        if (task.getSenderId() != null) {
+            try {
+                List<EmailAccount> senderAccounts = emailAccountService.selectEmailAccountBySenderId(task.getSenderId());
+                for (EmailAccount account : senderAccounts) {
+                    if (account != null && "0".equals(account.getStatus()) && emailSendLimitService.canSendToday(account.getAccountId())) {
+                        accounts.add(account);
+                        logger.debug("添加发件人邮箱账号: {} ({})", account.getAccountName(), account.getEmailAddress());
+                    } else {
+                        logger.debug("发件人邮箱账号不可用: {} (ID: {}, 状态: {}, 今日可发送: {})", 
+                            account != null ? account.getAccountName() : "未知", 
+                            account != null ? account.getAccountId() : "未知",
+                            account != null ? account.getStatus() : "未知",
+                            account != null ? emailSendLimitService.canSendToday(account.getAccountId()) : false);
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("获取发件人邮箱账号失败: {}", e.getMessage());
+            }
+        }
+        
+        // 如果没有发件人ID，回退到 accountIds（多邮箱支持）
+        if (accounts.isEmpty() && task.getAccountIds() != null && !task.getAccountIds().trim().isEmpty()) {
             try {
                 // 解析 accountIds（假设是逗号分隔的ID列表）
                 String[] accountIdArray = task.getAccountIds().split(",");
@@ -903,7 +942,7 @@ public class EmailSendService {
             }
         }
         
-        // 如果没有多邮箱配置，回退到单个账户
+        // 如果还是没有，回退到单个账户
         if (accounts.isEmpty() && task.getAccountId() != null) {
             EmailAccount account = emailAccountService.selectEmailAccountByAccountId(task.getAccountId());
             if (account != null && emailSendLimitService.canSendToday(task.getAccountId())) {
@@ -931,15 +970,21 @@ public class EmailSendService {
         for (EmailAccount sender : availableSenders) {
             if (emailSendLimitService.canSendToday(sender.getAccountId())) {
                 stillAvailable.add(sender);
+            } else {
+                logger.debug("邮箱账号已达到每日发送上限: {} ({})", sender.getAccountName(), sender.getEmailAddress());
             }
         }
         
         if (stillAvailable.isEmpty()) {
+            logger.warn("所有邮箱账号都已达到每日发送上限，无法继续发送");
             return null;
         }
         
         // 轮换使用
-        return stillAvailable.get(index % stillAvailable.size());
+        EmailAccount selectedAccount = stillAvailable.get(index % stillAvailable.size());
+        logger.debug("选择邮箱账号: {} ({})，剩余可用账号数: {}", 
+            selectedAccount.getAccountName(), selectedAccount.getEmailAddress(), stillAvailable.size());
+        return selectedAccount;
     }
     
     /**

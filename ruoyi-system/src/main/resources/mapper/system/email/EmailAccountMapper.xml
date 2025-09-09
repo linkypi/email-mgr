@@ -6,6 +6,8 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     
     <resultMap type="EmailAccount" id="EmailAccountResult">
         <result property="accountId"    column="account_id"    />
+        <result property="senderId"    column="sender_id"    />
+        <result property="senderName"    column="sender_name"    />
         <result property="accountName"    column="account_name"    />
         <result property="emailAddress"    column="email_address"    />
         <result property="password"    column="password"    />
@@ -36,27 +38,36 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectEmailAccountVo">
-        select account_id, account_name, email_address, password, smtp_host, smtp_port, smtp_ssl, imap_host, imap_port, imap_ssl, imap_username, imap_password, webhook_url, webhook_secret, tracking_enabled, daily_limit, send_interval_seconds, daily_sent_count, last_send_date, used_count, last_send_time, last_sync_time, status, create_by, create_time, update_by, update_time, remark from email_account
+        select a.account_id, a.sender_id, a.account_name, a.email_address, a.password, a.smtp_host, a.smtp_port, a.smtp_ssl, a.imap_host, a.imap_port, a.imap_ssl, a.imap_username, a.imap_password, a.webhook_url, a.webhook_secret, a.tracking_enabled, a.daily_limit, a.send_interval_seconds, a.daily_sent_count, a.last_send_date, a.used_count, a.last_send_time, a.last_sync_time, a.status, a.create_by, a.create_time, a.update_by, a.update_time, a.remark, s.sender_name from email_account a left join email_sender s on a.sender_id = s.sender_id
     </sql>
 
     <select id="selectEmailAccountList" parameterType="EmailAccount" resultMap="EmailAccountResult">
         <include refid="selectEmailAccountVo"/>
         <where>  
-            <if test="accountName != null  and accountName != ''"> and account_name like concat('%', #{accountName}, '%')</if>
-            <if test="emailAddress != null  and emailAddress != ''"> and email_address like concat('%', #{emailAddress}, '%')</if>
-            <if test="status != null  and status != ''"> and status = #{status}</if>
+            <if test="senderId != null"> and a.sender_id = #{senderId}</if>
+            <if test="accountName != null  and accountName != ''"> and a.account_name like concat('%', #{accountName}, '%')</if>
+            <if test="emailAddress != null  and emailAddress != ''"> and a.email_address like concat('%', #{emailAddress}, '%')</if>
+            <if test="status != null  and status != ''"> and a.status = #{status}</if>
+            and a.deleted = '0'
         </where>
-        order by create_time desc
+        order by a.create_time desc, a.account_id desc
     </select>
     
     <select id="selectEmailAccountByAccountId" parameterType="Long" resultMap="EmailAccountResult">
         <include refid="selectEmailAccountVo"/>
-        where account_id = #{accountId}
+        where a.account_id = #{accountId} and a.deleted = '0'
+    </select>
+
+    <select id="selectEmailAccountBySenderId" parameterType="Long" resultMap="EmailAccountResult">
+        <include refid="selectEmailAccountVo"/>
+        where a.sender_id = #{senderId} and a.deleted = '0'
+        order by a.create_time desc, a.account_id desc
     </select>
         
     <insert id="insertEmailAccount" parameterType="EmailAccount" useGeneratedKeys="true" keyProperty="accountId">
         insert into email_account
         <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="senderId != null">sender_id,</if>
             <if test="accountName != null and accountName != ''">account_name,</if>
             <if test="emailAddress != null and emailAddress != ''">email_address,</if>
             <if test="password != null and password != ''">password,</if>
@@ -85,6 +96,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="remark != null">remark,</if>
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="senderId != null">#{senderId},</if>
             <if test="accountName != null and accountName != ''">#{accountName},</if>
             <if test="emailAddress != null and emailAddress != ''">#{emailAddress},</if>
             <if test="password != null and password != ''">#{password},</if>
@@ -118,6 +130,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <update id="updateEmailAccount" parameterType="EmailAccount">
         update email_account
         <trim prefix="SET" suffixOverrides=",">
+            <if test="senderId != null">sender_id = #{senderId},</if>
             <if test="accountName != null and accountName != ''">account_name = #{accountName},</if>
             <if test="emailAddress != null and emailAddress != ''">email_address = #{emailAddress},</if>
             <if test="password != null and password != ''">password = #{password},</if>
@@ -151,11 +164,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </update>
 
     <delete id="deleteEmailAccountByAccountId" parameterType="Long">
-        delete from email_account where account_id = #{accountId}
+        update email_account set deleted = '2' where account_id = #{accountId}
     </delete>
 
     <delete id="deleteEmailAccountByAccountIds" parameterType="String">
-        delete from email_account where account_id in 
+        update email_account set deleted = '2' where account_id in 
         <foreach item="accountId" collection="array" open="(" separator="," close=")">
             #{accountId}
         </foreach>
@@ -186,4 +199,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
            OR last_send_date IS NULL 
            OR last_send_date &lt; CURDATE()
     </update>
+    
+    <select id="selectEmailAccountByEmailAddress" parameterType="String" resultMap="EmailAccountResult">
+        <include refid="selectEmailAccountVo"/>
+        where a.email_address = #{emailAddress} and a.deleted = '0'
+    </select>
 </mapper>

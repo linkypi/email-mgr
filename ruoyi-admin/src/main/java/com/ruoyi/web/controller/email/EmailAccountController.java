@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
@@ -19,6 +20,8 @@ import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.system.domain.email.EmailAccount;
 import com.ruoyi.system.service.email.IEmailAccountService;
 import com.ruoyi.common.utils.poi.ExcelUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.ruoyi.common.core.page.TableDataInfo;
 
 /**
@@ -31,6 +34,8 @@ import com.ruoyi.common.core.page.TableDataInfo;
 @RequestMapping("/email/account")
 public class EmailAccountController extends BaseController
 {
+    private static final Logger logger = LoggerFactory.getLogger(EmailAccountController.class);
+    
     @Autowired
     private IEmailAccountService emailAccountService;
 
@@ -41,6 +46,11 @@ public class EmailAccountController extends BaseController
     @GetMapping("/list")
     public TableDataInfo list(EmailAccount emailAccount)
     {
+        // 添加调试日志
+        logger.info("查询邮箱账号列表，参数：senderId={}, accountName={}, emailAddress={}, status={}", 
+                   emailAccount.getSenderId(), emailAccount.getAccountName(), 
+                   emailAccount.getEmailAddress(), emailAccount.getStatus());
+        
         startPage();
         List<EmailAccount> list = emailAccountService.selectEmailAccountList(emailAccount);
         
@@ -154,5 +164,32 @@ public class EmailAccountController extends BaseController
         }
         
         return success(list);
+    }
+
+    /**
+     * 导出邮箱账号模板
+     */
+    @PreAuthorize("@ss.hasPermi('email:account:export')")
+    @PostMapping("/exportTemplate")
+    public void exportTemplate(HttpServletResponse response, EmailAccount emailAccount)
+    {
+        List<EmailAccount> list = emailAccountService.selectEmailAccountTemplate(emailAccount);
+        ExcelUtil<EmailAccount> util = new ExcelUtil<EmailAccount>(EmailAccount.class);
+        util.exportExcel(response, list, "邮箱账号导入模板");
+    }
+
+    /**
+     * 导入邮箱账号数据
+     */
+    @PreAuthorize("@ss.hasPermi('email:account:import')")
+    @Log(title = "邮箱账号", businessType = BusinessType.IMPORT)
+    @PostMapping("/importData")
+    public AjaxResult importData(MultipartFile file, boolean updateSupport) throws Exception
+    {
+        ExcelUtil<EmailAccount> util = new ExcelUtil<EmailAccount>(EmailAccount.class);
+        List<EmailAccount> accountList = util.importExcel(file.getInputStream());
+        String operName = getUsername();
+        String message = emailAccountService.importAccount(accountList, updateSupport, operName);
+        return success(message);
     }
 }

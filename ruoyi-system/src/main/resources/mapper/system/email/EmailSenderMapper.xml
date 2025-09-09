@@ -1,0 +1,184 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.system.mapper.email.EmailSenderMapper">
+    
+    <resultMap type="EmailSender" id="EmailSenderResult">
+        <result property="senderId"    column="sender_id"    />
+        <result property="senderName"    column="sender_name"    />
+        <result property="company"    column="company"    />
+        <result property="department"    column="department"    />
+        <result property="position"    column="position"    />
+        <result property="phone"    column="phone"    />
+        <result property="address"    column="address"    />
+        <result property="description"    column="description"    />
+        <result property="level"    column="level"    />
+        <result property="tags"    column="tags"    />
+        <result property="totalAccounts"    column="total_accounts"    />
+        <result property="activeAccounts"    column="active_accounts"    />
+        <result property="totalSent"    column="total_sent"    />
+        <result property="totalReplied"    column="total_replied"    />
+        <result property="replyRate"    column="reply_rate"    />
+        <result property="status"    column="status"    />
+        <result property="remark"    column="remark"    />
+        <result property="createBy"    column="create_by"    />
+        <result property="createTime"    column="create_time"    />
+        <result property="updateBy"    column="update_by"    />
+        <result property="updateTime"    column="update_time"    />
+        <result property="deleted"    column="deleted"    />
+    </resultMap>
+
+    <resultMap type="EmailSender" id="EmailSenderWithAccountsResult" extends="EmailSenderResult">
+        <collection property="emailAccounts" ofType="EmailAccount" resultMap="com.ruoyi.system.mapper.email.EmailAccountMapper.EmailAccountResult" />
+    </resultMap>
+
+    <sql id="selectEmailSenderVo">
+        select sender_id, sender_name, company, department, position, phone, address, description, level, tags, total_accounts, active_accounts, total_sent, total_replied, reply_rate, status, remark, create_by, create_time, update_by, update_time, deleted from email_sender
+    </sql>
+
+    <select id="selectEmailSenderList" parameterType="EmailSender" resultMap="EmailSenderResult">
+        <include refid="selectEmailSenderVo"/>
+        <where>  
+            <if test="senderName != null  and senderName != ''"> and sender_name like concat('%', #{senderName}, '%')</if>
+            <if test="company != null  and company != ''"> and company like concat('%', #{company}, '%')</if>
+            <if test="department != null  and department != ''"> and department like concat('%', #{department}, '%')</if>
+            <if test="position != null  and position != ''"> and position like concat('%', #{position}, '%')</if>
+            <if test="phone != null  and phone != ''"> and phone = #{phone}</if>
+            <if test="level != null  and level != ''"> and level = #{level}</if>
+            <if test="status != null  and status != ''"> and status = #{status}</if>
+            and deleted = '0'
+        </where>
+        order by create_time desc
+    </select>
+    
+    <select id="selectEmailSenderBySenderId" parameterType="Long" resultMap="EmailSenderResult">
+        <include refid="selectEmailSenderVo"/>
+        where sender_id = #{senderId} and deleted = '0'
+    </select>
+
+    <select id="selectEmailSenderWithAccounts" parameterType="Long" resultMap="EmailSenderWithAccountsResult">
+        select 
+            s.sender_id, s.sender_name, s.company, s.department, s.position, s.phone, s.address, s.description, 
+            s.level, s.tags, s.total_accounts, s.active_accounts, s.total_sent, s.total_replied, s.reply_rate, 
+            s.status, s.remark, s.create_by, s.create_time, s.update_by, s.update_time, s.deleted,
+            a.account_id, a.account_name, a.email_address, a.smtp_host, a.smtp_port, a.smtp_ssl, 
+            a.imap_host, a.imap_port, a.imap_ssl, a.daily_limit, a.used_count, a.status as account_status, 
+            a.remark as account_remark, a.create_time as account_create_time, a.update_time as account_update_time
+        from email_sender s
+        left join email_account a on s.sender_id = a.sender_id and a.deleted = '0'
+        where s.sender_id = #{senderId} and s.deleted = '0'
+        order by a.create_time desc
+    </select>
+        
+    <insert id="insertEmailSender" parameterType="EmailSender" useGeneratedKeys="true" keyProperty="senderId">
+        insert into email_sender
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="senderName != null and senderName != ''">sender_name,</if>
+            <if test="company != null">company,</if>
+            <if test="department != null">department,</if>
+            <if test="position != null">position,</if>
+            <if test="phone != null">phone,</if>
+            <if test="address != null">address,</if>
+            <if test="description != null">description,</if>
+            <if test="level != null">level,</if>
+            <if test="tags != null">tags,</if>
+            <if test="totalAccounts != null">total_accounts,</if>
+            <if test="activeAccounts != null">active_accounts,</if>
+            <if test="totalSent != null">total_sent,</if>
+            <if test="totalReplied != null">total_replied,</if>
+            <if test="replyRate != null">reply_rate,</if>
+            <if test="status != null">status,</if>
+            <if test="remark != null">remark,</if>
+            <if test="createBy != null">create_by,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateBy != null">update_by,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="deleted != null">deleted,</if>
+         </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="senderName != null and senderName != ''">#{senderName},</if>
+            <if test="company != null">#{company},</if>
+            <if test="department != null">#{department},</if>
+            <if test="position != null">#{position},</if>
+            <if test="phone != null">#{phone},</if>
+            <if test="address != null">#{address},</if>
+            <if test="description != null">#{description},</if>
+            <if test="level != null">#{level},</if>
+            <if test="tags != null">#{tags},</if>
+            <if test="totalAccounts != null">#{totalAccounts},</if>
+            <if test="activeAccounts != null">#{activeAccounts},</if>
+            <if test="totalSent != null">#{totalSent},</if>
+            <if test="totalReplied != null">#{totalReplied},</if>
+            <if test="replyRate != null">#{replyRate},</if>
+            <if test="status != null">#{status},</if>
+            <if test="remark != null">#{remark},</if>
+            <if test="createBy != null">#{createBy},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateBy != null">#{updateBy},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="deleted != null">#{deleted},</if>
+         </trim>
+    </insert>
+
+    <update id="updateEmailSender" parameterType="EmailSender">
+        update email_sender
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="senderName != null and senderName != ''">sender_name = #{senderName},</if>
+            <if test="company != null">company = #{company},</if>
+            <if test="department != null">department = #{department},</if>
+            <if test="position != null">position = #{position},</if>
+            <if test="phone != null">phone = #{phone},</if>
+            <if test="address != null">address = #{address},</if>
+            <if test="description != null">description = #{description},</if>
+            <if test="level != null">level = #{level},</if>
+            <if test="tags != null">tags = #{tags},</if>
+            <if test="totalAccounts != null">total_accounts = #{totalAccounts},</if>
+            <if test="activeAccounts != null">active_accounts = #{activeAccounts},</if>
+            <if test="totalSent != null">total_sent = #{totalSent},</if>
+            <if test="totalReplied != null">total_replied = #{totalReplied},</if>
+            <if test="replyRate != null">reply_rate = #{replyRate},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="remark != null">remark = #{remark},</if>
+            <if test="updateBy != null">update_by = #{updateBy},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where sender_id = #{senderId}
+    </update>
+
+    <update id="updateEmailSenderStatistics" parameterType="EmailSender">
+        update email_sender
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="totalAccounts != null">total_accounts = #{totalAccounts},</if>
+            <if test="activeAccounts != null">active_accounts = #{activeAccounts},</if>
+            <if test="totalSent != null">total_sent = #{totalSent},</if>
+            <if test="totalReplied != null">total_replied = #{totalReplied},</if>
+            <if test="replyRate != null">reply_rate = #{replyRate},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+        </trim>
+        where sender_id = #{senderId}
+    </update>
+
+    <delete id="deleteEmailSenderBySenderId" parameterType="Long">
+        update email_sender set deleted = '2' where sender_id = #{senderId}
+    </delete>
+
+    <delete id="deleteEmailSenderBySenderIds" parameterType="String">
+        update email_sender set deleted = '2' where sender_id in 
+        <foreach item="senderId" collection="array" open="(" separator="," close=")">
+            #{senderId}
+        </foreach>
+    </delete>
+
+    <update id="batchUpdateSenderStatus" parameterType="EmailSender">
+        update email_sender set status = #{status}, update_time = now() where sender_id in
+        <foreach item="senderId" collection="senderIds" open="(" separator="," close=")">
+            #{senderId}
+        </foreach>
+    </update>
+
+    <select id="selectEmailSenderOptions" resultMap="EmailSenderResult">
+        select sender_id, sender_name, company from email_sender where status = '0' and deleted = '0' order by create_time desc
+    </select>
+</mapper>
+

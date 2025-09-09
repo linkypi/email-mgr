@@ -127,6 +127,32 @@ export const constantRoutes = [
       }
     ]
   },
+  {
+    path: '/management/account',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/email/account/index'),
+        name: 'EmailAccount',
+        meta: { title: '邮箱账号管理', icon: 'account' }
+      }
+    ]
+  },
+  {
+    path: '/management/account/detail',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: '',
+        component: () => import('@/views/email/account/detail/index'),
+        name: 'EmailAccountDetail',
+        meta: { title: '邮箱账号详情', icon: 'account' }
+      }
+    ]
+  },
 ]
 
 // 动态路由，基于用户权限动态去加载
