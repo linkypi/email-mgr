@@ -83,6 +83,15 @@ public class EmailContact extends BaseEntity
     /** 删除标志（0代表存在 2代表删除） */
     private String deleted;
 
+    /** 标签ID列表（用于搜索） */
+    private java.util.List<String> tagIds;
+
+    /** 群组ID列表（用于搜索） */
+    private java.util.List<String> groupIds;
+
+    /** 等级列表（用于搜索） */
+    private java.util.List<String> levels;
+
     public void setContactId(Long contactId) 
     {
         this.contactId = contactId;
@@ -271,6 +280,36 @@ public class EmailContact extends BaseEntity
     public String getDeleted() 
     {
         return deleted;
+    }
+
+    public java.util.List<String> getTagIds() 
+    {
+        return tagIds;
+    }
+
+    public void setTagIds(java.util.List<String> tagIds) 
+    {
+        this.tagIds = tagIds;
+    }
+
+    public java.util.List<String> getGroupIds() 
+    {
+        return groupIds;
+    }
+
+    public void setGroupIds(java.util.List<String> groupIds) 
+    {
+        this.groupIds = groupIds;
+    }
+
+    public java.util.List<String> getLevels() 
+    {
+        return levels;
+    }
+
+    public void setLevels(java.util.List<String> levels) 
+    {
+        this.levels = levels;
     }
 
     @Override

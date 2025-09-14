@@ -5,7 +5,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.system.mapper.email.EmailSenderMapper;
 import com.ruoyi.system.domain.email.EmailSender;
+import com.ruoyi.system.domain.email.EmailAccount;
 import com.ruoyi.system.service.email.IEmailSenderService;
+import com.ruoyi.system.service.email.IEmailAccountService;
 import com.ruoyi.common.utils.DateUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +25,9 @@ public class EmailSenderServiceImpl implements IEmailSenderService
     
     @Autowired
     private EmailSenderMapper emailSenderMapper;
+    
+    @Autowired
+    private IEmailAccountService emailAccountService;
 
     /**
      * 查询发件人信息
@@ -144,7 +149,37 @@ public class EmailSenderServiceImpl implements IEmailSenderService
     {
         EmailSender emailSender = new EmailSender();
         emailSender.setStatus("0"); // 只查询正常状态的发件人
-        return emailSenderMapper.selectEmailSenderList(emailSender);
+        List<EmailSender> senders = emailSenderMapper.selectEmailSenderList(emailSender);
+        
+        // 为每个发件人计算当天剩余发送数量
+        for (EmailSender sender : senders) {
+            try {
+                // 获取发件人关联的所有邮箱账号
+                List<EmailAccount> accounts = emailAccountService.selectEmailAccountBySenderId(sender.getSenderId());
+                int totalRemaining = 0;
+                
+                for (EmailAccount account : accounts) {
+                    if (account != null && "0".equals(account.getStatus())) {
+                        // 计算该账号的剩余发送数量
+                        int dailyLimit = account.getDailyLimit() != null ? account.getDailyLimit() : 0;
+                        int dailySent = account.getDailySentCount() != null ? account.getDailySentCount() : 0;
+                        int remaining = Math.max(0, dailyLimit - dailySent);
+                        totalRemaining += remaining;
+                    }
+                }
+                
+                sender.setDailyRemainingCount(totalRemaining);
+            } catch (Exception e) {
+                // 如果计算失败，设置为0
+                sender.setDailyRemainingCount(0);
+            }
+        }
+        
+        return senders;
     }
 }
+
+
+
+
 

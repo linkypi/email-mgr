@@ -52,7 +52,7 @@
           <el-input v-model="queryParams.email" placeholder="请输入邮箱" clearable @keyup.enter.native="handleSearch"></el-input>
         </el-form-item>
         <el-form-item label="企业">
-          <el-input v-model="queryParams.company" placeholder="请输入企业" clearable @keyup.enter.native="handleSearch"></el-input>
+          <el-input v-model="queryParams.company" placeholder="请输入企业名称" clearable @keyup.enter.native="handleSearch"></el-input>
         </el-form-item>
         <el-form-item label="等级">
           <el-select v-model="queryParams.level" placeholder="请选择等级" clearable>
@@ -130,10 +130,15 @@
           </template>
         </el-table-column>
         <el-table-column prop="groupName" label="群组" width="100" show-overflow-tooltip></el-table-column>
-        <el-table-column prop="tags" label="标签" width="150">
+        <el-table-column prop="tags" label="标签" width="200">
           <template slot-scope="scope">
-            <el-tag v-for="tag in getTagsArray(scope.row.tags)" :key="tag" size="mini" style="margin-right: 2px;">
-              {{ tag }}
+            <el-tag 
+              v-for="tag in getContactTags(scope.row)" 
+              :key="tag.tagId" 
+              :color="tag.tagColor"
+              size="mini" 
+              style="margin-right: 4px; color: white; border: none;">
+              {{ tag.tagName }}
             </el-tag>
           </template>
         </el-table-column>
@@ -152,11 +157,12 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="160" show-overflow-tooltip></el-table-column>
-        <el-table-column label="操作" width="200" align="center" fixed="right">
+        <el-table-column label="操作" width="280" align="center" fixed="right">
           <template slot-scope="scope">
             <el-button size="mini" type="text" icon="el-icon-edit" @click="handleEdit(scope.row)">编辑</el-button>
             <el-button size="mini" type="text" icon="el-icon-delete" @click="handleDelete(scope.row)">删除</el-button>
             <el-button size="mini" type="text" icon="el-icon-refresh" @click="handleUpdateStatistics(scope.row)">更新统计</el-button>
+            <el-button size="mini" type="text" icon="el-icon-data-line" @click="handleSalesData(scope.row)">销售数据</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -208,6 +214,48 @@
         
         <el-row :gutter="20">
           <el-col :span="12">
+            <el-form-item label="企业">
+              <el-input v-model="form.company" placeholder="请输入企业名称" maxlength="200"></el-input>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        
+        <el-form-item label="地址">
+          <el-input v-model="form.address" placeholder="请输入地址" maxlength="500"></el-input>
+        </el-form-item>
+        
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="年龄">
+              <el-input-number v-model="form.age" :min="0" :max="150" placeholder="请输入年龄" style="width: 100%"></el-input-number>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="性别">
+              <el-radio-group v-model="form.gender">
+                <el-radio label="0">未知</el-radio>
+                <el-radio label="1">男</el-radio>
+                <el-radio label="2">女</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="社交媒体账号">
+              <el-input v-model="form.socialMedia" placeholder="请输入社交媒体账号" maxlength="200"></el-input>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="粉丝数">
+              <el-input-number v-model="form.followers" :min="0" placeholder="请输入粉丝数" style="width: 100%"></el-input-number>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        
+        <el-row :gutter="20">
+          <el-col :span="12">
             <el-form-item label="状态">
               <el-radio-group v-model="form.status">
                 <el-radio label="0">正常</el-radio>
@@ -218,7 +266,25 @@
         </el-row>
         
         <el-form-item label="标签">
-          <el-input v-model="form.tags" placeholder="请输入标签，用逗号分隔" maxlength="500"></el-input>
+          <el-select 
+            v-model="form.tagIds" 
+            multiple 
+            filterable 
+            allow-create 
+            placeholder="请选择或输入标签" 
+            style="width: 100%"
+            @change="handleTagChange">
+            <el-option
+              v-for="tag in availableTags"
+              :key="tag.tagId"
+              :label="tag.tagName"
+              :value="tag.tagId">
+              <span style="float: left">{{ tag.tagName }}</span>
+              <span style="float: right; color: #8492a6; font-size: 13px">
+                <div class="tag-color-preview" :style="{ backgroundColor: tag.tagColor }"></div>
+              </span>
+            </el-option>
+          </el-select>
         </el-form-item>
         
         <el-form-item label="备注">
@@ -244,6 +310,10 @@
             <p>2. 文件大小不超过 10MB</p>
             <p>3. 请先下载模板，按照模板格式填写数据</p>
             <p>4. 邮箱地址必须唯一，不能重复</p>
+            <p>5. 必填字段：姓名、邮箱</p>
+            <p>6. 可选字段：企业、地址、年龄、性别、社交媒体账号、粉丝数、等级、群组、标签、备注</p>
+            <p>7. 性别字段：0-未知，1-男，2-女</p>
+            <p>8. 等级字段：1-重要，2-普通，3-一般</p>
           </div>
         </el-alert>
       </div>
@@ -286,6 +356,7 @@
         <el-button @click="importVisible = false">取 消</el-button>
       </div>
     </el-dialog>
+
   </div>
 </template>
 
@@ -301,6 +372,7 @@ export default {
   mounted() {
     console.log('=== Contact 组件 mounted ===')
     this.getList()
+    this.loadAvailableTags()
     // this.getStatistics()
   },
   data() {
@@ -335,6 +407,8 @@ export default {
         { groupId: 3, groupName: '潜在客户' },
         { groupId: 4, groupName: '合作伙伴' }
       ],
+      // 可用标签列表
+      availableTags: [],
       // 对话框
       dialogVisible: false,
       dialogTitle: '新增收件人',
@@ -343,9 +417,16 @@ export default {
         contactId: null,
         name: '',
         email: '',
+        company: '',
+        address: '',
+        age: null,
+        gender: '0',
+        socialMedia: '',
+        followers: 0,
         level: '3',
         groupId: '',
-        tags: '',
+        tagIds: [],
+        tags: '', // 保留用于兼容性
         status: '0',
         remark: ''
       },
@@ -365,7 +446,7 @@ export default {
       selectedFile: null,
       isUpdateSupport: false,
       importLoading: false,
-      importForm: {}
+      importForm: {},
     }
   },
   methods: {
@@ -456,6 +537,14 @@ export default {
         url: '/email/contact/batchRestore',
         method: 'post',
         data: contactIds
+      })
+    },
+    
+    // 获取所有可用标签
+    getAllTags() {
+      return request({
+        url: '/email/tag/all',
+        method: 'get'
       })
     },
     /** 查询联系人列表 */
@@ -740,6 +829,7 @@ export default {
         followers: 0,
         level: '3',
         groupId: '',
+        tagIds: [],
         tags: '',
         status: '0',
         remark: ''
@@ -767,11 +857,75 @@ export default {
       return texts[level] || '一般'
     },
     
+    
     /** 获取标签数组 */
     getTagsArray(tags) {
       if (!tags) return []
       return tags.split(',').filter(tag => tag.trim())
-    }
+    },
+    
+    /** 加载可用标签列表 */
+    loadAvailableTags() {
+      this.getAllTags().then(response => {
+        this.availableTags = response.data || []
+      }).catch(error => {
+        console.error('加载标签列表失败:', error)
+        this.$modal.msgError('加载标签列表失败')
+      })
+    },
+    
+    /** 获取联系人的标签信息 */
+    getContactTags(contact) {
+      if (!contact.tags || !contact.tagIds) return []
+      
+      // 如果后端返回的是标签对象数组
+      if (Array.isArray(contact.tags)) {
+        return contact.tags
+      }
+      
+      // 如果后端返回的是标签ID和名称字符串，需要解析
+      const tagIds = contact.tagIds ? contact.tagIds.split(',') : []
+      const tagNames = contact.tags ? contact.tags.split(',') : []
+      const tagColors = contact.tagColors ? contact.tagColors.split(',') : []
+      
+      return tagIds.map((id, index) => ({
+        tagId: parseInt(id),
+        tagName: tagNames[index] || '',
+        tagColor: tagColors[index] || '#409EFF'
+      })).filter(tag => tag.tagName)
+    },
+    
+    /** 处理标签选择变化 */
+    handleTagChange(selectedTagIds) {
+      // 处理新创建的标签
+      const newTags = selectedTagIds.filter(id => typeof id === 'string' && !this.availableTags.find(tag => tag.tagName === id))
+      
+      if (newTags.length > 0) {
+        // 这里可以调用API创建新标签，或者提示用户
+        console.log('新创建的标签:', newTags)
+      }
+      
+      this.form.tagIds = selectedTagIds
+    },
+    
+    /** 重置表单时处理标签 */
+    resetFormTags() {
+      this.form.tagIds = []
+      this.form.tags = ''
+    },
+    
+    /** 处理销售数据按钮点击 */
+    handleSalesData(row) {
+      // 跳转到销售数据页面，带上当前收件人参数
+      this.$router.push({
+        path: '/email/salesData',
+        query: {
+          contactId: row.contactId,
+          contactName: row.name
+        }
+      })
+    },
+    
   }
 }
 </script>
@@ -914,4 +1068,14 @@ export default {
     align-items: flex-start;
   }
 }
+
+.tag-color-preview {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-left: 8px;
+  border: 1px solid #dcdfe6;
+}
+
 </style>

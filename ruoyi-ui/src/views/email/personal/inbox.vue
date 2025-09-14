@@ -5,14 +5,14 @@
       <el-checkbox v-model="selectAll" @change="handleSelectAll">全选</el-checkbox>
       
       <el-button size="small" icon="el-icon-refresh" @click="handleRefresh">刷新</el-button>
-      <el-button size="small" icon="el-icon-star-off" @click="handleUnstar" :disabled="multiple">取消星标</el-button>
+      <el-button size="small" icon="el-icon-star-on" @click="handleMarkAsStarred" :disabled="multiple">标记星标</el-button>
       <el-button size="small" icon="el-icon-delete" @click="handleDelete" :disabled="multiple" type="danger">删除</el-button>
       <el-button size="small" icon="el-icon-check" @click="handleMarkAsRead" :disabled="multiple">标记已读</el-button>
       
       <div class="search-box">
         <el-input
           v-model="searchKeyword"
-          placeholder="搜索星标邮件..."
+          placeholder="搜索邮件..."
           prefix-icon="el-icon-search"
           size="small"
           @keyup.enter.native="handleSearch"
@@ -28,7 +28,7 @@
       <!-- 邮件列表 -->
       <div class="mail-list">
         <div class="list-header">
-          <div>星标邮件 ({{ total }})</div>
+          <div>收件箱 ({{ total }})</div>
           <div>{{ (queryParams.pageNum - 1) * queryParams.pageSize + 1 }}-{{ Math.min(queryParams.pageNum * queryParams.pageSize, total) }}封，共{{ total }}封</div>
         </div>
 
@@ -52,10 +52,11 @@
             </div>
             
             <div 
-              class="item-star starred"
+              class="item-star"
+              :class="{ 'starred': mail.isStarred }"
               @click.stop="handleToggleStar(mail)"
             >
-              <i class="el-icon-star-on"></i>
+              <i :class="mail.isStarred ? 'el-icon-star-on' : 'el-icon-star-off'"></i>
             </div>
             
             <div 
@@ -68,19 +69,19 @@
             
             <div class="mail-content">
               <div class="mail-from">
-                {{ mail.type === 'sent' ? '收件人' : '发件人' }}: {{ mail.type === 'sent' ? mail.toAddress : mail.fromAddress }}
+                发件人: {{ mail.fromAddress }}
                 <span v-if="mail.status === 'unread'" class="mail-unread"></span>
               </div>
               <div class="mail-subject">{{ mail.subject }}</div>
               <div class="mail-excerpt">{{ mail.content || '无内容预览' }}</div>
             </div>
             
-            <div class="mail-time">{{ parseTime(mail.type === 'sent' ? mail.sendTime : mail.receiveTime, '{m}-{d} {h}:{i}') }}</div>
+            <div class="mail-time">{{ parseTime(mail.receiveTime, '{m}-{d} {h}:{i}') }}</div>
           </div>
           
           <div v-if="emailList.length === 0 && !loading" class="empty-list">
-            <i class="el-icon-star-off"></i>
-            <p>暂无星标邮件</p>
+            <i class="el-icon-message"></i>
+            <p>暂无收件</p>
           </div>
         </div>
 
@@ -101,15 +102,14 @@
         <div v-if="selectedMail" class="mail-preview-header">
           <div class="preview-info">
             <div class="preview-from">
-              <strong>{{ selectedMail.type === 'sent' ? '收件人' : '发件人' }}: {{ selectedMail.type === 'sent' ? selectedMail.toAddress : selectedMail.fromAddress }}</strong>
-              <span class="preview-email">&lt;{{ selectedMail.type === 'sent' ? selectedMail.toAddress : selectedMail.fromAddress }}&gt;</span>
+              <strong>发件人: {{ selectedMail.fromAddress }}</strong>
+              <span class="preview-email">&lt;{{ selectedMail.fromAddress }}&gt;</span>
             </div>
-            <div class="preview-time">{{ parseTime(selectedMail.type === 'sent' ? selectedMail.sendTime : selectedMail.receiveTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</div>
+            <div class="preview-time">{{ parseTime(selectedMail.receiveTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</div>
           </div>
           <div class="preview-actions">
-            <el-button size="mini" icon="el-icon-chat-line-round" @click="handleReply" v-if="selectedMail.type !== 'sent'">回复</el-button>
+            <el-button size="mini" icon="el-icon-chat-line-round" @click="handleReply">回复</el-button>
             <el-button size="mini" icon="el-icon-share" @click="handleForward">转发</el-button>
-            <el-button size="mini" icon="el-icon-star-off" @click="handleUnstarMail(selectedMail)">取消星标</el-button>
             <el-button size="mini" icon="el-icon-delete" @click="handleDeleteMail(selectedMail)" type="danger">删除</el-button>
           </div>
         </div>
@@ -117,8 +117,8 @@
         <div class="mail-preview-body">
           <div v-if="selectedMail" v-html="selectedMail.htmlContent || selectedMail.content"></div>
           <div v-else class="empty-preview">
-            <i class="el-icon-star-off"></i>
-            <p>从左侧列表中选择一封星标邮件进行查看</p>
+            <i class="el-icon-message"></i>
+            <p>从左侧列表中选择一封邮件进行查看</p>
           </div>
         </div>
       </div>
@@ -127,17 +127,11 @@
     <!-- 筛选对话框 -->
     <el-dialog title="邮件筛选" :visible.sync="showFilterDialog" width="500px">
       <el-form :model="filterForm" label-width="80px">
-        <el-form-item label="发件人/收件人">
-          <el-input v-model="filterForm.address" placeholder="请输入发件人或收件人" />
+        <el-form-item label="发件人">
+          <el-input v-model="filterForm.fromAddress" placeholder="请输入发件人" />
         </el-form-item>
         <el-form-item label="主题">
           <el-input v-model="filterForm.subject" placeholder="请输入主题关键词" />
-        </el-form-item>
-        <el-form-item label="邮件类型">
-          <el-select v-model="filterForm.type" placeholder="请选择邮件类型" clearable>
-            <el-option label="收件" value="inbox" />
-            <el-option label="发件" value="sent" />
-          </el-select>
         </el-form-item>
         <el-form-item label="时间范围">
           <el-date-picker
@@ -167,10 +161,10 @@
 </template>
 
 <script>
-import { listStarred, getEmail, delEmail, markAsStarred, markAsImportant, markAsRead } from "@/api/email/personal";
+import { listInbox, getEmail, delEmail, markAsStarred, markAsImportant, markAsRead } from "@/api/email/personal";
 
 export default {
-  name: "EmailStarred",
+  name: "EmailInbox",
   data() {
     return {
       // 遮罩层
@@ -195,9 +189,8 @@ export default {
       showFilterDialog: false,
       // 筛选表单
       filterForm: {
-        address: "",
+        fromAddress: "",
         subject: "",
-        type: "",
         dateRange: [],
         status: ""
       },
@@ -205,9 +198,8 @@ export default {
       queryParams: {
         pageNum: 1,
         pageSize: 20,
-        address: null,
+        fromAddress: null,
         subject: null,
-        type: null,
         status: null,
         startDate: null,
         endDate: null
@@ -218,10 +210,10 @@ export default {
     this.getList();
   },
   methods: {
-    /** 查询星标邮件列表 */
+    /** 查询收件箱列表 */
     getList() {
       this.loading = true;
-      listStarred(this.queryParams).then(response => {
+      listInbox(this.queryParams).then(response => {
         this.emailList = response.rows.map(mail => ({
           ...mail,
           selected: false
@@ -233,57 +225,56 @@ export default {
         this.emailList = [
           {
             emailId: 1,
-            fromAddress: 'boss@company.com',
-            toAddress: 'me@company.com',
-            subject: '项目进度报告',
-            content: '本月项目进度报告，请查看附件...',
-            receiveTime: '2024-01-14 16:20:00',
-            sendTime: null,
-            status: 'starred',
-            type: 'inbox',
-            isStarred: true,
-            isImportant: false,
-            selected: false
-          },
-          {
-            emailId: 2,
-            fromAddress: 'me@company.com',
-            toAddress: 'client@customer.com',
-            subject: '重要合作提案',
-            content: '关于新项目的合作提案...',
-            receiveTime: null,
-            sendTime: '2024-01-13 14:30:00',
-            status: 'starred',
-            type: 'sent',
-            isStarred: true,
+            fromAddress: 'sender@example.com',
+            subject: '重要会议通知',
+            content: '关于明天的重要会议安排...',
+            receiveTime: '2024-01-15 10:30:00',
+            status: 'unread',
+            isStarred: false,
             isImportant: true,
             selected: false
           },
           {
-            emailId: 3,
+            emailId: 2,
             fromAddress: 'hr@company.com',
-            toAddress: 'me@company.com',
-            subject: '年度绩效评估',
-            content: '年度绩效评估结果通知...',
-            receiveTime: '2024-01-12 10:15:00',
-            sendTime: null,
+            subject: '员工福利更新',
+            content: '员工福利政策更新通知...',
+            receiveTime: '2024-01-15 09:15:00',
+            status: 'read',
+            isStarred: false,
+            isImportant: false,
+            selected: false
+          },
+          {
+            emailId: 3,
+            fromAddress: 'boss@company.com',
+            subject: '项目进度报告',
+            content: '本月项目进度报告...',
+            receiveTime: '2024-01-14 16:20:00',
             status: 'starred',
-            type: 'inbox',
             isStarred: true,
             isImportant: false,
             selected: false
           },
           {
             emailId: 4,
-            fromAddress: 'me@company.com',
-            toAddress: 'team@company.com',
-            subject: '团队建设活动安排',
-            content: '下周团队建设活动安排...',
-            receiveTime: null,
-            sendTime: '2024-01-11 09:45:00',
-            status: 'starred',
-            type: 'sent',
-            isStarred: true,
+            fromAddress: 'client@customer.com',
+            subject: '合作提案',
+            content: '关于新项目的合作提案...',
+            receiveTime: '2024-01-14 14:45:00',
+            status: 'unread',
+            isStarred: false,
+            isImportant: false,
+            selected: false
+          },
+          {
+            emailId: 5,
+            fromAddress: 'system@company.com',
+            subject: '系统维护通知',
+            content: '系统将于今晚进行维护...',
+            receiveTime: '2024-01-14 11:20:00',
+            status: 'read',
+            isStarred: false,
             isImportant: false,
             selected: false
           }
@@ -312,23 +303,18 @@ export default {
       const newStarred = !mail.isStarred;
       markAsStarred(mail.emailId).then(() => {
         mail.isStarred = newStarred;
-        if (!newStarred) {
-          // 取消星标后从列表中移除
-          this.emailList = this.emailList.filter(item => item.emailId !== mail.emailId);
-          this.total = this.emailList.length;
-          if (this.selectedMail && this.selectedMail.emailId === mail.emailId) {
-            this.selectedMail = null;
-          }
+        if (newStarred) {
+          mail.status = 'starred';
+        } else if (mail.status === 'starred') {
+          mail.status = 'read';
         }
       }).catch(() => {
         // 如果API不存在，直接更新本地状态
         mail.isStarred = newStarred;
-        if (!newStarred) {
-          this.emailList = this.emailList.filter(item => item.emailId !== mail.emailId);
-          this.total = this.emailList.length;
-          if (this.selectedMail && this.selectedMail.emailId === mail.emailId) {
-            this.selectedMail = null;
-          }
+        if (newStarred) {
+          mail.status = 'starred';
+        } else if (mail.status === 'starred') {
+          mail.status = 'read';
         }
       });
     },
@@ -370,25 +356,18 @@ export default {
       this.getList();
     },
     
-    /** 取消星标 */
-    handleUnstar() {
+    /** 标记星标 */
+    handleMarkAsStarred() {
       if (this.ids.length === 0) return;
       
-      this.$modal.confirm('是否确认取消选中邮件的星标？').then(() => {
-        this.emailList = this.emailList.filter(mail => !mail.selected);
-        this.total = this.emailList.length;
-        this.selectedMail = null;
-        this.$modal.msgSuccess("取消星标成功");
-      });
-    },
-    
-    /** 取消单个邮件星标 */
-    handleUnstarMail(mail) {
-      this.$modal.confirm('是否确认取消这封邮件的星标？').then(() => {
-        this.emailList = this.emailList.filter(item => item.emailId !== mail.emailId);
-        this.total = this.emailList.length;
-        this.selectedMail = null;
-        this.$modal.msgSuccess("取消星标成功");
+      this.$modal.confirm('是否确认标记选中的邮件为星标？').then(() => {
+        this.emailList.forEach(mail => {
+          if (mail.selected) {
+            mail.isStarred = true;
+            mail.status = 'starred';
+          }
+        });
+        this.$modal.msgSuccess("标记成功");
       });
     },
     
@@ -447,9 +426,8 @@ export default {
     
     /** 筛选 */
     handleFilter() {
-      this.queryParams.address = this.filterForm.address;
+      this.queryParams.fromAddress = this.filterForm.fromAddress;
       this.queryParams.subject = this.filterForm.subject;
-      this.queryParams.type = this.filterForm.type;
       this.queryParams.status = this.filterForm.status;
       this.queryParams.startDate = this.filterForm.dateRange[0];
       this.queryParams.endDate = this.filterForm.dateRange[1];
@@ -460,7 +438,7 @@ export default {
     
     /** 回复邮件 */
     handleReply() {
-      if (!this.selectedMail || this.selectedMail.type === 'sent') return;
+      if (!this.selectedMail) return;
       this.$router.push({
         path: '/email/personal/compose',
         query: {
@@ -572,7 +550,7 @@ export default {
 }
 
 .item-star {
-  color: #FFB800;
+  color: #ddd;
   margin-right: 12px;
   font-size: 16px;
   transition: all 0.2s;
@@ -584,7 +562,7 @@ export default {
 }
 
 .item-star:hover {
-  color: #FF6B6B;
+  color: #FFB800;
 }
 
 .item-important {

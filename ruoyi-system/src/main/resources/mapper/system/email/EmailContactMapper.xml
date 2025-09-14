@@ -48,6 +48,32 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="groupId != null "> and c.group_id = #{groupId}</if>
             <if test="tags != null  and tags != ''"> and c.tags like concat('%', #{tags}, '%')</if>
             <if test="status != null  and status != ''"> and c.status = #{status}</if>
+            
+            <!-- 多等级查询 -->
+            <if test="levels != null and levels.size() > 0">
+                and c.level in
+                <foreach item="level" collection="levels" open="(" separator="," close=")">
+                    #{level}
+                </foreach>
+            </if>
+            
+            <!-- 多群组查询 -->
+            <if test="groupIds != null and groupIds.size() > 0">
+                and c.group_id in
+                <foreach item="groupId" collection="groupIds" open="(" separator="," close=")">
+                    #{groupId}
+                </foreach>
+            </if>
+            
+            <!-- 多标签查询 -->
+            <if test="tagIds != null and tagIds.size() > 0">
+                and (
+                <foreach item="tagId" collection="tagIds" separator=" or ">
+                    c.tags like concat('%', (select tag_name from email_contact_tag where tag_id = #{tagId}), '%')
+                </foreach>
+                )
+            </if>
+            
             and c.deleted = '0'
         </where>
         order by c.create_time desc

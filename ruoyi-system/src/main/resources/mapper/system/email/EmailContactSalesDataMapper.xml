@@ -2,29 +2,32 @@
 <!DOCTYPE mapper
 PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.ruoyi.system.mapper.email.EmailSalesDataMapper">
+<mapper namespace="com.ruoyi.system.mapper.email.EmailContactSalesDataMapper">
     
-    <resultMap type="EmailSalesData" id="EmailSalesDataResult">
+    <resultMap type="EmailContactSalesData" id="EmailContactSalesDataResult">
         <result property="salesId"    column="sales_id"    />
+        <result property="contactIds"    column="contact_ids"    />
+        <result property="contactNames"    column="contact_names"    />
+        <result property="contactEmails"    column="contact_emails"    />
+        <result property="contactCompanies"    column="contact_companies"    />
         <result property="status"    column="status"    />
-        <result property="userEmail"    column="contact_emails"    />
-        <result property="userName"    column="contact_names"    />
         <result property="salesDate"    column="sales_date"    />
         <result property="productModel"    column="product_model"    />
         <result property="salesQuantity"    column="sales_quantity"    />
         <result property="playCount"    column="play_count"    />
         <result property="conversionRate"    column="conversion_rate"    />
         <result property="discountType"    column="discount_type"    />
-        <result property="discountRatio"    column="discount_rate"    />
+        <result property="discountRate"    column="discount_rate"    />
         <result property="sourceChannel"    column="source_channel"    />
         <result property="remark"    column="remark"    />
         <result property="createBy"    column="create_by"    />
         <result property="createTime"    column="create_time"    />
         <result property="updateBy"    column="update_by"    />
         <result property="updateTime"    column="update_time"    />
+        <result property="deleted"    column="deleted"    />
     </resultMap>
 
-    <sql id="selectEmailSalesDataVo">
+    <sql id="selectEmailContactSalesDataVo">
         select s.sales_id, s.status, s.sales_date, s.product_model, s.sales_quantity, 
                s.play_count, s.conversion_rate, s.discount_type, s.discount_rate, s.source_channel, 
                s.remark, s.create_by, s.create_time, s.update_by, s.update_time, s.deleted,
@@ -41,7 +44,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                  s.remark, s.create_by, s.create_time, s.update_by, s.update_time, s.deleted
     </sql>
 
-    <select id="selectEmailSalesDataList" parameterType="EmailSalesData" resultMap="EmailSalesDataResult">
+    <select id="selectEmailContactSalesDataList" parameterType="EmailContactSalesData" resultMap="EmailContactSalesDataResult">
         select s.sales_id, s.status, s.sales_date, s.product_model, s.sales_quantity, 
                s.play_count, s.conversion_rate, s.discount_type, s.discount_rate, s.source_channel, 
                s.remark, s.create_by, s.create_time, s.update_by, s.update_time, s.deleted,
@@ -53,15 +56,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         left join email_sales_data_contact_relation r on s.sales_id = r.sales_id
         left join email_contact c on r.contact_id = c.contact_id
         <where>  
-            <if test="userEmail != null  and userEmail != ''"> and c.email like concat('%', #{userEmail}, '%')</if>
-            <if test="userName != null  and userName != ''"> and c.name like concat('%', #{userName}, '%')</if>
+            <if test="contactName != null  and contactName != ''"> and c.name like concat('%', #{contactName}, '%')</if>
+            <if test="contactEmail != null  and contactEmail != ''"> and c.email like concat('%', #{contactEmail}, '%')</if>
+            <if test="contactCompany != null  and contactCompany != ''"> and c.company like concat('%', #{contactCompany}, '%')</if>
+            <if test="status != null  and status != ''"> and s.status = #{status}</if>
             <if test="salesDate != null "> and s.sales_date = #{salesDate}</if>
             <if test="productModel != null  and productModel != ''"> and s.product_model like concat('%', #{productModel}, '%')</if>
             <if test="salesQuantity != null "> and s.sales_quantity = #{salesQuantity}</if>
             <if test="playCount != null "> and s.play_count = #{playCount}</if>
             <if test="conversionRate != null "> and s.conversion_rate = #{conversionRate}</if>
             <if test="discountType != null  and discountType != ''"> and s.discount_type like concat('%', #{discountType}, '%')</if>
-            <if test="discountRatio != null "> and s.discount_rate = #{discountRatio}</if>
+            <if test="discountRate != null "> and s.discount_rate = #{discountRate}</if>
             <if test="sourceChannel != null  and sourceChannel != ''"> and s.source_channel like concat('%', #{sourceChannel}, '%')</if>
             and s.deleted = '0'
         </where>
@@ -71,18 +76,12 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         order by s.create_time desc
     </select>
     
-    <select id="selectEmailSalesDataBySalesId" parameterType="Long" resultMap="EmailSalesDataResult">
-        <include refid="selectEmailSalesDataVo"/>
-        and s.sales_id = #{salesId}
-    </select>
-    
-    <select id="selectEmailSalesDataByUserEmail" parameterType="String" resultMap="EmailSalesDataResult">
-        <include refid="selectEmailSalesDataVo"/>
-        and c.email like concat('%', #{userEmail}, '%')
-        order by s.create_time desc
+    <select id="selectEmailContactSalesDataBySalesId" parameterType="Long" resultMap="EmailContactSalesDataResult">
+        <include refid="selectEmailContactSalesDataVo"/>
+        where s.sales_id = #{salesId} and s.deleted = '0'
     </select>
         
-    <insert id="insertEmailSalesData" parameterType="EmailSalesData" useGeneratedKeys="true" keyProperty="salesId">
+    <insert id="insertEmailContactSalesData" parameterType="EmailContactSalesData" useGeneratedKeys="true" keyProperty="salesId">
         insert into email_sales_data
         <trim prefix="(" suffix=")" suffixOverrides=",">
             <if test="status != null and status != ''">status,</if>
@@ -120,7 +119,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
          </trim>
     </insert>
 
-    <update id="updateEmailSalesData" parameterType="EmailSalesData">
+    <update id="updateEmailContactSalesData" parameterType="EmailContactSalesData">
         update email_sales_data
         <trim prefix="SET" suffixOverrides=",">
             <if test="status != null and status != ''">status = #{status},</if>
@@ -139,14 +138,38 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where sales_id = #{salesId}
     </update>
 
-    <delete id="deleteEmailSalesDataBySalesId" parameterType="Long">
+    <delete id="deleteEmailContactSalesDataBySalesId" parameterType="Long">
         update email_sales_data set deleted = '2' where sales_id = #{salesId}
     </delete>
 
-    <delete id="deleteEmailSalesDataBySalesIds" parameterType="String">
+    <delete id="deleteEmailContactSalesDataBySalesIds" parameterType="String">
         update email_sales_data set deleted = '2' where sales_id in
         <foreach item="salesId" collection="array" open="(" separator="," close=")">
             #{salesId}
         </foreach>
+    </delete>
+
+    <insert id="batchInsertEmailContactSalesData" parameterType="java.util.List">
+        insert into email_sales_data (status, sales_date, product_model, sales_quantity,
+                                             play_count, conversion_rate, discount_type, discount_rate, 
+                                             source_channel, remark, create_by, create_time, deleted)
+        values
+        <foreach collection="list" item="item" separator=",">
+            (#{item.status}, #{item.salesDate}, #{item.productModel}, #{item.salesQuantity},
+             #{item.playCount}, #{item.conversionRate}, #{item.discountType}, #{item.discountRate},
+             #{item.sourceChannel}, #{item.remark}, #{item.createBy}, #{item.createTime}, '0')
+        </foreach>
+    </insert>
+
+    <insert id="insertSalesDataContactRelations" parameterType="map">
+        insert into email_sales_data_contact_relation (sales_id, contact_id)
+        values
+        <foreach collection="contactIds" item="contactId" separator=",">
+            (#{salesId}, #{contactId})
+        </foreach>
+    </insert>
+
+    <delete id="deleteSalesDataContactRelations" parameterType="Long">
+        delete from email_sales_data_contact_relation where sales_id = #{salesId}
     </delete>
 </mapper>

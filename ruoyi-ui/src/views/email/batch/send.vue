@@ -37,7 +37,7 @@
               <el-option
                 v-for="item in senderOptions"
                 :key="item.senderId"
-                :label="item.senderName + ' (' + item.company + ')'"
+                :label="item.senderName + ' (' + item.company + ') - 剩余:' + (item.dailyRemainingCount || 0) + '封'"
                 :value="item.senderId">
               </el-option>
             </el-select>
@@ -47,49 +47,75 @@
             </div>
           </el-form-item>
           
-          <el-form-item label="收件人类型" prop="recipientType">
-            <el-radio-group v-model="sendForm.recipientType" @change="handleRecipientTypeChange">
-              <el-radio label="all">全部收件人</el-radio>
-              <el-radio label="group">指定群组</el-radio>
-              <el-radio label="tag">指定标签</el-radio>
-              <el-radio label="manual">手动选择</el-radio>
-            </el-radio-group>
-          </el-form-item>
-
-          <!-- 群组选择 -->
-          <el-form-item label="选择群组" v-if="sendForm.recipientType === 'group'" prop="groupIds">
-            <el-select v-model="sendForm.groupIds" multiple placeholder="请选择群组" style="width: 100%">
-              <el-option
-                v-for="item in groupOptions"
-                :key="item.groupId"
-                :label="item.groupName"
-                :value="item.groupId">
-              </el-option>
-            </el-select>
-          </el-form-item>
-
-          <!-- 标签选择 -->
-          <el-form-item label="选择标签" v-if="sendForm.recipientType === 'tag'" prop="tagIds">
-            <el-select v-model="sendForm.tagIds" multiple placeholder="请选择标签" style="width: 100%">
-              <el-option
-                v-for="item in tagOptions"
-                :key="item.tagId"
-                :label="item.tagName"
-                :value="item.tagId">
-              </el-option>
-            </el-select>
-          </el-form-item>
-
-          <!-- 手动选择收件人 -->
-          <el-form-item label="选择收件人" v-if="sendForm.recipientType === 'manual'" prop="contactIds">
-            <el-select v-model="sendForm.contactIds" multiple placeholder="请选择收件人" style="width: 100%">
-              <el-option
-                v-for="item in contactOptions"
-                :key="item.contactId"
-                :label="item.name + ' (' + item.email + ')'"
-                :value="item.contactId">
-              </el-option>
-            </el-select>
+          <!-- 选择收件人 -->
+          <el-form-item label="选择收件人" prop="contactIds">
+            <div class="recipient-selector">
+              <div class="recipient-actions">
+                <el-button type="primary" @click="openRecipientDialog" icon="el-icon-plus">
+                  {{ selectedContacts.length > 0 ? '重新选择收件人' : '选择收件人' }}
+                </el-button>
+                <el-button v-if="selectedContacts.length > 0" @click="clearAllContacts" type="danger" plain size="small">
+                  清空所有
+                </el-button>
+              </div>
+              
+              <div v-if="selectedContacts.length > 0" class="selected-contacts">
+                <div class="contacts-summary">
+                  <div class="summary-info">
+                    <i class="el-icon-user"></i>
+                    <span class="count-text">已选择 <strong>{{ selectedContacts.length }}</strong> 个收件人</span>
+                  </div>
+                  <div class="summary-actions">
+                    <el-button type="text" @click="toggleContactsExpanded" size="small">
+                      {{ contactsExpanded ? '收起详情' : '查看详情' }}
+                    </el-button>
+                  </div>
+                </div>
+                
+                <div v-if="contactsExpanded" class="contacts-detail">
+                  <div class="contacts-list">
+                    <div 
+                      v-for="(contact, index) in selectedContacts" 
+                      :key="contact.contactId" 
+                      class="contact-item">
+                      <div class="contact-info">
+                        <span class="contact-name">{{ contact.name }}</span>
+                        <span class="contact-email">{{ contact.email }}</span>
+                        <el-tag v-if="contact.level === '1'" type="danger" size="mini">重要</el-tag>
+                        <el-tag v-else-if="contact.level === '2'" type="warning" size="mini">普通</el-tag>
+                        <el-tag v-else-if="contact.level === '3'" type="info" size="mini">一般</el-tag>
+                      </div>
+                      <el-button 
+                        type="text" 
+                        @click="removeContact(contact.contactId)" 
+                        size="mini" 
+                        icon="el-icon-close"
+                        class="remove-btn">
+                      </el-button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div v-else class="contacts-preview">
+                  <div class="preview-list">
+                    <span 
+                      v-for="(contact, index) in previewContacts" 
+                      :key="contact.contactId" 
+                      class="preview-item">
+                      {{ contact.name }}({{ contact.email }})
+                    </span>
+                    <span v-if="selectedContacts.length > maxPreviewCount" class="more-indicator">
+                      ...等{{ selectedContacts.length - maxPreviewCount }}个
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div v-else class="no-recipients">
+                <i class="el-icon-info"></i>
+                <span>请点击上方按钮选择收件人</span>
+              </div>
+            </div>
           </el-form-item>
         </el-card>
 
@@ -204,6 +230,123 @@
       </el-form>
     </el-card>
 
+    <!-- 收件人选择对话框 -->
+    <el-dialog title="选择收件人" :visible.sync="recipientDialogOpen" width="1000px" append-to-body>
+      <div class="recipient-dialog">
+        <!-- 搜索条件 -->
+        <el-form :model="searchForm" :inline="true" class="search-form">
+          <el-form-item label="姓名">
+            <el-input v-model="searchForm.name" placeholder="请输入姓名" clearable></el-input>
+          </el-form-item>
+          <el-form-item label="邮箱">
+            <el-input v-model="searchForm.email" placeholder="请输入邮箱" clearable></el-input>
+          </el-form-item>
+          <el-form-item label="标签">
+            <el-select v-model="searchForm.tagIds" multiple placeholder="请选择标签" clearable>
+              <el-option
+                v-for="item in tagOptions"
+                :key="item.tagId"
+                :label="item.tagName"
+                :value="item.tagId">
+              </el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item label="群组">
+            <el-select v-model="searchForm.groupIds" multiple placeholder="请选择群组" clearable>
+              <el-option
+                v-for="item in groupOptions"
+                :key="item.groupId"
+                :label="item.groupName"
+                :value="item.groupId">
+              </el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item label="等级">
+            <el-select v-model="searchForm.levels" multiple placeholder="请选择等级" clearable>
+              <el-option label="重要" value="1"></el-option>
+              <el-option label="普通" value="2"></el-option>
+              <el-option label="一般" value="3"></el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="searchContacts" :loading="searchLoading">搜索</el-button>
+            <el-button @click="resetSearch">重置</el-button>
+          </el-form-item>
+        </el-form>
+
+        <!-- 操作栏 -->
+        <div class="dialog-actions">
+          <div class="selection-info">
+            <span>已选择 {{ selectedContactIds.length }} 个收件人</span>
+            <el-button type="text" @click="selectAllContacts" size="small">全选当前页</el-button>
+            <el-button type="text" @click="selectAllContactsAllPages" size="small">全选所有页</el-button>
+            <el-button type="text" @click="clearSelection" size="small">清空选择</el-button>
+          </div>
+        </div>
+
+        <!-- 联系人列表 -->
+        <el-table 
+          ref="contactTable"
+          :data="contactList" 
+          @selection-change="handleSelectionChange"
+          v-loading="contactLoading"
+          height="400">
+          <el-table-column type="selection" width="55"></el-table-column>
+          <el-table-column prop="name" label="姓名" width="120"></el-table-column>
+          <el-table-column prop="email" label="邮箱" width="200"></el-table-column>
+          <el-table-column prop="level" label="等级" width="80">
+            <template slot-scope="scope">
+              <el-tag v-if="scope.row.level === '1'" type="danger" size="mini">重要</el-tag>
+              <el-tag v-else-if="scope.row.level === '2'" type="warning" size="mini">普通</el-tag>
+              <el-tag v-else-if="scope.row.level === '3'" type="info" size="mini">一般</el-tag>
+              <span v-else class="no-data">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="tags" label="标签" width="150">
+            <template slot-scope="scope">
+              <el-tag 
+                v-for="tag in getContactTags(scope.row.tags)" 
+                :key="tag" 
+                size="mini" 
+                style="margin-right: 4px;">
+                {{ tag }}
+              </el-tag>
+              <span v-if="!scope.row.tags || scope.row.tags.trim() === ''" class="no-data">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="company" label="公司" width="150">
+            <template slot-scope="scope">
+              <span v-if="scope.row.company">{{ scope.row.company }}</span>
+              <span v-else class="no-data">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="phone" label="电话" width="120">
+            <template slot-scope="scope">
+              <span v-if="scope.row.phone">{{ scope.row.phone }}</span>
+              <span v-else class="no-data">-</span>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <!-- 分页 -->
+        <div class="pagination-container">
+          <el-pagination
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+            :current-page="searchForm.pageNum"
+            :page-sizes="[10, 20, 50, 100]"
+            :page-size="searchForm.pageSize"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="contactTotal">
+          </el-pagination>
+        </div>
+      </div>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="recipientDialogOpen = false">取消</el-button>
+        <el-button type="primary" @click="confirmRecipients">确认选择 ({{ selectedContactIds.length }})</el-button>
+      </div>
+    </el-dialog>
+
     <!-- 模板预览对话框 -->
     <el-dialog title="邮件发送预览" :visible.sync="previewOpen" width="900px" append-to-body>
       <div v-if="previewData" class="email-preview">
@@ -308,7 +451,7 @@
 <script>
 import { getAllTemplates, getTemplate } from "@/api/email/template";
 import { getAllAccounts } from "@/api/email/account";
-import { getAllContacts } from "@/api/email/contact";
+import { getAllContacts, searchContacts } from "@/api/email/contact";
 import { getAllGroups } from "@/api/email/group";
 import { getAllTags } from "@/api/email/tag";
 import { createSendTask, getTask } from "@/api/email/task";
@@ -322,9 +465,6 @@ export default {
       sendForm: {
         taskName: '',
         senderId: null,
-        recipientType: 'all',
-        groupIds: [],
-        tagIds: [],
         contactIds: [],
         sendType: 'template',
         templateId: null,
@@ -347,6 +487,26 @@ export default {
       selectedTemplate: null,
       previewOpen: false,
       previewData: null,
+      // 收件人选择相关
+      recipientDialogOpen: false,
+      selectedContacts: [], // 已选择的收件人列表
+      selectedContactIds: [], // 当前弹窗中选中的收件人ID列表
+      contactList: [], // 弹窗中的联系人列表
+      contactTotal: 0, // 联系人总数
+      contactLoading: false,
+      searchLoading: false,
+      contactsExpanded: false, // 是否展开显示所有收件人
+      maxPreviewCount: 5, // 预览显示的最大收件人数量
+      // 搜索表单
+      searchForm: {
+        name: '',
+        email: '',
+        tagIds: [],
+        groupIds: [],
+        levels: [],
+        pageNum: 1,
+        pageSize: 20
+      },
       // 表单验证规则
       rules: {
         taskName: [
@@ -354,9 +514,6 @@ export default {
         ],
         senderId: [
           { required: true, message: "请选择发件人", trigger: "change" }
-        ],
-        recipientType: [
-          { required: true, message: "请选择收件人类型", trigger: "change" }
         ],
         templateId: [
           { 
@@ -370,34 +527,10 @@ export default {
             trigger: "change" 
           }
         ],
-        groupIds: [
-          { 
-            validator: (rule, value, callback) => {
-              if (this.sendForm.recipientType === 'group' && (!value || value.length === 0)) {
-                callback(new Error('请选择群组'));
-              } else {
-                callback();
-              }
-            }, 
-            trigger: "change" 
-          }
-        ],
-        tagIds: [
-          { 
-            validator: (rule, value, callback) => {
-              if (this.sendForm.recipientType === 'tag' && (!value || value.length === 0)) {
-                callback(new Error('请选择标签'));
-              } else {
-                callback();
-              }
-            }, 
-            trigger: "change" 
-          }
-        ],
         contactIds: [
           { 
             validator: (rule, value, callback) => {
-              if (this.sendForm.recipientType === 'manual' && (!value || value.length === 0)) {
+              if (!this.selectedContacts || this.selectedContacts.length === 0) {
                 callback(new Error('请选择收件人'));
               } else {
                 callback();
@@ -447,6 +580,12 @@ export default {
       }
     }
   },
+  computed: {
+    // 预览显示的收件人列表（限制数量）
+    previewContacts() {
+      return this.selectedContacts.slice(0, this.maxPreviewCount);
+    }
+  },
   created() {
     this.getAccountOptions();
     this.getSenderOptions();
@@ -474,10 +613,11 @@ export default {
           // 填充表单数据
           this.sendForm.taskName = taskData.taskName + '_复制';
           this.sendForm.senderId = taskData.senderId;
-          this.sendForm.recipientType = taskData.recipientType;
-          this.sendForm.groupIds = taskData.groupIds ? taskData.groupIds.split(',').map(id => parseInt(id)) : [];
-          this.sendForm.tagIds = taskData.tagIds ? taskData.tagIds.split(',').map(id => parseInt(id)) : [];
           this.sendForm.contactIds = taskData.contactIds ? taskData.contactIds.split(',').map(id => parseInt(id)) : [];
+          // 如果有手动选择的联系人，需要加载联系人信息
+          if (this.sendForm.contactIds.length > 0) {
+            this.loadSelectedContacts(this.sendForm.contactIds);
+          }
           this.sendForm.sendType = taskData.templateId ? 'template' : 'direct';
           this.sendForm.templateId = taskData.templateId;
           this.sendForm.subject = taskData.subject;
@@ -557,12 +697,6 @@ export default {
         this.templateOptions = response.data;
       });
     },
-    /** 收件人类型变化 */
-    handleRecipientTypeChange(type) {
-      this.sendForm.groupIds = [];
-      this.sendForm.tagIds = [];
-      this.sendForm.contactIds = [];
-    },
     /** 发送方式变化 */
     handleSendTypeChange(type) {
       if (type === 'direct') {
@@ -623,75 +757,19 @@ export default {
     
     /** 获取收件人信息 */
     getRecipientInfo() {
-      const recipientType = this.sendForm.recipientType;
-      
-      switch (recipientType) {
-        case 'all':
-          return {
-            type: 'all',
-            display: `全部收件人(${this.contactOptions.length})`
-          };
-        case 'group':
-          if (this.sendForm.groupIds && this.sendForm.groupIds.length > 0) {
-            const selectedGroups = this.groupOptions.filter(group => 
-              this.sendForm.groupIds.includes(group.groupId)
-            );
-            return {
-              type: 'group',
-              display: '指定群组',
-              items: selectedGroups.map(group => ({
-                id: group.groupId,
-                name: group.groupName,
-                count: group.contactCount || 0
-              }))
-            };
-          }
-          return {
-            type: 'group',
-            display: '未选择群组'
-          };
-        case 'tag':
-          if (this.sendForm.tagIds && this.sendForm.tagIds.length > 0) {
-            const selectedTags = this.tagOptions.filter(tag => 
-              this.sendForm.tagIds.includes(tag.tagId)
-            );
-            return {
-              type: 'tag',
-              display: '指定标签',
-              items: selectedTags.map(tag => ({
-                id: tag.tagId,
-                name: tag.tagName,
-                count: tag.contactCount || 0
-              }))
-            };
-          }
-          return {
-            type: 'tag',
-            display: '未选择标签'
-          };
-        case 'manual':
-          if (this.sendForm.contactIds && this.sendForm.contactIds.length > 0) {
-            const selectedContacts = this.contactOptions.filter(contact => 
-              this.sendForm.contactIds.includes(contact.contactId)
-            );
-            const contactList = selectedContacts.map(contact => 
-              `${contact.name}(${contact.email})`
-            ).join('，');
-            return {
-              type: 'manual',
-              display: contactList
-            };
-          }
-          return {
-            type: 'manual',
-            display: '未选择联系人'
-          };
-        default:
-          return {
-            type: 'unknown',
-            display: '收件人类型未知'
-          };
+      if (this.selectedContacts && this.selectedContacts.length > 0) {
+        const contactList = this.selectedContacts.map(contact => 
+          `${contact.name}(${contact.email})`
+        ).join('，');
+        return {
+          type: 'manual',
+          display: contactList
+        };
       }
+      return {
+        type: 'manual',
+        display: '未选择联系人'
+      };
     },
     /** 发送邮件 */
     handleSend() {
@@ -704,15 +782,7 @@ export default {
       this.$refs.sendForm.validate(valid => {
         if (valid) {
           // 验证收件人选择
-          if (this.sendForm.recipientType === 'group' && (!this.sendForm.groupIds || this.sendForm.groupIds.length === 0)) {
-            this.$message.error('请选择群组');
-            return;
-          }
-          if (this.sendForm.recipientType === 'tag' && (!this.sendForm.tagIds || this.sendForm.tagIds.length === 0)) {
-            this.$message.error('请选择标签');
-            return;
-          }
-          if (this.sendForm.recipientType === 'manual' && (!this.sendForm.contactIds || this.sendForm.contactIds.length === 0)) {
+          if (!this.selectedContacts || this.selectedContacts.length === 0) {
             this.$message.error('请选择收件人');
             return;
           }
@@ -746,8 +816,8 @@ export default {
               sendTime: this.sendForm.sendTime
             };
 
-            // 设置收件人类型（使用英文名称）
-            taskData.recipientType = this.sendForm.recipientType;
+            // 设置收件人类型为手动选择
+            taskData.recipientType = 'manual';
 
             // 设置模板ID（如果使用模板）
             if (this.sendForm.sendType === 'template' && this.sendForm.templateId) {
@@ -767,15 +837,8 @@ export default {
               taskData.content = this.sendForm.content;
             }
 
-            // 根据收件人类型添加相应的参数
-            if (this.sendForm.recipientType === 'group') {
-              taskData.groupIds = this.sendForm.groupIds && this.sendForm.groupIds.length > 0 ? this.sendForm.groupIds.join(',') : null;
-            } else if (this.sendForm.recipientType === 'tag') {
-              taskData.tagIds = this.sendForm.tagIds && this.sendForm.tagIds.length > 0 ? this.sendForm.tagIds.join(',') : null;
-            } else if (this.sendForm.recipientType === 'manual') {
-              taskData.contactIds = this.sendForm.contactIds && this.sendForm.contactIds.length > 0 ? this.sendForm.contactIds.join(',') : null;
-            }
-            // 对于 'all' 类型，不需要添加额外参数
+            // 设置收件人ID列表
+            taskData.contactIds = this.selectedContacts && this.selectedContacts.length > 0 ? this.selectedContacts.map(c => c.contactId).join(',') : null;
             
             // 创建发送任务
             createSendTask(taskData).then(response => {
@@ -803,9 +866,6 @@ export default {
       this.sendForm = {
         taskName: '',
         senderId: null,
-        recipientType: 'all',
-        groupIds: [],
-        tagIds: [],
         contactIds: [],
         sendType: 'template',
         templateId: null,
@@ -816,7 +876,214 @@ export default {
         sendTime: null
       };
       this.selectedTemplate = null;
+      this.selectedContacts = [];
+      this.contactsExpanded = false;
       this.$refs.sendForm.resetFields();
+    },
+    
+    // ========== 收件人选择相关方法 ==========
+    
+    /** 打开收件人选择对话框 */
+    openRecipientDialog() {
+      this.recipientDialogOpen = true;
+      this.resetSearch();
+      this.searchContacts();
+    },
+    
+    /** 搜索联系人 */
+    searchContacts() {
+      this.contactLoading = true;
+      this.searchLoading = true;
+      
+      // 构建搜索参数
+      const searchParams = {
+        name: this.searchForm.name,
+        email: this.searchForm.email,
+        pageNum: this.searchForm.pageNum,
+        pageSize: this.searchForm.pageSize
+      };
+      
+      // 添加等级条件
+      if (this.searchForm.levels && this.searchForm.levels.length > 0) {
+        searchParams.levels = this.searchForm.levels;
+      }
+      
+      // 添加标签和群组条件
+      if (this.searchForm.tagIds && this.searchForm.tagIds.length > 0) {
+        searchParams.tagIds = this.searchForm.tagIds;
+      }
+      if (this.searchForm.groupIds && this.searchForm.groupIds.length > 0) {
+        searchParams.groupIds = this.searchForm.groupIds;
+      }
+      
+      searchContacts(searchParams).then(response => {
+        this.contactList = response.rows || [];
+        this.contactTotal = response.total || 0;
+        this.contactLoading = false;
+        this.searchLoading = false;
+      }).catch(error => {
+        console.error('搜索联系人失败:', error);
+        this.$message.error('搜索联系人失败');
+        this.contactList = [];
+        this.contactTotal = 0;
+        this.contactLoading = false;
+        this.searchLoading = false;
+      });
+    },
+    
+    /** 重置搜索条件 */
+    resetSearch() {
+      this.searchForm = {
+        name: '',
+        email: '',
+        tagIds: [],
+        groupIds: [],
+        levels: [],
+        pageNum: 1,
+        pageSize: 20
+      };
+    },
+    
+    /** 处理表格选择变化 */
+    handleSelectionChange(selection) {
+      this.selectedContactIds = selection.map(item => item.contactId);
+    },
+    
+    /** 全选当前页 */
+    selectAllContacts() {
+      this.$refs.contactTable && this.$refs.contactTable.toggleAllSelection();
+    },
+    
+    /** 全选所有页 */
+    selectAllContactsAllPages() {
+      this.$confirm('确定要选择所有页的收件人吗？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        // 获取所有符合条件的数据
+        const allPagesParams = {
+          name: this.searchForm.name,
+          email: this.searchForm.email,
+          pageNum: 1,
+          pageSize: 9999 // 设置一个很大的值来获取所有数据
+        };
+        
+        // 添加等级条件
+        if (this.searchForm.levels && this.searchForm.levels.length > 0) {
+          allPagesParams.levels = this.searchForm.levels;
+        }
+        
+        // 添加标签和群组条件
+        if (this.searchForm.tagIds && this.searchForm.tagIds.length > 0) {
+          allPagesParams.tagIds = this.searchForm.tagIds;
+        }
+        if (this.searchForm.groupIds && this.searchForm.groupIds.length > 0) {
+          allPagesParams.groupIds = this.searchForm.groupIds;
+        }
+        
+        searchContacts(allPagesParams).then(response => {
+          const allContacts = response.rows || [];
+          const allContactIds = allContacts.map(contact => contact.contactId);
+          
+          // 合并到已选择的收件人列表中（去重）
+          const existingIds = this.selectedContacts.map(c => c.contactId);
+          const newContacts = allContacts.filter(contact => 
+            !existingIds.includes(contact.contactId)
+          );
+          
+          this.selectedContacts = [...this.selectedContacts, ...newContacts];
+          this.sendForm.contactIds = this.selectedContacts.map(c => c.contactId);
+          
+          this.$message.success(`已添加 ${newContacts.length} 个收件人，当前共选择 ${this.selectedContacts.length} 个收件人（共 ${allContacts.length} 个符合条件）`);
+        }).catch(error => {
+          console.error('全选所有页失败:', error);
+          this.$message.error('全选所有页失败');
+        });
+      });
+    },
+    
+    /** 清空选择 */
+    clearSelection() {
+      this.$refs.contactTable && this.$refs.contactTable.clearSelection();
+      this.selectedContactIds = [];
+    },
+    
+    /** 确认选择收件人 */
+    confirmRecipients() {
+      if (this.selectedContactIds.length === 0) {
+        this.$message.warning('请选择至少一个收件人');
+        return;
+      }
+      
+      // 获取选中的联系人信息
+      const selectedContacts = this.contactList.filter(contact => 
+        this.selectedContactIds.includes(contact.contactId)
+      );
+      
+      // 合并到已选择的收件人列表中（去重）
+      const existingIds = this.selectedContacts.map(c => c.contactId);
+      const newContacts = selectedContacts.filter(contact => 
+        !existingIds.includes(contact.contactId)
+      );
+      
+      this.selectedContacts = [...this.selectedContacts, ...newContacts];
+      this.sendForm.contactIds = this.selectedContacts.map(c => c.contactId);
+      
+      this.recipientDialogOpen = false;
+      this.$message.success(`已添加 ${newContacts.length} 个收件人，当前共选择 ${this.selectedContacts.length} 个收件人`);
+    },
+    
+    /** 移除单个收件人 */
+    removeContact(contactId) {
+      this.selectedContacts = this.selectedContacts.filter(c => c.contactId !== contactId);
+      this.sendForm.contactIds = this.selectedContacts.map(c => c.contactId);
+    },
+    
+    /** 清空所有收件人 */
+    clearAllContacts() {
+      this.$confirm('确定要清空所有已选择的收件人吗？', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.selectedContacts = [];
+        this.sendForm.contactIds = [];
+        this.contactsExpanded = false;
+        this.$message.success('已清空所有收件人');
+      });
+    },
+    
+    /** 切换收件人列表展开状态 */
+    toggleContactsExpanded() {
+      this.contactsExpanded = !this.contactsExpanded;
+    },
+    
+    /** 获取联系人标签列表 */
+    getContactTags(tags) {
+      if (!tags) return [];
+      return tags.split(',').filter(tag => tag.trim());
+    },
+    
+    /** 分页大小变化 */
+    handleSizeChange(val) {
+      this.searchForm.pageSize = val;
+      this.searchForm.pageNum = 1;
+      this.searchContacts();
+    },
+    
+    /** 当前页变化 */
+    handleCurrentChange(val) {
+      this.searchForm.pageNum = val;
+      this.searchContacts();
+    },
+    
+    /** 加载已选择的联系人信息 */
+    loadSelectedContacts(contactIds) {
+      // 从contactOptions中查找对应的联系人信息
+      this.selectedContacts = this.contactOptions.filter(contact => 
+        contactIds.includes(contact.contactId)
+      );
     }
   }
 }
@@ -1007,5 +1274,183 @@ export default {
 .form-tip i {
   margin-right: 4px;
   color: #409EFF;
+}
+
+/* 收件人选择器样式 */
+.recipient-selector {
+  width: 100%;
+}
+
+.recipient-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.selected-contacts {
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  background-color: #fafafa;
+  overflow: hidden;
+}
+
+.contacts-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 15px;
+  background-color: #f5f7fa;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.summary-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summary-info i {
+  color: #409eff;
+  font-size: 16px;
+}
+
+.count-text {
+  font-size: 14px;
+  color: #606266;
+}
+
+.count-text strong {
+  color: #409eff;
+  font-weight: 600;
+}
+
+.contacts-detail {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.contacts-list {
+  padding: 10px 15px;
+}
+
+.contact-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.contact-item:last-child {
+  border-bottom: none;
+}
+
+.contact-info {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.contact-name {
+  font-weight: 500;
+  color: #303133;
+  min-width: 80px;
+}
+
+.contact-email {
+  color: #606266;
+  font-size: 13px;
+  flex: 1;
+}
+
+.remove-btn {
+  color: #f56c6c;
+  padding: 4px;
+}
+
+.remove-btn:hover {
+  background-color: #fef0f0;
+}
+
+.contacts-preview {
+  padding: 12px 15px;
+  background-color: #fff;
+}
+
+.preview-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.preview-item {
+  background-color: #ecf5ff;
+  color: #409eff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  border: 1px solid #d9ecff;
+}
+
+.more-indicator {
+  color: #909399;
+  font-size: 12px;
+  font-style: italic;
+}
+
+.no-recipients {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 20px;
+  text-align: center;
+  color: #909399;
+  background-color: #f9f9f9;
+  border: 1px dashed #d9d9d9;
+  border-radius: 4px;
+  margin-top: 10px;
+}
+
+.no-recipients i {
+  font-size: 16px;
+}
+
+/* 收件人选择对话框样式 */
+.recipient-dialog {
+  padding: 0;
+}
+
+.search-form {
+  background-color: #f5f7fa;
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.dialog-actions {
+  margin-bottom: 15px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e4e7ed;
+}
+
+.selection-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.pagination-container {
+  margin-top: 15px;
+  text-align: right;
+}
+
+.no-data {
+  color: #c0c4cc;
+  font-style: italic;
 }
 </style>

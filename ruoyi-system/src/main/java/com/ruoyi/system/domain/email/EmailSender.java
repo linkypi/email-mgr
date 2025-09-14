@@ -85,6 +85,9 @@ public class EmailSender extends BaseEntity
     /** 关联的邮箱账号列表 */
     private List<EmailAccount> emailAccounts;
 
+    /** 当天剩余发送数量（用于选项显示） */
+    private Integer dailyRemainingCount;
+
     public void setSenderId(Long senderId) 
     {
         this.senderId = senderId;
@@ -248,6 +251,16 @@ public class EmailSender extends BaseEntity
     public void setEmailAccounts(List<EmailAccount> emailAccounts) 
     {
         this.emailAccounts = emailAccounts;
+    }
+
+    public Integer getDailyRemainingCount() 
+    {
+        return dailyRemainingCount;
+    }
+
+    public void setDailyRemainingCount(Integer dailyRemainingCount) 
+    {
+        this.dailyRemainingCount = dailyRemainingCount;
     }
 
     @Override
