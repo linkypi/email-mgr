@@ -169,15 +169,15 @@ public class EmailSendService {
                         String content = getEmailContent(template, task, recipient);
                         
                         // 使用 EmailListener 发送带跟踪的邮件
-                        String messageId = emailListener.sendEmailWithTracking(
-                            currentSender, 
-                            recipient.getEmail(), 
-                            subject, 
-                            content, 
-                            taskId
+                        EmailListener.EmailSendResult emailSendResult = emailListener.sendEmailWithTracking(
+                                currentSender,
+                                recipient.getEmail(),
+                                subject,
+                                content,
+                                taskId
                         );
-                        
-                        if (messageId != null) {
+
+                        if (emailSendResult.isSuccess()) {
                             // 更新发送计数
                             synchronized (this) {
                                 EmailSendTask latestTask = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
@@ -189,7 +189,7 @@ public class EmailSendService {
                             emailSendLimitService.updateSendCount(currentSender.getAccountId());
                             
                             logger.debug("邮件发送成功: {} -> {}, MessageID: {}", 
-                                currentSender.getEmailAddress(), recipient.getEmail(), messageId);
+                                currentSender.getEmailAddress(), recipient.getEmail(), emailSendResult.getMessageId());
                         } else {
                             logger.error("邮件发送失败: {} -> {}", currentSender.getEmailAddress(), recipient.getEmail());
                         }
@@ -534,7 +534,7 @@ public class EmailSendService {
 
     /**
      * 使用长连接发送邮件
-     * 直接使用EmailServiceMonitorService中的长连接
+     * 现在使用 sendEmailWithTracking 来确保邮件追踪功能
      */
     private void sendWithLongConnection(EmailSendTask task, EmailAccount account) throws Exception {
         // 获取邮件模板（如果使用模板）
@@ -555,7 +555,7 @@ public class EmailSendService {
             throw new RuntimeException("No recipients found for task: " + task.getTaskId());
         }
 
-        logger.info("准备使用长连接发送邮件，收件人数量: {}", recipients.size());
+        logger.info("准备使用长连接发送邮件（带追踪功能），收件人数量: {}", recipients.size());
 
         // 初始化任务统计
         task.setTotalCount(recipients.size());
@@ -565,170 +565,81 @@ public class EmailSendService {
         task.setRepliedCount(0);
         emailSendTaskService.updateEmailSendTask(task);
 
-        // 获取或创建长连接
-        Transport transport = emailServiceMonitorService.getSmtpLongConnection(account.getAccountId());
-        Session session = emailServiceMonitorService.getSmtpSession(account.getAccountId());
-        
-        // 如果没有长连接，尝试创建
-        if (transport == null || !transport.isConnected()) {
-            logger.info("长连接不存在或已断开，尝试创建新的长连接");
-            transport = emailServiceMonitorService.createSmtpLongConnection(account.getAccountId());
-            session = emailServiceMonitorService.getSmtpSession(account.getAccountId());
-        }
-        
-        // 如果仍然无法获取长连接，尝试多次重连
-        int maxRetryAttempts = 3;
-        int retryAttempt = 0;
-        
-        while ((transport == null || session == null || !transport.isConnected()) && retryAttempt < maxRetryAttempts) {
-            retryAttempt++;
-            logger.warn("长连接不可用 (尝试 {}/{}), 等待2秒后重新创建连接", retryAttempt, maxRetryAttempts);
-            
+        // 使用异步方式发送邮件，避免阻塞主线程
+        CompletableFuture.runAsync(() -> {
             try {
-                Thread.sleep(1000); // 等待1秒
-                transport = emailServiceMonitorService.createSmtpLongConnection(account.getAccountId());
-                session = emailServiceMonitorService.getSmtpSession(account.getAccountId());
-                
-                if (transport != null && transport.isConnected()) {
-                    logger.info("第{}次重连成功，长连接已恢复", retryAttempt);
-                    break;
-                }
-            } catch (Exception e) {
-                logger.warn("第{}次重连失败: {}", retryAttempt, e.getMessage());
-            }
-        }
-        
-        // 如果多次重连后仍然无法获取长连接，回退到普通连接
-        if (transport == null || session == null || !transport.isConnected()) {
-            logger.warn("经过{}次重连尝试后无法恢复长连接，回退到普通连接发送", maxRetryAttempts);
-            throw new RuntimeException("长连接不可用，请使用普通发送方式");
-        }
-        
-        logger.info("使用现有长连接发送邮件: {}:{}", account.getSmtpHost(), account.getSmtpPort());
-        
-        // 使用线程池异步发送邮件
-        final Transport finalTransport = transport;
-        final Session finalSession = session;
-        CompletableFuture<Void> sendingTask = CompletableFuture.runAsync(() -> {
-            for (EmailContact recipient : recipients) {
-                // 检查任务状态，如果被暂停或取消则停止发送
-                EmailSendTask currentTask = emailSendTaskService.selectEmailSendTaskByTaskId(task.getTaskId());
-                if (currentTask == null || !"1".equals(currentTask.getStatus())) {
-                    logger.info("任务状态已改变，停止发送, 任务名称：{}, 任务ID：{}", task.getTaskName(), task.getTaskId());
-                    break;
-                }
-                
-                // 检查当前账号是否还有发送配额
-                if (!emailSendLimitService.canSendToday(account.getAccountId())) {
-                    logger.warn("长连接账号已达到每日发送上限，停止发送。剩余 {} 封邮件未发送", recipients.size() - recipients.indexOf(recipient));
-                    // 更新任务状态为已完成
-                    currentTask.setStatus("2");
-                    emailSendTaskService.updateEmailSendTask(currentTask);
-                    break;
-                }
-                
-                logger.info("准备使用长连接发送邮件，发件箱：{}, 收件人: {}", account.getEmailAddress(), recipient.getEmail());
-                try {
-                    // 增强的连接检测和重连机制
-                    Transport currentTransport = finalTransport;
-                    Session currentSession = finalSession;
-                    
-                    // 首先进行连接状态检测
-                    if (!isTransportHealthy(currentTransport)) {
-                        int healthScore = emailServiceMonitorService.getSmtpHealthScore(account.getAccountId());
-                        logger.warn("长连接健康检查失败 (健康度评分: {})，尝试重新创建连接", healthScore);
-                        
-                        // 尝试重新创建连接，最多3次
-                        int reconnectAttempts = 3;
-                        boolean reconnectSuccess = false;
-                        
-                        for (int i = 1; i <= reconnectAttempts; i++) {
-                            try {
-                                logger.info("第{}次尝试重新创建SMTP长连接", i);
-                                Transport newTransport = emailServiceMonitorService.createSmtpLongConnection(account.getAccountId());
-                                Session newSession = emailServiceMonitorService.getSmtpSession(account.getAccountId());
-                                
-                                if (newTransport != null && newTransport.isConnected() && isTransportHealthy(newTransport)) {
-                                    currentTransport = newTransport;
-                                    currentSession = newSession;
-                                    reconnectSuccess = true;
-                                    logger.info("第{}次重连成功，连接已恢复", i);
-                                    break;
-                                } else {
-                                    logger.warn("第{}次重连失败，连接不健康", i);
-                                }
-                            } catch (Exception reconnectEx) {
-                                logger.warn("第{}次重连过程中出现异常: {}", i, reconnectEx.getMessage());
-                            }
-                            
-                            // 如果不是最后一次尝试，等待一下再重试
-                            if (i < reconnectAttempts) {
-                                try {
-                                    Thread.sleep(1000 * i); // 递增等待时间
-                                } catch (InterruptedException ie) {
-                                    Thread.currentThread().interrupt();
-                                    break;
-                                }
-                            }
-                        }
-                        
-                        if (!reconnectSuccess) {
-                            logger.error("经过{}次尝试无法重新创建长连接，跳过当前邮件发送", reconnectAttempts);
-                            continue;
-                        }
+                for (EmailContact recipient : recipients) {
+                    // 检查任务状态，如果被暂停或取消则停止发送
+                    EmailSendTask currentTask = emailSendTaskService.selectEmailSendTaskByTaskId(task.getTaskId());
+                    if (currentTask == null || !"1".equals(currentTask.getStatus())) {
+                        logger.info("任务状态已改变，停止发送, 任务名称：{}, 任务ID：{}", task.getTaskName(), task.getTaskId());
+                        break;
                     }
                     
-                    // 使用经过健康检查的长连接发送邮件
-                    sendEmailWithTransport(currentSession, currentTransport, account, template, recipient, task);
-                    
-                    // 更新发送计数
-                    synchronized (this) {
-                        EmailSendTask latestTask = emailSendTaskService.selectEmailSendTaskByTaskId(task.getTaskId());
-                        latestTask.setSentCount(latestTask.getSentCount() + 1);
-                        emailSendTaskService.updateEmailSendTask(latestTask);
+                    // 检查当前账号是否还有发送配额
+                    if (!emailSendLimitService.canSendToday(account.getAccountId())) {
+                        logger.warn("长连接账号已达到每日发送上限，停止发送。剩余 {} 封邮件未发送", recipients.size() - recipients.indexOf(recipient));
+                        // 更新任务状态为已完成
+                        currentTask.setStatus("2");
+                        emailSendTaskService.updateEmailSendTask(currentTask);
+                        break;
                     }
+                    
+                    // 准备邮件内容
+                    String subject = getEmailSubject(template, task, recipient);
+                    String content = getEmailContent(template, task, recipient);
+                    
+                    // 使用 EmailListener 发送带跟踪的邮件（长连接方式）
+                    EmailListener.EmailSendResult emailSendResult = emailListener.sendEmailWithTracking(
+                            account,
+                            recipient.getEmail(),
+                            subject,
+                            content,
+                            task.getTaskId()
+                    );
 
-                    logger.debug("长连接邮件发送成功: {} -> {}", account.getEmailAddress(), recipient.getEmail());
+                    if (emailSendResult.isSuccess()) {
+                        // 更新发送计数
+                        synchronized (this) {
+                            EmailSendTask latestTask = emailSendTaskService.selectEmailSendTaskByTaskId(task.getTaskId());
+                            latestTask.setSentCount(latestTask.getSentCount() + 1);
+                            emailSendTaskService.updateEmailSendTask(latestTask);
+                        }
+                        
+                        // 更新邮箱发送计数
+                        emailSendLimitService.updateSendCount(account.getAccountId());
+                        
+                        logger.debug("长连接邮件发送成功: {} -> {}, MessageID: {}", 
+                            account.getEmailAddress(), recipient.getEmail(), emailSendResult.getMessageId());
+                    } else {
+                        logger.error("长连接邮件发送失败: {} -> {}", account.getEmailAddress(), recipient.getEmail());
+                    }
 
                     // 发送间隔
                     if (task.getSendInterval() != null && task.getSendInterval() > 0) {
                         Thread.sleep(task.getSendInterval() * 1000L);
                     }
-                } catch (Exception e) {
-                    logger.error("长连接发送邮件失败: {} -> {}, 错误: {}", account.getEmailAddress(), recipient.getEmail(), e.getMessage());
-                    
-                    // 如果是连接错误，尝试重新创建长连接
-                    if (e.getMessage().contains("connection") || e.getMessage().contains("socket")) {
-                        logger.info("连接错误，尝试重新创建长连接");
-                        try {
-                            Transport newTransport = emailServiceMonitorService.createSmtpLongConnection(account.getAccountId());
-                            if (newTransport != null && newTransport.isConnected()) {
-                                logger.info("长连接重新创建成功");
-                            }
-                        } catch (Exception reconnectEx) {
-                            logger.error("重新创建长连接失败: {}", reconnectEx.getMessage());
-                        }
-                    }
                 }
-            }
-        }, executorService);
-
-        // 等待发送完成（注意：不关闭长连接，因为它由EmailServiceMonitorService管理）
-        sendingTask.whenComplete((result, throwable) -> {
-            try {
+                
+                // 发送完成，更新任务状态
                 EmailSendTask finalTask = emailSendTaskService.selectEmailSendTaskByTaskId(task.getTaskId());
                 if (finalTask != null) {
-                    if (throwable != null) {
-                        logger.error("长连接邮件发送任务异常: {}", throwable.getMessage());
-                        finalTask.setStatus("4"); // 失败
-                    } else {
-                        logger.info("长连接邮件发送任务完成: {}", task.getTaskId());
-                        finalTask.setStatus("2"); // 完成
-                    }
+                    logger.info("长连接邮件发送任务完成: {}", task.getTaskId());
+                    finalTask.setStatus("2"); // 完成
                     emailSendTaskService.updateEmailSendTask(finalTask);
                 }
+                
             } catch (Exception e) {
-                logger.error("更新长连接任务状态失败: {}", e.getMessage());
+                logger.error("长连接邮件发送任务异常: {}", e.getMessage(), e);
+                try {
+                    EmailSendTask finalTask = emailSendTaskService.selectEmailSendTaskByTaskId(task.getTaskId());
+                    if (finalTask != null) {
+                        finalTask.setStatus("4"); // 失败
+                        emailSendTaskService.updateEmailSendTask(finalTask);
+                    }
+                } catch (Exception ex) {
+                    logger.error("更新长连接任务状态失败: {}", ex.getMessage());
+                }
             }
         });
     }

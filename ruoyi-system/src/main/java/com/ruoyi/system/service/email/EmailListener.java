@@ -7,9 +7,11 @@ import com.ruoyi.system.domain.email.EmailStatistics;
 import com.ruoyi.system.domain.email.EmailTrackRecord;
 import com.ruoyi.system.domain.email.EmailPersonal;
 import com.ruoyi.system.mapper.email.EmailAccountMapper;
+import com.ruoyi.system.service.ISysConfigService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -62,6 +64,15 @@ public class EmailListener {
     
     @Autowired
     private IEmailPersonalService emailPersonalService;
+    
+    @Autowired
+    private EmailTrackingDiagnostic emailTrackingDiagnostic;
+    
+    @Autowired
+    private ISysConfigService sysConfigService;
+    
+    @Value("${ruoyi.email.tracking.base-url:http://8.148.202.151:8080}")
+    private String defaultTrackingBaseUrl;
     
     private final Map<Long, AccountConnectionInfo> activeConnections = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(10);
@@ -302,8 +313,13 @@ public class EmailListener {
             
             logger.debug("IMAP连接建立成功: {}", account.getEmailAddress());
             
-            // 启动邮件跟踪监控
-            startEmailTracking(account);
+            // 启动邮件跟踪监控（只监控发送方邮箱）
+            if (account.getTrackingEnabled() != null && "1".equals(account.getTrackingEnabled())) {
+                startEmailTracking(account);
+                logger.info("启动发送方邮箱的邮件跟踪监控: {}", account.getEmailAddress());
+            } else {
+                logger.debug("跳过非发送方邮箱的邮件跟踪监控: {}", account.getEmailAddress());
+            }
             
             // 更新监控状态
             updateServiceMonitorStatus(account.getAccountId(), "imap", "running", null);
@@ -718,16 +734,49 @@ public class EmailListener {
     }
     
     /**
+     * 邮件发送结果
+     */
+    public static class EmailSendResult {
+        private String messageId;
+        private boolean success;
+        private String errorMessage;
+        
+        public EmailSendResult(String messageId, boolean success, String errorMessage) {
+            this.messageId = messageId;
+            this.success = success;
+            this.errorMessage = errorMessage;
+        }
+        
+        // Getters
+        public String getMessageId() { return messageId; }
+        public boolean isSuccess() { return success; }
+        public String getErrorMessage() { return errorMessage; }
+        
+        // 静态工厂方法
+        public static EmailSendResult success(String messageId) {
+            return new EmailSendResult(messageId, true, null);
+        }
+        
+        public static EmailSendResult failure(String messageId, String errorMessage) {
+            return new EmailSendResult(messageId, false, errorMessage);
+        }
+        
+        public static EmailSendResult failure(String errorMessage) {
+            return new EmailSendResult(null, false, errorMessage);
+        }
+    }
+    
+    /**
      * 发送带跟踪的邮件
      */
-    public String sendEmailWithTracking(EmailAccount account, String to, String subject, 
-                                      String content, Long taskId) {
+    public EmailSendResult sendEmailWithTracking(EmailAccount account, String to, String subject, 
+                                               String content, Long taskId) {
         String messageId = null;
         try {
             // 检查数据库连接是否可用
             if (!isDatabaseConnectionAvailable()) {
                 logger.error("数据库连接不可用，无法发送带跟踪的邮件: {} -> {}", account.getEmailAddress(), to);
-                return null;
+                return EmailSendResult.failure("数据库连接不可用");
             }
             
             // 生成唯一的Message-ID
@@ -761,7 +810,7 @@ public class EmailListener {
             int insertResult = emailTrackRecordService.insertEmailTrackRecord(trackRecord);
             if (insertResult <= 0) {
                 logger.error("插入邮件跟踪记录失败: MessageID={}, TaskID={}", messageId, taskId);
-                return null;
+                return EmailSendResult.failure(messageId, "插入邮件跟踪记录失败");
             }
             logger.info("邮件跟踪记录插入成功: MessageID={}, TaskID={}", messageId, taskId);
             
@@ -776,16 +825,23 @@ public class EmailListener {
             if (result.isSuccess()) {
                 // 更新状态为发送成功
                 emailTrackRecordService.updateEmailStatus(messageId, EmailStatus.SEND_SUCCESS.name());
-                emailTrackRecordService.recordEmailDelivered(messageId);
                 logger.info("邮件发送成功: {} -> {}, MessageID: {}", account.getEmailAddress(), to, messageId);
+                
+                // 注意：送达状态将通过DSN（Delivery Status Notification）来更新
+                // 系统会监听IMAP收件箱中的DSN邮件，并自动更新邮件状态
+                // 如果Gmail等现代邮件服务不发送DSN，可以考虑使用其他方式检测送达状态
+                
+                // 启动延迟送达状态检查（作为DSN的备用机制）
+                scheduleDeliveryStatusCheck(messageId, account, to);
+                
+                return EmailSendResult.success(messageId);
             } else {
                 // 更新状态为发送失败
                 emailTrackRecordService.updateEmailStatus(messageId, EmailStatus.SEND_FAILED.name());
                 logger.error("邮件发送失败: {} -> {}, MessageID: {}, 错误: {}", 
                            account.getEmailAddress(), to, messageId, result.getErrorMessage());
+                return EmailSendResult.failure(messageId, result.getErrorMessage());
             }
-            
-            return messageId;
             
         } catch (Exception e) {
             logger.error("发送带跟踪的邮件失败: {} -> {}, MessageID: {}, TaskID: {}", 
@@ -796,12 +852,14 @@ public class EmailListener {
                 try {
                     emailTrackRecordService.updateEmailStatus(messageId, EmailStatus.SEND_FAILED.name());
                     logger.info("已更新失败邮件的跟踪记录状态: MessageID={}", messageId);
+                    return EmailSendResult.failure(messageId, "发送邮件时发生异常: " + e.getMessage());
                 } catch (Exception updateException) {
                     logger.error("更新失败邮件跟踪记录状态时发生异常: MessageID={}", messageId, updateException);
+                    return EmailSendResult.failure(messageId, "发送邮件时发生异常: " + e.getMessage());
                 }
             }
             
-            return null;
+            return EmailSendResult.failure("发送邮件时发生异常: " + e.getMessage());
         }
     }
     
@@ -970,12 +1028,211 @@ public class EmailListener {
      */
     private void processDeliveryStatusNotification(Message message, EmailAccount account) {
         try {
-            // TODO: 实现DSN解析逻辑
-            // 这里需要解析DSN邮件内容，提取原始Message-ID和送达状态
-            logger.info("处理送达状态通知");
+            if (message instanceof MimeMessage) {
+                MimeMessage mimeMessage = (MimeMessage) message;
+                
+                // 检查是否是DSN邮件
+                if (isDSNEmail(mimeMessage)) {
+                    logger.info("检测到DSN邮件，开始解析: {}", mimeMessage.getSubject());
+                    
+                    // 解析DSN内容
+                    String originalMessageId = extractOriginalMessageIdFromDSN(mimeMessage);
+                    String deliveryStatus = extractDeliveryStatusFromDSN(mimeMessage);
+                    String recipientEmail = extractRecipientFromDSN(mimeMessage);
+                    
+                    logger.info("DSN解析结果 - 原始MessageID: {}, 状态: {}, 收件人: {}", 
+                        originalMessageId, deliveryStatus, recipientEmail);
+                    
+                    if (originalMessageId != null) {
+                        // 查找对应的跟踪记录
+                        EmailTrackRecord trackRecord = emailTrackRecordService.selectEmailTrackRecordByMessageId(originalMessageId);
+                        if (trackRecord != null) {
+                            // 根据DSN状态更新邮件状态
+                            String newStatus = null;
+                            switch (deliveryStatus.toLowerCase()) {
+                                case "delivered":
+                                case "success":
+                                case "2.0.0":
+                                    newStatus = "DELIVERED";
+                                    break;
+                                case "failed":
+                                case "bounced":
+                                case "rejected":
+                                case "5.0.0":
+                                case "5.1.1":
+                                case "5.2.1":
+                                    newStatus = "BOUNCED";
+                                    break;
+                                case "deferred":
+                                case "delayed":
+                                case "4.0.0":
+                                case "4.2.2":
+                                    newStatus = "DEFERRED";
+                                    break;
+                                default:
+                                    logger.warn("未知的DSN状态: {} for message: {}", deliveryStatus, originalMessageId);
+                                    return;
+                            }
+                            
+                            // 更新邮件状态
+                            if (newStatus != null) {
+                                emailTrackRecordService.updateEmailStatus(originalMessageId, newStatus);
+                                logger.info("DSN邮件处理完成: {} -> {} (任务ID: {})", 
+                                           originalMessageId, newStatus, trackRecord.getTaskId());
+                                
+                                // 更新任务统计
+                                updateTaskStatistics(trackRecord.getTaskId());
+                            }
+                        } else {
+                            logger.debug("未找到对应的邮件跟踪记录: {}", originalMessageId);
+                        }
+                    } else {
+                        logger.warn("无法从DSN中提取原始MessageID");
+                    }
+                }
+            }
         } catch (Exception e) {
             logger.error("处理送达状态通知失败", e);
         }
+    }
+    
+    /**
+     * 检查是否是DSN邮件
+     */
+    private boolean isDSNEmail(MimeMessage message) {
+        try {
+            String subject = message.getSubject();
+            String contentType = message.getContentType();
+            Address[] fromHeaders = message.getFrom();
+            
+            // 检查主题
+            boolean subjectMatch = subject != null && (
+                subject.toLowerCase().contains("delivery status notification") ||
+                subject.toLowerCase().contains("mail delivery failure") ||
+                subject.toLowerCase().contains("undelivered mail") ||
+                subject.toLowerCase().contains("mail system error") ||
+                subject.toLowerCase().contains("delivery failure") ||
+                subject.toLowerCase().contains("returned mail")
+            );
+            
+            // 检查内容类型
+            boolean contentTypeMatch = contentType != null && (
+                contentType.toLowerCase().contains("multipart/report") ||
+                contentType.toLowerCase().contains("message/delivery-status")
+            );
+            
+            // 检查发件人（DSN邮件通常来自邮件系统）
+            boolean fromMatch = false;
+            if (fromHeaders != null && fromHeaders.length > 0) {
+                String from = fromHeaders[0].toString().toLowerCase();
+                fromMatch = from.contains("mailer-daemon") || 
+                           from.contains("postmaster") ||
+                           from.contains("mail delivery subsystem") ||
+                           from.contains("mail system") ||
+                           from.contains("noreply") ||
+                           from.contains("no-reply");
+            }
+            
+            return subjectMatch || contentTypeMatch || fromMatch;
+        } catch (Exception e) {
+            logger.warn("检查DSN邮件时发生异常", e);
+            return false;
+        }
+    }
+    
+    /**
+     * 从DSN邮件中提取原始Message-ID
+     */
+    private String extractOriginalMessageIdFromDSN(MimeMessage message) {
+        try {
+            // 首先尝试从邮件头中获取
+            String[] originalMessageIdHeaders = message.getHeader("Original-Message-ID");
+            if (originalMessageIdHeaders != null && originalMessageIdHeaders.length > 0) {
+                return extractMessageIdFromHeader(originalMessageIdHeaders[0]);
+            }
+            
+            // 从邮件内容中提取
+            String content = extractMessageContent(message);
+            if (content != null) {
+                // 使用正则表达式匹配Message-ID
+                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                    "(?:Original-Message-ID|Message-ID):\\s*<([^>]+)>", 
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+                java.util.regex.Matcher matcher = pattern.matcher(content);
+                if (matcher.find()) {
+                    return matcher.group(1);
+                }
+            }
+            
+            return null;
+        } catch (Exception e) {
+            logger.warn("提取原始Message-ID失败", e);
+            return null;
+        }
+    }
+    
+    /**
+     * 从DSN邮件中提取送达状态
+     */
+    private String extractDeliveryStatusFromDSN(MimeMessage message) {
+        try {
+            String content = extractMessageContent(message);
+            if (content != null) {
+                // 使用正则表达式匹配状态
+                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                    "(?:Status|Diagnostic-Code|Action):\\s*(\\d+\\.\\d+\\.\\d+|[^\\n\\r]+)", 
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+                java.util.regex.Matcher matcher = pattern.matcher(content);
+                if (matcher.find()) {
+                    return matcher.group(1).trim();
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            logger.warn("提取送达状态失败", e);
+            return null;
+        }
+    }
+    
+    /**
+     * 从DSN邮件中提取收件人
+     */
+    private String extractRecipientFromDSN(MimeMessage message) {
+        try {
+            String content = extractMessageContent(message);
+            if (content != null) {
+                // 使用正则表达式匹配收件人
+                java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(
+                    "(?:Final-Recipient|Original-Recipient):\\s*(?:rfc822;\\s*)?([^\\s\\n\\r]+)", 
+                    java.util.regex.Pattern.CASE_INSENSITIVE);
+                java.util.regex.Matcher matcher = pattern.matcher(content);
+                if (matcher.find()) {
+                    return matcher.group(1).trim();
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            logger.warn("提取收件人失败", e);
+            return null;
+        }
+    }
+    
+    /**
+     * 从邮件头中提取Message-ID
+     */
+    private String extractMessageIdFromHeader(String header) {
+        if (header == null) {
+            return null;
+        }
+        
+        // 提取<...>中的内容
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("<([^>]+)>");
+        java.util.regex.Matcher matcher = pattern.matcher(header);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        
+        return header.trim();
     }
     
     /**
@@ -1046,29 +1303,116 @@ public class EmailListener {
      * 生成跟踪像素URL
      */
     private String generateTrackingPixelUrl(String messageId) {
-        return "/api/email/tracking/open?mid=" + messageId;
+        String baseUrl = getTrackingBaseUrl();
+        return baseUrl + "/api/email/tracking/open?msgid=" + messageId;
     }
     
     /**
      * 生成跟踪链接URL
      */
     private String generateTrackingLinkUrl(String messageId) {
-        return "/api/email/tracking/click?mid=" + messageId;
+        String baseUrl = getTrackingBaseUrl();
+        return baseUrl + "/api/email/tracking/click?msgid=" + messageId;
+    }
+    
+    /**
+     * 获取跟踪服务的基础URL
+     * 优先从数据库配置获取，如果获取不到再从yml配置文件获取
+     */
+    private String getTrackingBaseUrl() {
+        try {
+            // 首先尝试从数据库配置中获取
+            String baseUrl = sysConfigService.selectConfigByKey("email.tracking.base.url");
+            if (baseUrl != null && !baseUrl.trim().isEmpty()) {
+                // 确保URL不以斜杠结尾
+                if (baseUrl.endsWith("/")) {
+                    baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+                }
+                logger.debug("从数据库配置获取邮件跟踪基础URL: {}", baseUrl);
+                return baseUrl;
+            }
+        } catch (Exception e) {
+            logger.warn("从数据库配置获取邮件跟踪基础URL失败，将使用yml配置", e);
+        }
+        
+        // 如果数据库配置获取失败，使用yml配置文件中的默认值
+        String baseUrl = defaultTrackingBaseUrl;
+        if (baseUrl != null && baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+        logger.debug("使用yml配置的邮件跟踪基础URL: {}", baseUrl);
+        return baseUrl;
     }
     
     /**
      * 在邮件内容中添加跟踪
      */
     private String addTrackingToContent(String content, String pixelUrl, String linkUrl) {
-        StringBuilder trackedContent = new StringBuilder(content);
+        if (content == null || content.trim().isEmpty()) {
+            return content;
+        }
         
-        // 添加跟踪像素
-        trackedContent.append("\n\n<img src=\"").append(pixelUrl).append("\" width=\"1\" height=\"1\" style=\"display:none;\">");
+        // 检查内容是否已经是HTML格式
+        boolean isHtml = content.toLowerCase().contains("<html") || 
+                        content.toLowerCase().contains("<body") || 
+                        content.toLowerCase().contains("<p>") ||
+                        content.toLowerCase().contains("<div");
         
-        // 添加跟踪链接（这里只是示例，实际应用中需要替换邮件中的链接）
-        // TODO: 实现链接替换逻辑
-        
-        return trackedContent.toString();
+        if (isHtml) {
+            // 如果是HTML内容，在</body>标签前添加跟踪像素
+            String trackingPixel = "<img src=\"" + pixelUrl + "\" width=\"1\" height=\"1\" style=\"display:none;\">";
+            
+            if (content.toLowerCase().contains("</body>")) {
+                // 在</body>前添加跟踪像素
+                return content.replaceAll("(?i)</body>", trackingPixel + "\n</body>");
+            } else if (content.toLowerCase().contains("</html>")) {
+                // 如果没有</body>但有</html>，在</html>前添加
+                return content.replaceAll("(?i)</html>", trackingPixel + "\n</html>");
+            } else {
+                // 如果都没有，在内容末尾添加
+                return content + "\n" + trackingPixel;
+            }
+        } else {
+            // 如果是纯文本内容，转换为HTML格式
+            StringBuilder htmlContent = new StringBuilder();
+            htmlContent.append("<!DOCTYPE html>\n");
+            htmlContent.append("<html>\n");
+            htmlContent.append("<head>\n");
+            htmlContent.append("<meta charset=\"UTF-8\">\n");
+            htmlContent.append("</head>\n");
+            htmlContent.append("<body>\n");
+            
+            // 将换行符转换为HTML段落
+            String[] lines = content.split("\n");
+            for (String line : lines) {
+                if (line.trim().isEmpty()) {
+                    htmlContent.append("<br>\n");
+                } else {
+                    htmlContent.append("<p>").append(escapeHtml(line)).append("</p>\n");
+                }
+            }
+            
+            // 添加跟踪像素
+            htmlContent.append("<img src=\"").append(pixelUrl).append("\" width=\"1\" height=\"1\" style=\"display:none;\">\n");
+            htmlContent.append("</body>\n");
+            htmlContent.append("</html>");
+            
+            return htmlContent.toString();
+        }
+    }
+    
+    /**
+     * HTML转义
+     */
+    private String escapeHtml(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("&", "&amp;")
+                  .replace("<", "&lt;")
+                  .replace(">", "&gt;")
+                  .replace("\"", "&quot;")
+                  .replace("'", "&#39;");
     }
     
     /**
@@ -1331,6 +1675,16 @@ public class EmailListener {
                 }
                 
                 @Override
+                public void onDeliveryConfirmed(EmailAccount account, String messageId, Message sentMessage) {
+                    handleDeliveryConfirmed(account, messageId, sentMessage);
+                }
+                
+                @Override
+                public void onBounceReceived(EmailAccount account, ImapService.BounceInfo bounceInfo) {
+                    handleBounceReceived(account, bounceInfo);
+                }
+                
+                @Override
                 public void onTrackingError(EmailAccount account, Exception e) {
                     logger.error("邮件跟踪监控错误: {} - {}", account.getEmailAddress(), e.getMessage());
                 }
@@ -1368,37 +1722,49 @@ public class EmailListener {
             }
             
             String originalMessageId = dsnInfo.getOriginalMessageId();
-            if (originalMessageId == null) {
-                logger.warn("DSN邮件中未找到原始Message-ID");
+            String status = dsnInfo.getStatus();
+            
+            if (originalMessageId == null || originalMessageId.trim().isEmpty()) {
+                logger.warn("DSN邮件中未找到原始Message-ID: {}", dsnInfo.getDsnMessageId());
                 return;
             }
             
             // 查找对应的跟踪记录
             EmailTrackRecord trackRecord = emailTrackRecordService.selectEmailTrackRecordByMessageId(originalMessageId);
             if (trackRecord == null) {
-                logger.warn("未找到对应的邮件跟踪记录: {}", originalMessageId);
+                logger.debug("未找到对应的邮件跟踪记录: {}", originalMessageId);
                 return;
             }
             
             // 根据DSN状态更新邮件状态
-            String status = dsnInfo.getStatus();
-            if (status != null) {
-                if (status.startsWith("2.")) {
-                    // 2.x.x 表示成功
-                    emailTrackRecordService.recordEmailDelivered(originalMessageId);
-                    logger.info("邮件送达确认: {} (任务ID: {})", originalMessageId, trackRecord.getTaskId());
-                    
-                    // 更新任务统计
-                    updateTaskStatistics(trackRecord.getTaskId());
-                } else if (status.startsWith("4.")) {
-                    // 4.x.x 表示临时失败
-                    emailTrackRecordService.updateEmailStatus(originalMessageId, "DELIVERY_FAILED_TEMP");
-                    logger.warn("邮件临时投递失败: {} (任务ID: {})", originalMessageId, trackRecord.getTaskId());
-                } else if (status.startsWith("5.")) {
-                    // 5.x.x 表示永久失败
-                    emailTrackRecordService.updateEmailStatus(originalMessageId, "DELIVERY_FAILED_PERM");
-                    logger.error("邮件永久投递失败: {} (任务ID: {})", originalMessageId, trackRecord.getTaskId());
-                }
+            String newStatus = null;
+            switch (status.toLowerCase()) {
+                case "delivered":
+                case "success":
+                    newStatus = "DELIVERED";
+                    break;
+                case "failed":
+                case "bounced":
+                case "rejected":
+                    newStatus = "BOUNCED";
+                    break;
+                case "deferred":
+                case "delayed":
+                    newStatus = "DEFERRED";
+                    break;
+                default:
+                    logger.warn("未知的DSN状态: {} for message: {}", status, originalMessageId);
+                    return;
+            }
+            
+            // 更新邮件状态
+            if (newStatus != null) {
+                emailTrackRecordService.updateEmailStatus(originalMessageId, newStatus);
+                logger.info("DSN邮件处理完成: {} -> {} (任务ID: {})", 
+                           originalMessageId, newStatus, trackRecord.getTaskId());
+                
+                // 更新任务统计
+                updateTaskStatistics(trackRecord.getTaskId());
             }
             
         } catch (Exception e) {
@@ -1422,16 +1788,21 @@ public class EmailListener {
                 return;
             }
             
-            // 查找对应的跟踪记录
-            EmailTrackRecord trackRecord = emailTrackRecordService.selectEmailTrackRecordByMessageId(originalMessageId);
-            if (trackRecord == null) {
-                logger.warn("未找到对应的邮件跟踪记录: {}", originalMessageId);
+            if (originalMessageId == null || originalMessageId.trim().isEmpty()) {
+                logger.warn("回复邮件中未找到原始Message-ID");
                 return;
             }
             
-            // 更新回复状态
+            // 查找对应的跟踪记录
+            EmailTrackRecord trackRecord = emailTrackRecordService.selectEmailTrackRecordByMessageId(originalMessageId);
+            if (trackRecord == null) {
+                logger.debug("未找到对应的邮件跟踪记录: {}", originalMessageId);
+                return;
+            }
+            
+            // 更新邮件状态为已回复
             emailTrackRecordService.recordEmailReplied(originalMessageId);
-            logger.info("邮件回复确认: {} (任务ID: {})", originalMessageId, trackRecord.getTaskId());
+            logger.info("回复邮件处理完成: {} (任务ID: {})", originalMessageId, trackRecord.getTaskId());
             
             // 更新任务统计
             updateTaskStatistics(trackRecord.getTaskId());
@@ -1443,6 +1814,55 @@ public class EmailListener {
                 return;
             }
             logger.error("处理回复邮件失败", e);
+        }
+    }
+    
+    /**
+     * 处理送达确认
+     */
+    private void handleDeliveryConfirmed(EmailAccount account, String messageId, Message sentMessage) {
+        try {
+            logger.info("收到送达确认: 账户={}, 邮件ID={}", account.getEmailAddress(), messageId);
+            
+            // 更新邮件送达状态
+            emailTrackRecordService.recordEmailDelivered(messageId);
+            
+            // 查找对应的跟踪记录并更新任务统计
+            EmailTrackRecord trackRecord = emailTrackRecordService.selectEmailTrackRecordByMessageId(messageId);
+            if (trackRecord != null) {
+                updateTaskStatistics(trackRecord.getTaskId());
+                logger.info("通过IMAP已发送文件夹确认邮件送达: MessageID={}, 收件人={}", 
+                    messageId, trackRecord.getRecipient());
+            }
+            
+        } catch (Exception e) {
+            logger.error("处理送达确认失败: MessageID={}", messageId, e);
+        }
+    }
+    
+    /**
+     * 处理退信
+     */
+    private void handleBounceReceived(EmailAccount account, ImapService.BounceInfo bounceInfo) {
+        try {
+            logger.info("收到退信: 账户={}, 原始邮件ID={}, 退信原因={}", 
+                       account.getEmailAddress(), bounceInfo.getOriginalMessageId(), bounceInfo.getBounceReason());
+            
+            // 更新邮件状态为退信
+            if (bounceInfo.getOriginalMessageId() != null) {
+                emailTrackRecordService.recordEmailBounced(bounceInfo.getOriginalMessageId(), bounceInfo.getBounceReason());
+                
+                // 查找对应的跟踪记录并更新任务统计
+                EmailTrackRecord trackRecord = emailTrackRecordService.selectEmailTrackRecordByMessageId(bounceInfo.getOriginalMessageId());
+                if (trackRecord != null) {
+                    updateTaskStatistics(trackRecord.getTaskId());
+                    logger.info("通过退信邮件确认邮件发送失败: MessageID={}, 收件人={}, 原因={}", 
+                        bounceInfo.getOriginalMessageId(), trackRecord.getRecipient(), bounceInfo.getBounceReason());
+                }
+            }
+            
+        } catch (Exception e) {
+            logger.error("处理退信失败: MessageID={}", bounceInfo.getOriginalMessageId(), e);
         }
     }
     
@@ -1473,6 +1893,12 @@ public class EmailListener {
                 updateTaskStatistics(trackRecord.getTaskId());
             }
             
+            // 如果邮件被标记为重要（flagged），可以记录为重要邮件
+            if (isFlagged && trackRecord.getStatus().equals("DELIVERED")) {
+                // 可以添加一个新的状态或字段来记录重要邮件
+                logger.debug("邮件被标记为重要: {} (任务ID: {})", messageId, trackRecord.getTaskId());
+            }
+            
         } catch (Exception e) {
             // 检查是否是数据库连接问题
             if (isDataSourceClosedException(e)) {
@@ -1482,6 +1908,7 @@ public class EmailListener {
             logger.error("处理邮件状态变化失败", e);
         }
     }
+    
     
     /**
      * 获取邮件跟踪统计
@@ -1495,6 +1922,65 @@ public class EmailListener {
      */
     public Map<Long, ImapService.EmailTrackingStats> getAllEmailTrackingStats() {
         return imapService.getAllEmailTrackingStats();
+    }
+    
+    /**
+     * 测试邮件跟踪功能
+     */
+    public void testEmailTracking(Long accountId) {
+        try {
+            EmailAccount account = emailAccountService.selectEmailAccountByAccountId(accountId);
+            if (account == null) {
+                logger.error("未找到邮箱账号: {}", accountId);
+                return;
+            }
+            
+            logger.info("开始测试邮件跟踪功能: {}", account.getEmailAddress());
+            imapService.testEmailTracking(account);
+            
+        } catch (Exception e) {
+            logger.error("测试邮件跟踪功能失败: accountId={}", accountId, e);
+        }
+    }
+    
+    /**
+     * 强制扫描指定邮件的状态
+     */
+    public void forceScanEmailStatus(Long accountId, String messageId) {
+        try {
+            EmailAccount account = emailAccountService.selectEmailAccountByAccountId(accountId);
+            if (account == null) {
+                logger.error("未找到邮箱账号: {}", accountId);
+                return;
+            }
+            
+            logger.info("强制扫描邮件状态: accountId={}, messageId={}", accountId, messageId);
+            imapService.forceScanEmailStatus(account, messageId);
+            
+        } catch (Exception e) {
+            logger.error("强制扫描邮件状态失败: accountId={}, messageId={}", accountId, messageId, e);
+        }
+    }
+    
+    /**
+     * 诊断邮件跟踪问题
+     */
+    public void diagnoseEmailTracking(Long accountId) {
+        try {
+            EmailAccount account = emailAccountService.selectEmailAccountByAccountId(accountId);
+            if (account == null) {
+                logger.error("未找到邮箱账号: {}", accountId);
+                return;
+            }
+            
+            logger.info("开始诊断邮件跟踪问题: accountId={}, email={}", accountId, account.getEmailAddress());
+            
+            // 使用新的诊断服务
+            emailTrackingDiagnostic.performFullDiagnostic();
+            
+        } catch (Exception e) {
+            logger.error("诊断邮件跟踪问题失败: accountId={}", accountId, e);
+        }
     }
     
     // ==================== 任务相关邮件跟踪功能 ====================
@@ -1599,6 +2085,61 @@ public class EmailListener {
             
         } catch (Exception e) {
             logger.error("更新任务统计失败: {}", taskId, e);
+        }
+    }
+    
+    /**
+     * 安排延迟送达状态检查（作为DSN的备用机制）
+     * 由于Gmail等现代邮件服务可能不发送DSN通知，我们使用延迟检查作为备用
+     */
+    private void scheduleDeliveryStatusCheck(String messageId, EmailAccount account, String recipient) {
+        try {
+            // 延迟5分钟后检查送达状态
+            scheduledExecutor.schedule(() -> {
+                try {
+                    checkDeliveryStatusWithoutDSN(messageId, account, recipient);
+                } catch (Exception e) {
+                    logger.error("延迟送达状态检查失败: MessageID={}", messageId, e);
+                }
+            }, 1, TimeUnit.MINUTES);
+            
+            logger.debug("已安排延迟送达状态检查: MessageID={}, 5分钟后执行", messageId);
+            
+        } catch (Exception e) {
+            logger.error("安排延迟送达状态检查失败: MessageID={}", messageId, e);
+        }
+    }
+    
+    /**
+     * 不使用DSN检查送达状态（备用机制）
+     * 通过检查邮件跟踪记录的状态来判断是否送达
+     */
+    private void checkDeliveryStatusWithoutDSN(String messageId, EmailAccount account, String recipient) {
+        try {
+            // 检查邮件跟踪记录
+            EmailTrackRecord trackRecord = emailTrackRecordService.selectEmailTrackRecordByMessageId(messageId);
+            if (trackRecord == null) {
+                logger.debug("未找到邮件跟踪记录: MessageID={}", messageId);
+                return;
+            }
+            
+            // 如果状态仍然是SEND_SUCCESS且没有送达时间，则假设已送达
+            if ("SEND_SUCCESS".equals(trackRecord.getStatus()) && trackRecord.getDeliveredTime() == null) {
+                // 更新为已送达状态
+                emailTrackRecordService.recordEmailDelivered(messageId);
+                logger.info("通过备用机制更新邮件送达状态: MessageID={}, 收件人={}", messageId, recipient);
+                
+                // 更新任务统计
+                if (trackRecord.getTaskId() != null) {
+                    updateTaskStatistics(trackRecord.getTaskId());
+                }
+            } else {
+                logger.debug("邮件状态无需更新: MessageID={}, 当前状态={}, 送达时间={}", 
+                           messageId, trackRecord.getStatus(), trackRecord.getDeliveredTime());
+            }
+            
+        } catch (Exception e) {
+            logger.error("检查送达状态失败: MessageID={}", messageId, e);
         }
     }
     

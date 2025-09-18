@@ -79,13 +79,34 @@ public class SmtpService {
             message.setFrom(new InternetAddress(account.getEmailAddress()));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
             message.setSubject(subject);
-            message.setText(content, "UTF-8");
+            
+            // 检查内容是否为HTML格式
+            boolean isHtml = content != null && (
+                content.toLowerCase().contains("<html") || 
+                content.toLowerCase().contains("<body") || 
+                content.toLowerCase().contains("<p>") ||
+                content.toLowerCase().contains("<div")
+            );
+            
+            if (isHtml) {
+                // 设置HTML内容
+                message.setContent(content, "text/html; charset=UTF-8");
+            } else {
+                // 设置纯文本内容
+                message.setText(content, "UTF-8");
+            }
+            
             message.setSentDate(new Date());
             
             // 设置Message-ID
             if (messageId != null) {
                 message.setHeader("Message-ID", messageId);
             }
+            
+            // 请求送达状态通知（DSN）
+            message.setHeader("Return-Receipt-To", account.getEmailAddress());
+            message.setHeader("Disposition-Notification-To", account.getEmailAddress());
+            message.setHeader("X-Confirm-Reading-To", account.getEmailAddress());
             
             // 发送邮件
             transport.sendMessage(message, message.getAllRecipients());
@@ -212,13 +233,34 @@ public class SmtpService {
             message.setFrom(new InternetAddress(from));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to));
             message.setSubject(subject);
-            message.setText(content, "UTF-8");
+            
+            // 检查内容是否为HTML格式
+            boolean isHtml = content != null && (
+                content.toLowerCase().contains("<html") || 
+                content.toLowerCase().contains("<body") || 
+                content.toLowerCase().contains("<p>") ||
+                content.toLowerCase().contains("<div")
+            );
+            
+            if (isHtml) {
+                // 设置HTML内容
+                message.setContent(content, "text/html; charset=UTF-8");
+            } else {
+                // 设置纯文本内容
+                message.setText(content, "UTF-8");
+            }
+            
             message.setSentDate(new Date());
             
             // 设置Message-ID
             if (messageId != null) {
                 message.setHeader("Message-ID", messageId);
             }
+            
+            // 请求送达状态通知（DSN）
+            message.setHeader("Return-Receipt-To", from);
+            message.setHeader("Disposition-Notification-To", from);
+            message.setHeader("X-Confirm-Reading-To", from);
             
             // 发送邮件
             transport.sendMessage(message, message.getAllRecipients());

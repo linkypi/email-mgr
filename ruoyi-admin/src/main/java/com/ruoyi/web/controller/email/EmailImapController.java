@@ -228,9 +228,12 @@ public class EmailImapController extends BaseController
             
             // 发送邮件并跟踪
             Long taskId = params.get("taskId") != null ? Long.parseLong(params.get("taskId")) : null;
-            String messageId = emailListener.sendEmailWithTracking(emailAccount, recipient, subject, content, taskId);
-            
-            return success("邮件发送成功");
+            EmailListener.EmailSendResult emailSendResult = emailListener.sendEmailWithTracking(emailAccount, recipient, subject, content, taskId);
+            if(emailSendResult.isSuccess()){
+                return success("邮件发送成功");
+            }
+
+            return error("邮件发送成功");
         }
         catch (Exception e) {
             return error("发送失败：" + e.getMessage());

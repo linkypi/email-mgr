@@ -51,10 +51,16 @@
           <el-form-item label="选择收件人" prop="contactIds">
             <div class="recipient-selector">
               <div class="recipient-actions">
-                <el-button type="primary" @click="openRecipientDialog" icon="el-icon-plus">
+                <el-button type="primary" @click="openRecipientDialog('to')" icon="el-icon-plus">
                   {{ selectedContacts.length > 0 ? '重新选择收件人' : '选择收件人' }}
                 </el-button>
-                <el-button v-if="selectedContacts.length > 0" @click="clearAllContacts" type="danger" plain size="small">
+                <el-button type="success" @click="openRecipientDialog('cc')" icon="el-icon-copy-document">
+                  选择抄送
+                </el-button>
+                <el-button type="warning" @click="openRecipientDialog('bcc')" icon="el-icon-view">
+                  选择密送
+                </el-button>
+                <el-button v-if="hasAnyRecipients" @click="clearAllContacts" type="danger" plain size="small">
                   清空所有
                 </el-button>
               </div>
@@ -111,7 +117,113 @@
                 </div>
               </div>
               
-              <div v-else class="no-recipients">
+              <!-- 抄送显示 -->
+              <div v-if="ccContacts.length > 0" class="selected-contacts">
+                <div class="contacts-summary">
+                  <div class="summary-info">
+                    <i class="el-icon-copy-document"></i>
+                    <span class="count-text">抄送 <strong>{{ ccContacts.length }}</strong> 个联系人</span>
+                  </div>
+                  <div class="summary-actions">
+                    <el-button type="text" @click="toggleCcExpanded" size="small">
+                      {{ ccExpanded ? '收起详情' : '查看详情' }}
+                    </el-button>
+                  </div>
+                </div>
+                
+                <div v-if="ccExpanded" class="contacts-detail">
+                  <div class="contacts-list">
+                    <div 
+                      v-for="(contact, index) in ccContacts" 
+                      :key="contact.contactId" 
+                      class="contact-item">
+                      <div class="contact-info">
+                        <span class="contact-name">{{ contact.name }}</span>
+                        <span class="contact-email">{{ contact.email }}</span>
+                        <el-tag v-if="contact.level === '1'" type="danger" size="mini">重要</el-tag>
+                        <el-tag v-else-if="contact.level === '2'" type="warning" size="mini">普通</el-tag>
+                        <el-tag v-else-if="contact.level === '3'" type="info" size="mini">一般</el-tag>
+                      </div>
+                      <el-button 
+                        type="text" 
+                        @click="removeContact(contact.contactId, 'cc')" 
+                        size="mini" 
+                        icon="el-icon-close"
+                        class="remove-btn">
+                      </el-button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div v-else class="contacts-preview">
+                  <div class="preview-list">
+                    <span 
+                      v-for="(contact, index) in ccPreviewContacts" 
+                      :key="contact.contactId" 
+                      class="preview-item">
+                      {{ contact.name }}({{ contact.email }})
+                    </span>
+                    <span v-if="ccContacts.length > maxPreviewCount" class="more-indicator">
+                      ...等{{ ccContacts.length - maxPreviewCount }}个
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 密送显示 -->
+              <div v-if="bccContacts.length > 0" class="selected-contacts">
+                <div class="contacts-summary">
+                  <div class="summary-info">
+                    <i class="el-icon-view"></i>
+                    <span class="count-text">密送 <strong>{{ bccContacts.length }}</strong> 个联系人</span>
+                  </div>
+                  <div class="summary-actions">
+                    <el-button type="text" @click="toggleBccExpanded" size="small">
+                      {{ bccExpanded ? '收起详情' : '查看详情' }}
+                    </el-button>
+                  </div>
+                </div>
+                
+                <div v-if="bccExpanded" class="contacts-detail">
+                  <div class="contacts-list">
+                    <div 
+                      v-for="(contact, index) in bccContacts" 
+                      :key="contact.contactId" 
+                      class="contact-item">
+                      <div class="contact-info">
+                        <span class="contact-name">{{ contact.name }}</span>
+                        <span class="contact-email">{{ contact.email }}</span>
+                        <el-tag v-if="contact.level === '1'" type="danger" size="mini">重要</el-tag>
+                        <el-tag v-else-if="contact.level === '2'" type="warning" size="mini">普通</el-tag>
+                        <el-tag v-else-if="contact.level === '3'" type="info" size="mini">一般</el-tag>
+                      </div>
+                      <el-button 
+                        type="text" 
+                        @click="removeContact(contact.contactId, 'bcc')" 
+                        size="mini" 
+                        icon="el-icon-close"
+                        class="remove-btn">
+                      </el-button>
+                    </div>
+                  </div>
+                </div>
+                
+                <div v-else class="contacts-preview">
+                  <div class="preview-list">
+                    <span 
+                      v-for="(contact, index) in bccPreviewContacts" 
+                      :key="contact.contactId" 
+                      class="preview-item">
+                      {{ contact.name }}({{ contact.email }})
+                    </span>
+                    <span v-if="bccContacts.length > maxPreviewCount" class="more-indicator">
+                      ...等{{ bccContacts.length - maxPreviewCount }}个
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div v-if="!hasAnyRecipients" class="no-recipients">
                 <i class="el-icon-info"></i>
                 <span>请点击上方按钮选择收件人</span>
               </div>
@@ -231,7 +343,7 @@
     </el-card>
 
     <!-- 收件人选择对话框 -->
-    <el-dialog title="选择收件人" :visible.sync="recipientDialogOpen" width="1000px" append-to-body>
+    <el-dialog :title="recipientDialogTitle" :visible.sync="recipientDialogOpen" width="1000px" append-to-body>
       <div class="recipient-dialog">
         <!-- 搜索条件 -->
         <el-form :model="searchForm" :inline="true" class="search-form">
@@ -489,13 +601,18 @@ export default {
       previewData: null,
       // 收件人选择相关
       recipientDialogOpen: false,
+      recipientDialogType: 'to', // 当前对话框类型：to, cc, bcc
       selectedContacts: [], // 已选择的收件人列表
+      ccContacts: [], // 抄送联系人列表
+      bccContacts: [], // 密送联系人列表
       selectedContactIds: [], // 当前弹窗中选中的收件人ID列表
       contactList: [], // 弹窗中的联系人列表
       contactTotal: 0, // 联系人总数
       contactLoading: false,
       searchLoading: false,
       contactsExpanded: false, // 是否展开显示所有收件人
+      ccExpanded: false, // 是否展开显示抄送联系人
+      bccExpanded: false, // 是否展开显示密送联系人
       maxPreviewCount: 5, // 预览显示的最大收件人数量
       // 搜索表单
       searchForm: {
@@ -584,6 +701,25 @@ export default {
     // 预览显示的收件人列表（限制数量）
     previewContacts() {
       return this.selectedContacts.slice(0, this.maxPreviewCount);
+    },
+    ccPreviewContacts() {
+      return this.ccContacts.slice(0, this.maxPreviewCount);
+    },
+    bccPreviewContacts() {
+      return this.bccContacts.slice(0, this.maxPreviewCount);
+    },
+    hasAnyRecipients() {
+      return this.selectedContacts.length > 0 || this.ccContacts.length > 0 || this.bccContacts.length > 0;
+    },
+    recipientDialogTitle() {
+      switch (this.recipientDialogType) {
+        case 'cc':
+          return '选择抄送联系人';
+        case 'bcc':
+          return '选择密送联系人';
+        default:
+          return '选择收件人';
+      }
     }
   },
   created() {
@@ -782,8 +918,8 @@ export default {
       this.$refs.sendForm.validate(valid => {
         if (valid) {
           // 验证收件人选择
-          if (!this.selectedContacts || this.selectedContacts.length === 0) {
-            this.$message.error('请选择收件人');
+          if (!this.hasAnyRecipients) {
+            this.$message.error('请选择至少一个收件人');
             return;
           }
 
@@ -840,6 +976,12 @@ export default {
             // 设置收件人ID列表
             taskData.contactIds = this.selectedContacts && this.selectedContacts.length > 0 ? this.selectedContacts.map(c => c.contactId).join(',') : null;
             
+            // 设置抄送联系人ID列表
+            taskData.ccContactIds = this.ccContacts && this.ccContacts.length > 0 ? this.ccContacts.map(c => c.contactId).join(',') : null;
+            
+            // 设置密送联系人ID列表
+            taskData.bccContactIds = this.bccContacts && this.bccContacts.length > 0 ? this.bccContacts.map(c => c.contactId).join(',') : null;
+            
             // 创建发送任务
             createSendTask(taskData).then(response => {
               this.$message.success('发送任务已创建，正在后台处理...');
@@ -877,14 +1019,19 @@ export default {
       };
       this.selectedTemplate = null;
       this.selectedContacts = [];
+      this.ccContacts = [];
+      this.bccContacts = [];
       this.contactsExpanded = false;
+      this.ccExpanded = false;
+      this.bccExpanded = false;
       this.$refs.sendForm.resetFields();
     },
     
     // ========== 收件人选择相关方法 ==========
     
     /** 打开收件人选择对话框 */
-    openRecipientDialog() {
+    openRecipientDialog(type = 'to') {
+      this.recipientDialogType = type;
       this.recipientDialogOpen = true;
       this.resetSearch();
       this.searchContacts();
@@ -1012,7 +1159,7 @@ export default {
     /** 确认选择收件人 */
     confirmRecipients() {
       if (this.selectedContactIds.length === 0) {
-        this.$message.warning('请选择至少一个收件人');
+        this.$message.warning('请选择至少一个联系人');
         return;
       }
       
@@ -1021,42 +1168,95 @@ export default {
         this.selectedContactIds.includes(contact.contactId)
       );
       
-      // 合并到已选择的收件人列表中（去重）
-      const existingIds = this.selectedContacts.map(c => c.contactId);
+      // 根据对话框类型添加到不同的列表
+      let targetList, existingIds, listName;
+      
+      switch (this.recipientDialogType) {
+        case 'cc':
+          targetList = this.ccContacts;
+          listName = '抄送';
+          break;
+        case 'bcc':
+          targetList = this.bccContacts;
+          listName = '密送';
+          break;
+        default:
+          targetList = this.selectedContacts;
+          listName = '收件人';
+          break;
+      }
+      
+      // 合并到目标列表中（去重）
+      existingIds = targetList.map(c => c.contactId);
       const newContacts = selectedContacts.filter(contact => 
         !existingIds.includes(contact.contactId)
       );
       
-      this.selectedContacts = [...this.selectedContacts, ...newContacts];
-      this.sendForm.contactIds = this.selectedContacts.map(c => c.contactId);
+      // 更新目标列表
+      if (this.recipientDialogType === 'cc') {
+        this.ccContacts = [...this.ccContacts, ...newContacts];
+      } else if (this.recipientDialogType === 'bcc') {
+        this.bccContacts = [...this.bccContacts, ...newContacts];
+      } else {
+        this.selectedContacts = [...this.selectedContacts, ...newContacts];
+        this.sendForm.contactIds = this.selectedContacts.map(c => c.contactId);
+      }
       
+      // 关闭对话框并清空选择
       this.recipientDialogOpen = false;
-      this.$message.success(`已添加 ${newContacts.length} 个收件人，当前共选择 ${this.selectedContacts.length} 个收件人`);
+      this.clearSelection();
+      
+      this.$message.success(`已添加 ${newContacts.length} 个${listName}联系人`);
     },
     
     /** 移除单个收件人 */
-    removeContact(contactId) {
-      this.selectedContacts = this.selectedContacts.filter(c => c.contactId !== contactId);
-      this.sendForm.contactIds = this.selectedContacts.map(c => c.contactId);
+    removeContact(contactId, type = 'to') {
+      switch (type) {
+        case 'cc':
+          this.ccContacts = this.ccContacts.filter(c => c.contactId !== contactId);
+          this.$message.success('已移除该抄送联系人');
+          break;
+        case 'bcc':
+          this.bccContacts = this.bccContacts.filter(c => c.contactId !== contactId);
+          this.$message.success('已移除该密送联系人');
+          break;
+        default:
+          this.selectedContacts = this.selectedContacts.filter(c => c.contactId !== contactId);
+          this.sendForm.contactIds = this.selectedContacts.map(c => c.contactId);
+          this.$message.success('已移除该收件人');
+          break;
+      }
     },
     
     /** 清空所有收件人 */
     clearAllContacts() {
-      this.$confirm('确定要清空所有已选择的收件人吗？', '提示', {
+      this.$confirm('确定要清空所有已选择的联系人吗？', '提示', {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
         this.selectedContacts = [];
+        this.ccContacts = [];
+        this.bccContacts = [];
         this.sendForm.contactIds = [];
         this.contactsExpanded = false;
-        this.$message.success('已清空所有收件人');
+        this.ccExpanded = false;
+        this.bccExpanded = false;
+        this.$message.success('已清空所有联系人');
       });
     },
     
     /** 切换收件人列表展开状态 */
     toggleContactsExpanded() {
       this.contactsExpanded = !this.contactsExpanded;
+    },
+    /** 切换抄送联系人展开状态 */
+    toggleCcExpanded() {
+      this.ccExpanded = !this.ccExpanded;
+    },
+    /** 切换密送联系人展开状态 */
+    toggleBccExpanded() {
+      this.bccExpanded = !this.bccExpanded;
     },
     
     /** 获取联系人标签列表 */

@@ -163,5 +163,14 @@ public interface IEmailTrackRecordService
      * @return 结果
      */
     public int recordEmailDelivered(String messageId);
+
+    /**
+     * 记录邮件退信事件
+     * 
+     * @param messageId 邮件Message-ID
+     * @param bounceReason 退信原因
+     * @return 结果
+     */
+    public int recordEmailBounced(String messageId, String bounceReason);
 }
 

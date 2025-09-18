@@ -124,10 +124,10 @@ public class EmailTrackRecordTestController extends BaseController {
             account.setPassword("testpassword");
             
             // 发送带跟踪的邮件
-            String messageId = emailListener.sendEmailWithTracking(account, to, subject, content, taskId);
-            
-            if (messageId != null) {
-                return success("邮件发送成功，MessageID: " + messageId);
+            EmailListener.EmailSendResult emailSendResult = emailListener.sendEmailWithTracking(account, to, subject, content, taskId);
+
+            if (emailSendResult.isSuccess()) {
+                return success("邮件发送成功，MessageID: " + emailSendResult.getMessageId());
             } else {
                 return error("邮件发送失败");
             }

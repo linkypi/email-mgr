@@ -2,6 +2,10 @@ package com.ruoyi.system.service.email.impl;
 
 import java.util.Date;
 import java.util.List;
+
+import com.ruoyi.system.service.email.EmailSendService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.system.mapper.email.EmailTrackRecordMapper;
@@ -19,6 +23,8 @@ public class EmailTrackRecordServiceImpl implements IEmailTrackRecordService
 {
     @Autowired
     private EmailTrackRecordMapper emailTrackRecordMapper;
+
+    private static final Logger logger = LoggerFactory.getLogger(EmailTrackRecordServiceImpl.class);
 
     /**
      * 查询邮件跟踪记录
@@ -276,5 +282,33 @@ public class EmailTrackRecordServiceImpl implements IEmailTrackRecordService
     public int recordEmailDelivered(String messageId)
     {
         return updateEmailStatus(messageId, "DELIVERED");
+    }
+
+    /**
+     * 记录邮件退信事件
+     * 
+     * @param messageId 邮件Message-ID
+     * @param bounceReason 退信原因
+     * @return 结果
+     */
+    @Override
+    public int recordEmailBounced(String messageId, String bounceReason)
+    {
+        try {
+            EmailTrackRecord record = selectEmailTrackRecordByMessageId(messageId);
+            if (record != null) {
+                record.setStatus("BOUNCED");
+                record.setUpdateTime(new Date());
+                // 可以在error_logs字段中记录退信原因
+                if (bounceReason != null && !bounceReason.isEmpty()) {
+                    record.setErrorLogs("退信原因: " + bounceReason);
+                }
+                return emailTrackRecordMapper.updateEmailTrackRecord(record);
+            }
+            return 0;
+        } catch (Exception e) {
+            logger.error("记录邮件退信失败: {}", messageId, e);
+            return 0;
+        }
     }
 }
