@@ -62,6 +62,14 @@
         <el-card>
           <div slot="header">
             <span>发送趋势</span>
+            <div style="float: right;">
+              <el-radio-group v-model="trendTimeRange" @change="handleTrendTimeRangeChange" size="mini">
+                <el-radio-button label="7">近一周</el-radio-button>
+                <el-radio-button label="30">近一个月</el-radio-button>
+                <el-radio-button label="180">近半年</el-radio-button>
+                <el-radio-button label="365">近一年</el-radio-button>
+              </el-radio-group>
+            </div>
           </div>
           <div class="chart-container">
             <div ref="sendTrendChart" style="height: 300px;"></div>
@@ -104,8 +112,12 @@
         </el-form-item>
         <el-form-item label="邮箱账号">
           <el-select v-model="queryParams.accountId" placeholder="请选择邮箱账号" clearable>
-            <el-option label="marketing@company.com" value="1"></el-option>
-            <el-option label="support@company.com" value="2"></el-option>
+            <el-option 
+              v-for="account in accounts" 
+              :key="account.value" 
+              :label="account.label" 
+              :value="account.value">
+            </el-option>
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -115,7 +127,7 @@
       </el-form>
 
       <!-- 统计表格 -->
-      <el-table :data="statisticsList" style="width: 100%">
+      <el-table :data="statisticsList" style="width: 100%" v-loading="loading">
         <el-table-column prop="date" label="日期" width="120"></el-table-column>
         <el-table-column prop="accountName" label="邮箱账号" width="180"></el-table-column>
         <el-table-column prop="totalSent" label="发送数" width="100"></el-table-column>
@@ -143,125 +155,374 @@
 </template>
 
 <script>
+import { getTodayStats, getTotalStats, getSendTrends, getReplyRates, getDetailedStats, getAccounts, exportStatistics } from '@/api/email/statistics'
+
 export default {
   name: 'EmailStatistics',
   data() {
     return {
+      loading: false,
       queryParams: {
         dateRange: [],
         accountId: ''
       },
       todayStats: {
-        totalSent: 156
+        totalSent: 0,
+        totalReceived: 0,
+        totalReplied: 0
       },
       totalStats: {
-        totalSent: 12580,
-        avgOpenRate: 45.2,
-        avgReplyRate: 23.5
+        totalSent: 0,
+        totalContacts: 0,
+        activeAccounts: 0,
+        avgOpenRate: 0,
+        avgReplyRate: 0
       },
-      statisticsList: [
-        {
-          date: '2024-01-15',
-          accountName: 'marketing@company.com',
-          totalSent: 156,
-          delivered: 148,
-          opened: 67,
-          replied: 23,
-          deliveryRate: 94.9,
-          openRate: 43.0,
-          replyRate: 14.7
-        },
-        {
-          date: '2024-01-14',
-          accountName: 'marketing@company.com',
-          totalSent: 142,
-          delivered: 135,
-          opened: 58,
-          replied: 19,
-          deliveryRate: 95.1,
-          openRate: 40.8,
-          replyRate: 13.4
-        },
-        {
-          date: '2024-01-13',
-          accountName: 'support@company.com',
-          totalSent: 89,
-          delivered: 85,
-          opened: 42,
-          replied: 15,
-          deliveryRate: 95.5,
-          openRate: 47.2,
-          replyRate: 16.9
-        }
-      ]
+      statisticsList: [],
+      accounts: [],
+      trendsData: {
+        dateLabels: [],
+        sendData: [],
+        receivedData: []
+      },
+      replyRatesData: [],
+      trendTimeRange: '7' // 默认近一周
     }
   },
   mounted() {
-    this.initCharts()
+    this.loadData()
   },
   methods: {
-    handleSearch() {
-      this.$message.info('查询功能待实现')
+    // 加载所有数据
+    async loadData() {
+      this.loading = true
+      try {
+        // 并行加载所有数据
+        const [todayRes, totalRes, trendsRes, replyRatesRes, accountsRes, detailedRes] = await Promise.allSettled([
+          getTodayStats(),
+          getTotalStats(),
+          getSendTrends(parseInt(this.trendTimeRange)),
+          getReplyRates(),
+          getAccounts(),
+          getDetailedStats()
+        ])
+
+        // 处理今日统计数据
+        if (todayRes.status === 'fulfilled' && todayRes.value.code === 200) {
+          const todayData = todayRes.value.data
+          this.todayStats = {
+            totalSent: todayData.sent || 0,
+            totalReceived: todayData.delivered || 0,
+            totalReplied: 0 // 今日回复数需要单独计算
+          }
+        }
+
+        // 处理总体统计数据
+        if (totalRes.status === 'fulfilled' && totalRes.value.code === 200) {
+          const totalData = totalRes.value.data
+          this.totalStats = {
+            totalSent: totalData.emails || 0,
+            totalContacts: 0, // 需要单独获取
+            activeAccounts: 0, // 需要单独获取
+            avgOpenRate: totalData.emails > 0 ? Math.round((totalData.opened / totalData.emails) * 100 * 10) / 10 : 0,
+            avgReplyRate: totalData.emails > 0 ? Math.round((totalData.replied / totalData.emails) * 100 * 10) / 10 : 0
+          }
+        }
+
+        // 处理趋势数据
+        if (trendsRes.status === 'fulfilled' && trendsRes.value.code === 200) {
+          this.trendsData = trendsRes.value.data
+        }
+
+        // 处理回复率数据
+        if (replyRatesRes.status === 'fulfilled' && replyRatesRes.value.code === 200) {
+          this.replyRatesData = replyRatesRes.value.data.accountReplyRates || []
+        }
+
+        // 处理账号列表
+        if (accountsRes.status === 'fulfilled' && accountsRes.value.code === 200) {
+          this.accounts = accountsRes.value.data
+        }
+
+        // 处理详细统计数据
+        if (detailedRes.status === 'fulfilled' && detailedRes.value.code === 200) {
+          this.statisticsList = detailedRes.value.data.statisticsList || []
+        }
+
+        // 初始化图表
+        this.$nextTick(() => {
+          this.initCharts()
+        })
+
+      } catch (error) {
+        console.error('加载统计数据失败:', error)
+        this.$message.error('加载统计数据失败')
+      } finally {
+        this.loading = false
+      }
     },
+
+    // 搜索功能
+    async handleSearch() {
+      this.loading = true
+      try {
+        const params = {}
+        if (this.queryParams.dateRange && this.queryParams.dateRange.length === 2) {
+          params.startDate = this.queryParams.dateRange[0]
+          params.endDate = this.queryParams.dateRange[1]
+        }
+        if (this.queryParams.accountId) {
+          params.accountId = this.queryParams.accountId
+        }
+
+        const response = await getDetailedStats(params)
+        if (response.code === 200) {
+          this.statisticsList = response.data.statisticsList || []
+          // 移除查询成功的提示，因为这是正常的查询操作
+        } else {
+          this.$message.error('查询失败')
+        }
+      } catch (error) {
+        console.error('查询失败:', error)
+        this.$message.error('查询失败')
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // 重置功能
     handleReset() {
       this.queryParams = {
         dateRange: [],
         accountId: ''
       }
+      this.loadData()
     },
-    handleExport() {
-      this.$message.success('导出功能待实现')
+
+    // 导出功能
+    async handleExport() {
+      try {
+        this.loading = true
+        
+        // 准备导出参数
+        const params = {}
+        
+        // 如果有筛选条件，添加到参数中
+        if (this.queryParams.dateRange && this.queryParams.dateRange.length === 2) {
+          params.startDate = this.queryParams.dateRange[0]
+          params.endDate = this.queryParams.dateRange[1]
+        }
+        if (this.queryParams.accountId) {
+          params.accountId = this.queryParams.accountId
+        }
+        
+        // 调用导出API
+        const response = await exportStatistics(params)
+        
+        // 创建下载链接
+        const blob = new Blob([response], { 
+          type: 'application/vnd.ms-excel' 
+        })
+        const url = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        
+        // 生成文件名
+        const now = new Date()
+        const dateStr = now.getFullYear() + 
+                       String(now.getMonth() + 1).padStart(2, '0') + 
+                       String(now.getDate()).padStart(2, '0')
+        link.download = `邮件详细统计_${dateStr}.csv`
+        
+        // 触发下载
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(url)
+        
+        this.$message.success('导出成功')
+        
+      } catch (error) {
+        console.error('导出失败:', error)
+        this.$message.error('导出失败: ' + (error.message || '未知错误'))
+      } finally {
+        this.loading = false
+      }
     },
+
+    // 处理时间范围变更
+    async handleTrendTimeRangeChange() {
+      try {
+        this.loading = true
+        const response = await getSendTrends(parseInt(this.trendTimeRange))
+        if (response.code === 200) {
+          this.trendsData = response.data
+          // 重新初始化发送趋势图表
+          this.$nextTick(() => {
+            this.initSendTrendChart()
+          })
+        } else {
+          this.$message.error('获取趋势数据失败')
+        }
+      } catch (error) {
+        console.error('获取趋势数据失败:', error)
+        this.$message.error('获取趋势数据失败')
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // 获取时间范围文本
+    getTimeRangeText(days) {
+      const dayMap = {
+        '7': '近7天发送趋势',
+        '30': '近30天发送趋势',
+        '180': '近半年发送趋势',
+        '365': '近一年发送趋势'
+      }
+      return dayMap[days] || '发送趋势'
+    },
+
+    // 获取X轴标签显示间隔
+    getXAxisInterval() {
+      const days = parseInt(this.trendTimeRange)
+      if (days <= 7) return 0 // 显示所有标签
+      if (days <= 30) return 1 // 每隔一个显示
+      if (days <= 180) return 4 // 每隔4个显示
+      return 9 // 每隔9个显示
+    },
+
+    // 获取X轴标签旋转角度
+    getXAxisRotate() {
+      const days = parseInt(this.trendTimeRange)
+      if (days <= 7) return 0 // 不旋转
+      if (days <= 30) return 0 // 不旋转
+      return 45 // 旋转45度
+    },
+
+    // 初始化图表
     initCharts() {
-      // 发送趋势图表
-      const sendTrendChart = this.$echarts.init(this.$refs.sendTrendChart)
+      this.initSendTrendChart()
+      this.initReplyRateChart()
+    },
+
+
+    // 初始化发送趋势图表
+    initSendTrendChart() {
+      if (!this.$refs.sendTrendChart) {
+        console.warn('发送趋势图表容器不存在')
+        return
+      }
+      
+      // 尝试多种方式获取ECharts
+      let echartsInstance = null
+      if (this.$echarts) {
+        echartsInstance = this.$echarts
+      } else if (window.echarts) {
+        echartsInstance = window.echarts
+      } else {
+        console.error('无法找到ECharts实例')
+        return
+      }
+      
+      try {
+        const sendTrendChart = echartsInstance.init(this.$refs.sendTrendChart)
+      const timeRangeText = this.getTimeRangeText(this.trendTimeRange)
       const sendTrendOption = {
         title: {
-          text: '近7天发送趋势',
+          text: timeRangeText,
           left: 'center'
         },
         tooltip: {
           trigger: 'axis'
         },
+        legend: {
+          data: ['发送', '接收'],
+          top: 30
+        },
         xAxis: {
           type: 'category',
-          data: ['1-09', '1-10', '1-11', '1-12', '1-13', '1-14', '1-15']
+          data: this.trendsData.dateLabels || [],
+          axisLabel: {
+            interval: this.getXAxisInterval(),
+            rotate: this.getXAxisRotate()
+          }
         },
         yAxis: {
           type: 'value'
         },
-        series: [{
-          data: [120, 132, 101, 134, 90, 142, 156],
-          type: 'line',
-          smooth: true,
-          itemStyle: {
-            color: '#409EFF'
+        series: [
+          {
+            name: '发送',
+            data: this.trendsData.sendData || [],
+            type: 'line',
+            smooth: true,
+            itemStyle: {
+              color: '#409EFF'
+            }
+          },
+          {
+            name: '接收',
+            data: this.trendsData.receivedData || [],
+            type: 'line',
+            smooth: true,
+            itemStyle: {
+              color: '#67C23A'
+            }
           }
-        }]
+        ]
       }
       sendTrendChart.setOption(sendTrendOption)
+      
+      // 强制重绘
+      setTimeout(() => {
+        sendTrendChart.resize()
+      }, 100)
+      
+      } catch (error) {
+        console.error('发送趋势图表初始化失败:', error)
+      }
+    },
 
-      // 回复率统计图表
-      const replyRateChart = this.$echarts.init(this.$refs.replyRateChart)
+    // 初始化回复率图表
+    initReplyRateChart() {
+      if (!this.$refs.replyRateChart) {
+        console.warn('回复率图表容器不存在')
+        return
+      }
+      
+      // 尝试多种方式获取ECharts
+      let echartsInstance = null
+      if (this.$echarts) {
+        echartsInstance = this.$echarts
+      } else if (window.echarts) {
+        echartsInstance = window.echarts
+      } else {
+        console.error('无法找到ECharts实例')
+        return
+      }
+      
+      try {
+        const replyRateChart = echartsInstance.init(this.$refs.replyRateChart)
       const replyRateOption = {
         title: {
           text: '各账号回复率对比',
           left: 'center'
         },
         tooltip: {
-          trigger: 'item'
+          trigger: 'item',
+          formatter: '{a} <br/>{b}: {c}% ({d}%)'
         },
         legend: {
           orient: 'vertical',
-          left: 'left'
+          left: 'left',
+          data: this.replyRatesData.map(item => item.name)
         },
         series: [{
+          name: '回复率',
           type: 'pie',
           radius: '50%',
-          data: [
-            { value: 14.7, name: 'marketing@company.com' },
-            { value: 16.9, name: 'support@company.com' }
-          ],
+          data: this.replyRatesData,
           emphasis: {
             itemStyle: {
               shadowBlur: 10,
@@ -272,6 +533,15 @@ export default {
         }]
       }
       replyRateChart.setOption(replyRateOption)
+      
+      // 强制重绘
+      setTimeout(() => {
+        replyRateChart.resize()
+      }, 100)
+      
+      } catch (error) {
+        console.error('回复率图表初始化失败:', error)
+      }
     }
   }
 }

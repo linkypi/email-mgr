@@ -47,6 +47,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="subject != null  and subject != ''"> and subject like concat('%', #{subject}, '%')</if>
             <if test="recipientType != null  and recipientType != ''"> and recipient_type = #{recipientType}</if>
             <if test="status != null  and status != ''"> and status = #{status}</if>
+            
+            <!-- 数据权限过滤 -->
+            <if test="params.dataScope != null and params.dataScope != ''">
+                and ${params.dataScope}
+            </if>
         </where>
         order by create_time desc
     </select>

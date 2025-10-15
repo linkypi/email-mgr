@@ -109,13 +109,44 @@ build_frontend() {
     fi
 }
 
+# 导出Docker镜像到tar文件
+export_images() {
+    print_message "导出Docker镜像到tar文件..."
+    
+    # 确保docker目录存在
+    mkdir -p .
+    
+    # 导出后端镜像
+    if docker images | grep -q "ruoyi-backend.*latest"; then
+        print_message "导出后端镜像..."
+        if docker save -o ruoyi-backend-latest.tar ruoyi-backend:latest; then
+            local backend_size=$(du -h ruoyi-backend-latest.tar | cut -f1)
+            print_message "后端镜像导出成功: ruoyi-backend-latest.tar (大小: $backend_size)"
+        else
+            print_warning "后端镜像导出失败"
+        fi
+    fi
+    
+    # 导出前端镜像
+    if docker images | grep -q "ruoyi-frontend.*latest"; then
+        print_message "导出前端镜像..."
+        if docker save -o ruoyi-frontend-latest.tar ruoyi-frontend:latest; then
+            local frontend_size=$(du -h ruoyi-frontend-latest.tar | cut -f1)
+            print_message "前端镜像导出成功: ruoyi-frontend-latest.tar (大小: $frontend_size)"
+        else
+            print_warning "前端镜像导出失败"
+        fi
+    fi
+}
+
 # 构建所有镜像
 build_all() {
     print_message "开始构建所有镜像..."
     copy_config_files
     build_backend
     build_frontend
-    print_message "所有镜像构建完成！"
+    export_images
+    print_message "所有镜像构建和导出完成！"
 }
 
 # 清理镜像
@@ -130,17 +161,25 @@ show_help() {
     echo "用法: $0 [选项]"
     echo ""
     echo "选项:"
-    echo "  backend    构建后端镜像"
-    echo "  frontend   构建前端镜像"
-    echo "  all        构建所有镜像（默认）"
+    echo "  backend    构建后端镜像并导出tar文件"
+    echo "  frontend   构建前端镜像并导出tar文件"
+    echo "  all        构建所有镜像并导出tar文件（默认）"
     echo "  clean      清理所有镜像"
     echo "  help       显示此帮助信息"
     echo ""
     echo "示例:"
-    echo "  $0              # 构建所有镜像"
-    echo "  $0 backend      # 只构建后端镜像"
-    echo "  $0 frontend     # 只构建前端镜像"
+    echo "  $0              # 构建所有镜像并导出tar文件"
+    echo "  $0 backend      # 只构建后端镜像并导出tar文件"
+    echo "  $0 frontend     # 只构建前端镜像并导出tar文件"
     echo "  $0 clean        # 清理镜像"
+    echo ""
+    echo "导出的tar文件:"
+    echo "  - ruoyi-backend-latest.tar    # 后端镜像"
+    echo "  - ruoyi-frontend-latest.tar   # 前端镜像"
+    echo ""
+    echo "在其他机器上加载镜像:"
+    echo "  docker load -i ruoyi-backend-latest.tar"
+    echo "  docker load -i ruoyi-frontend-latest.tar"
 }
 
 # 主函数
@@ -151,9 +190,11 @@ main() {
         "backend")
             copy_config_files
             build_backend
+            export_images
             ;;
         "frontend")
             build_frontend
+            export_images
             ;;
         "all")
             build_all

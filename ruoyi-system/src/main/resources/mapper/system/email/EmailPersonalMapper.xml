@@ -237,12 +237,46 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         </foreach>
     </delete>
 
-    <update id="markAsRead" parameterType="Long">
-        update email_personal set status = 'read' where email_id = #{emailId}
+    <update id="markAsRead" parameterType="Long[]">
+        update email_personal set status = 'read' where email_id in 
+        <foreach item="emailId" collection="array" open="(" separator="," close=")">
+            #{emailId}
+        </foreach>
     </update>
 
-    <update id="markAsStarred" parameterType="Long">
-        update email_personal set is_starred = 1 where email_id = #{emailId}
+    <update id="markAsUnread" parameterType="Long[]">
+        update email_personal set status = 'unread' where email_id in 
+        <foreach item="emailId" collection="array" open="(" separator="," close=")">
+            #{emailId}
+        </foreach>
+    </update>
+
+    <update id="markAsStarred" parameterType="Long[]">
+        update email_personal set is_starred = 1 where email_id in 
+        <foreach item="emailId" collection="array" open="(" separator="," close=")">
+            #{emailId}
+        </foreach>
+    </update>
+
+    <update id="unmarkAsStarred" parameterType="Long[]">
+        update email_personal set is_starred = 0 where email_id in 
+        <foreach item="emailId" collection="array" open="(" separator="," close=")">
+            #{emailId}
+        </foreach>
+    </update>
+
+    <update id="moveToDeleted" parameterType="Long[]">
+        update email_personal set status = 'deleted', delete_time = now() where email_id in 
+        <foreach item="emailId" collection="array" open="(" separator="," close=")">
+            #{emailId}
+        </foreach>
+    </update>
+
+    <update id="restoreFromDeleted" parameterType="Long[]">
+        update email_personal set status = 'read', delete_time = null, update_time = now() where email_id in 
+        <foreach item="emailId" collection="array" open="(" separator="," close=")">
+            #{emailId}
+        </foreach>
     </update>
 
     <update id="markAsImportant" parameterType="Long">
@@ -275,6 +309,87 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <select id="getDeletedUnreadCount" parameterType="Long" resultType="int">
         select count(1) from email_personal where status = 'deleted' and create_by = #{userId}
+    </select>
+
+    <select id="getEmailStatistics" resultType="java.util.Map">
+        select 
+            count(1) as totalEmails,
+            sum(case when status = 'unread' then 1 else 0 end) as unreadCount,
+            sum(case when email_type = 'inbox' then 1 else 0 end) as inboxCount,
+            sum(case when email_type = 'sent' then 1 else 0 end) as sentCount,
+            sum(case when is_starred = 1 then 1 else 0 end) as starredCount,
+            sum(case when status = 'deleted' then 1 else 0 end) as deletedCount
+        from email_personal
+    </select>
+
+    <!-- 统计查询 -->
+    <select id="countTotalEmails" resultType="long">
+        SELECT COUNT(*) FROM email_personal
+    </select>
+
+    <select id="countTodaySentEmails" parameterType="String" resultType="long">
+        SELECT COUNT(*) FROM email_personal 
+        WHERE email_type = 'sent' 
+        AND DATE(send_time) = #{date}
+    </select>
+
+    <select id="countRepliedEmails" resultType="long">
+        SELECT COUNT(*) FROM email_personal 
+        WHERE is_replied = 1
+    </select>
+
+    <select id="countTodayReceivedEmails" parameterType="String" resultType="long">
+        SELECT COUNT(*) FROM email_personal 
+        WHERE email_type = 'inbox' 
+        AND DATE(receive_time) = #{date}
+    </select>
+
+    <select id="getRecentEmails" parameterType="int" resultMap="EmailPersonalResult">
+        SELECT 
+            <include refid="selectEmailPersonalVo"/>
+        FROM email_personal 
+        ORDER BY create_time DESC 
+        LIMIT #{limit}
+    </select>
+
+    <select id="getRecentReplies" parameterType="int" resultMap="EmailPersonalResult">
+        SELECT 
+            <include refid="selectEmailPersonalVo"/>
+        FROM email_personal 
+        WHERE is_replied = 1
+        ORDER BY update_time DESC 
+        LIMIT #{limit}
+    </select>
+
+    <select id="countTodayRepliedEmails" parameterType="String" resultType="long">
+        SELECT COUNT(*) FROM email_personal 
+        WHERE is_replied = 1 
+        AND DATE(update_time) = #{date}
+    </select>
+
+    <select id="countTotalReceivedEmails" resultType="long">
+        SELECT COUNT(*) FROM email_personal 
+        WHERE email_type = 'inbox'
+    </select>
+
+    <select id="getDetailedStatistics" resultType="java.util.Map">
+        SELECT 
+            DATE(send_time) as date,
+            from_address as accountName,
+            COUNT(*) as totalSent,
+            COUNT(CASE WHEN email_type = 'inbox' THEN 1 END) as delivered,
+            COUNT(CASE WHEN status = 'read' THEN 1 END) as opened,
+            COUNT(CASE WHEN is_replied = 1 THEN 1 END) as replied,
+            ROUND(COUNT(CASE WHEN email_type = 'inbox' THEN 1 END) * 100.0 / COUNT(*), 1) as deliveryRate,
+            ROUND(COUNT(CASE WHEN status = 'read' THEN 1 END) * 100.0 / COUNT(*), 1) as openRate,
+            ROUND(COUNT(CASE WHEN is_replied = 1 THEN 1 END) * 100.0 / COUNT(*), 1) as replyRate
+        FROM email_personal 
+        WHERE send_time BETWEEN #{startDate} AND #{endDate}
+        <if test="accountId != null">
+            AND from_address = (SELECT email_address FROM email_account WHERE account_id = #{accountId})
+        </if>
+        GROUP BY DATE(send_time), from_address
+        ORDER BY date DESC
     </select>
 
 </mapper>

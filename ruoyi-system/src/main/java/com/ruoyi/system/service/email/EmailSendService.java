@@ -4,10 +4,12 @@ import com.ruoyi.system.domain.email.EmailAccount;
 import com.ruoyi.system.domain.email.EmailContact;
 import com.ruoyi.system.domain.email.EmailSendTask;
 import com.ruoyi.system.domain.email.EmailTemplate;
+import com.ruoyi.system.domain.email.EmailTaskExecution;
 import com.ruoyi.system.service.email.IEmailAccountService;
 import com.ruoyi.system.service.email.IEmailContactService;
 import com.ruoyi.system.service.email.IEmailSendTaskService;
 import com.ruoyi.system.service.email.IEmailTemplateService;
+import com.ruoyi.system.service.email.IEmailTaskExecutionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,12 +24,15 @@ import javax.mail.internet.MimeMultipart;
 import javax.mail.internet.MimeBodyPart;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import com.ruoyi.common.utils.SecurityUtils;
+import com.ruoyi.common.utils.ip.IpUtils;
 
 @Service
 public class EmailSendService {
@@ -48,6 +53,9 @@ public class EmailSendService {
 
     @Autowired
     private IEmailStatisticsService emailStatisticsService;
+
+    @Autowired
+    private IEmailTaskExecutionService emailTaskExecutionService;
 
     @Autowired
     private EmailServiceMonitorService emailServiceMonitorService;
@@ -91,12 +99,46 @@ public class EmailSendService {
     @Async
     public void startSendTask(Long taskId) {
         logger.info("开始执行邮件发送任务: {}", taskId);
+        EmailTaskExecution execution = null;
         try {
             EmailSendTask task = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
             if (task == null) {
                 logger.error("任务不存在: {}", taskId);
                 throw new RuntimeException("Task not found: " + taskId);
             }
+
+            // 获取当前用户ID，用于后续的邮件跟踪记录
+            Long currentUserId = SecurityUtils.getUserId();
+            logger.info("获取当前用户ID: {}", currentUserId);
+            
+            // 检查是否有未完成的执行记录，如果有则先完成它们
+            List<EmailTaskExecution> existingExecutions = emailTaskExecutionService.selectExecutionsByTaskId(taskId);
+            for (EmailTaskExecution existingExecution : existingExecutions) {
+                if ("1".equals(existingExecution.getExecutionStatus())) { // 执行中
+                    logger.info("发现未完成的执行记录，ID: {}，将其标记为已完成", existingExecution.getExecutionId());
+                    existingExecution.setExecutionStatus("2"); // 已完成
+                    existingExecution.setEndTime(new Date());
+                    existingExecution.setUpdateTime(new Date());
+                    emailTaskExecutionService.updateEmailTaskExecution(existingExecution);
+                }
+            }
+            
+            // 创建任务执行记录
+            execution = new EmailTaskExecution();
+            execution.setTaskId(taskId);
+            execution.setExecutionStatus("1"); // 执行中
+            execution.setExecutionUser(SecurityUtils.getUsername());
+            execution.setExecutionIp(IpUtils.getIpAddr());
+            execution.setStartTime(new Date());
+            execution.setCreateBy(SecurityUtils.getUsername());
+            execution.setCreateTime(new Date());
+            
+            emailTaskExecutionService.insertEmailTaskExecution(execution);
+            logger.info("创建任务执行记录成功，执行ID: {}", execution.getExecutionId());
+            
+            // 创建final引用用于lambda表达式
+            final EmailTaskExecution finalExecution = execution;
+            final Long finalUserId = currentUserId;
 
             // 更新任务状态为发送中
             task.setStatus("1");
@@ -131,6 +173,19 @@ public class EmailSendService {
 
             logger.info("准备发送邮件，收件人数量: {}", recipients.size());
 
+            // 初始化执行日志
+            StringBuilder executionLog = new StringBuilder();
+            executionLog.append("=== 邮件发送任务开始 ===\n");
+            executionLog.append("任务ID: ").append(taskId).append("\n");
+            executionLog.append("开始时间: ").append(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())).append("\n");
+            executionLog.append("执行人: ").append(SecurityUtils.getUsername()).append("\n");
+            executionLog.append("收件人数量: ").append(recipients.size()).append("\n");
+            executionLog.append("发件人账户数量: ").append(senderAccounts.size()).append("\n");
+            executionLog.append("\n");
+            finalExecution.setExecutionLog(executionLog.toString());
+            finalExecution.setUpdateTime(new Date());
+            emailTaskExecutionService.updateEmailTaskExecution(finalExecution);
+
             // 初始化任务统计
             task.setTotalCount(recipients.size());
             task.setSentCount(0);
@@ -142,14 +197,17 @@ public class EmailSendService {
             // 使用线程池异步发送邮件
             CompletableFuture<Void> sendingTask = CompletableFuture.runAsync(() -> {
                 int senderIndex = 0;
+                int successCount = 0;
+                int failedCount = 0;
                 
-                for (EmailContact recipient : recipients) {
-                    // 检查任务状态，如果被暂停或取消则停止发送
-                    EmailSendTask currentTask = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
-                    if (currentTask == null || !"1".equals(currentTask.getStatus())) {
-                        logger.info("任务状态已改变，停止发送, 任务名称：{}, 任务ID：{}", task.getTaskName(), taskId);
-                        break;
-                    }
+                try {
+                    for (EmailContact recipient : recipients) {
+                        // 检查任务状态，如果被暂停或取消则停止发送
+                        EmailSendTask currentTask = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
+                        if (currentTask == null || !"1".equals(currentTask.getStatus())) {
+                            logger.info("任务状态已改变，停止发送, 任务名称：{}, 任务ID：{}", task.getTaskName(), taskId);
+                            break;
+                        }
                     
                     // 获取当前可用的发件邮箱（每次重新检查可用性）
                     EmailAccount currentSender = getCurrentAvailableSender(senderAccounts, senderIndex);
@@ -169,15 +227,19 @@ public class EmailSendService {
                         String content = getEmailContent(template, task, recipient);
                         
                         // 使用 EmailListener 发送带跟踪的邮件
+                        logger.info("开始发送邮件: {} -> {}, 任务ID: {}", currentSender.getEmailAddress(), recipient.getEmail(), taskId);
+                        
                         EmailListener.EmailSendResult emailSendResult = emailListener.sendEmailWithTracking(
                                 currentSender,
                                 recipient.getEmail(),
                                 subject,
                                 content,
-                                taskId
+                                taskId,
+                                finalUserId
                         );
 
                         if (emailSendResult.isSuccess()) {
+                            successCount++;
                             // 更新发送计数
                             synchronized (this) {
                                 EmailSendTask latestTask = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
@@ -188,10 +250,76 @@ public class EmailSendService {
                             // 更新邮箱发送计数
                             emailSendLimitService.updateSendCount(currentSender.getAccountId());
                             
-                            logger.debug("邮件发送成功: {} -> {}, MessageID: {}", 
+                            logger.info("邮件发送成功: {} -> {}, MessageID: {}", 
                                 currentSender.getEmailAddress(), recipient.getEmail(), emailSendResult.getMessageId());
+                            
+                            // 实时更新执行记录统计
+                            if (finalExecution != null) {
+                                String logMsg = String.format("[%s] 邮件发送成功: %s -> %s, MessageID: %s\n", 
+                                    new java.text.SimpleDateFormat("HH:mm:ss").format(new Date()),
+                                    currentSender.getEmailAddress(), recipient.getEmail(), emailSendResult.getMessageId());
+                                finalExecution.setExecutionLog(finalExecution.getExecutionLog() + logMsg);
+                                
+                                // 实时更新统计字段
+                                finalExecution.setTotalCount(recipients.size());
+                                finalExecution.setSentCount(successCount + failedCount);
+                                finalExecution.setSuccessCount(successCount);
+                                finalExecution.setFailedCount(failedCount);
+                                
+                                finalExecution.setUpdateTime(new Date());
+                                emailTaskExecutionService.updateEmailTaskExecution(finalExecution);
+                                logger.debug("执行记录统计已更新: 总数={}, 已发送={}, 成功={}, 失败={}", 
+                                           finalExecution.getTotalCount(), finalExecution.getSentCount(), 
+                                           finalExecution.getSuccessCount(), finalExecution.getFailedCount());
+                            }
                         } else {
-                            logger.error("邮件发送失败: {} -> {}", currentSender.getEmailAddress(), recipient.getEmail());
+                            failedCount++;
+                            String errorMsg = String.format("邮件发送失败: %s -> %s, 错误信息: %s", 
+                                currentSender.getEmailAddress(), recipient.getEmail(), emailSendResult.getErrorMessage());
+                            logger.error(errorMsg);
+                            
+                            // 实时更新执行记录统计（失败情况）
+                            if (finalExecution != null) {
+                                String logMsg = String.format("[%s] 邮件发送失败: %s -> %s, 错误: %s\n", 
+                                    new java.text.SimpleDateFormat("HH:mm:ss").format(new Date()),
+                                    currentSender.getEmailAddress(), recipient.getEmail(), emailSendResult.getErrorMessage());
+                                finalExecution.setExecutionLog(finalExecution.getExecutionLog() + logMsg);
+                                
+                                // 实时更新统计字段
+                                finalExecution.setTotalCount(recipients.size());
+                                finalExecution.setSentCount(successCount + failedCount);
+                                finalExecution.setSuccessCount(successCount);
+                                finalExecution.setFailedCount(failedCount);
+                                
+                                finalExecution.setUpdateTime(new Date());
+                                emailTaskExecutionService.updateEmailTaskExecution(finalExecution);
+                                logger.debug("执行记录统计已更新（失败）: 总数={}, 已发送={}, 成功={}, 失败={}", 
+                                           finalExecution.getTotalCount(), finalExecution.getSentCount(), 
+                                           finalExecution.getSuccessCount(), finalExecution.getFailedCount());
+                            }
+                            
+                            // 记录错误信息到执行记录
+                            if (finalExecution != null) {
+                                String currentErrorMsg = finalExecution.getErrorMessage();
+                                if (currentErrorMsg == null || currentErrorMsg.isEmpty()) {
+                                    finalExecution.setErrorMessage(errorMsg);
+                                } else {
+                                    finalExecution.setErrorMessage(currentErrorMsg + "; " + errorMsg);
+                                }
+                                
+                                // 记录失败日志到执行记录
+                                String logMsg = String.format("[%s] 邮件发送失败: %s -> %s, 错误: %s\n", 
+                                    new java.text.SimpleDateFormat("HH:mm:ss").format(new Date()),
+                                    currentSender.getEmailAddress(), recipient.getEmail(), emailSendResult.getErrorMessage());
+                                finalExecution.setExecutionLog(finalExecution.getExecutionLog() + logMsg);
+                                finalExecution.setUpdateTime(new Date());
+                                emailTaskExecutionService.updateEmailTaskExecution(finalExecution);
+                            }
+                            
+                            // 即使发送失败，跟踪记录也应该已经创建，记录失败状态
+                            if (emailSendResult.getMessageId() != null) {
+                                logger.info("邮件发送失败但跟踪记录已创建: MessageID={}", emailSendResult.getMessageId());
+                            }
                         }
 
                         // 切换到下一个发件邮箱
@@ -207,27 +335,95 @@ public class EmailSendService {
                         }
                         
                     } catch (Exception e) {
-                        logger.error("发送邮件失败: {} -> {}, 错误: {}", currentSender.getEmailAddress(), recipient.getEmail(), e.getMessage());
+                        failedCount++;
+                        String errorMsg = String.format("发送邮件失败: %s -> %s, 错误: %s", 
+                            currentSender.getEmailAddress(), recipient.getEmail(), e.getMessage());
+                        logger.error(errorMsg);
+                        
+                        // 记录错误信息到执行记录
+                        if (finalExecution != null) {
+                            String currentErrorMsg = finalExecution.getErrorMessage();
+                            if (currentErrorMsg == null || currentErrorMsg.isEmpty()) {
+                                finalExecution.setErrorMessage(errorMsg);
+                            } else {
+                                finalExecution.setErrorMessage(currentErrorMsg + "; " + errorMsg);
+                            }
+                            
+                            // 记录异常日志到执行记录
+                            String logMsg = String.format("[%s] 邮件发送异常: %s -> %s, 错误: %s\n", 
+                                new java.text.SimpleDateFormat("HH:mm:ss").format(new Date()),
+                                currentSender.getEmailAddress(), recipient.getEmail(), e.getMessage());
+                            finalExecution.setExecutionLog(finalExecution.getExecutionLog() + logMsg);
+                            finalExecution.setUpdateTime(new Date());
+                            emailTaskExecutionService.updateEmailTaskExecution(finalExecution);
+                        }
+                    }
+                }
+                
+                // 任务完成，更新执行记录状态
+                try {
+                    EmailSendTask finalTask = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
+                    if (finalTask != null) {
+                        logger.info("邮件发送任务完成: {}, 成功: {}, 失败: {}", taskId, successCount, failedCount);
+                        finalTask.setStatus("2"); // 完成
+                        emailSendTaskService.updateEmailSendTask(finalTask);
+                        
+                        // 更新任务执行记录状态为完成
+                        if (finalExecution != null) {
+                            finalExecution.setExecutionStatus("2"); // 已完成
+                            finalExecution.setEndTime(new Date());
+                            finalExecution.setTotalCount(recipients.size());
+                            finalExecution.setSentCount(successCount + failedCount);
+                            finalExecution.setSuccessCount(successCount);
+                            finalExecution.setFailedCount(failedCount);
+                            
+                            // 添加任务完成日志
+                            String completionLog = String.format("\n=== 邮件发送任务完成 ===\n");
+                            completionLog += String.format("结束时间: %s\n", new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+                            completionLog += String.format("总收件人: %d\n", recipients.size());
+                            completionLog += String.format("成功发送: %d\n", successCount);
+                            completionLog += String.format("发送失败: %d\n", failedCount);
+                            completionLog += String.format("成功率: %.2f%%\n", recipients.size() > 0 ? (successCount * 100.0 / recipients.size()) : 0);
+                            finalExecution.setExecutionLog(finalExecution.getExecutionLog() + completionLog);
+                            
+                            finalExecution.setUpdateTime(new Date());
+                            emailTaskExecutionService.updateEmailTaskExecution(finalExecution);
+                            logger.info("任务执行记录已更新为完成状态，执行ID: {}", finalExecution.getExecutionId());
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.error("更新任务完成状态失败: {}", e.getMessage(), e);
+                }
+                
+                } catch (Exception e) {
+                    logger.error("邮件发送任务执行异常: {}", e.getMessage(), e);
+                    try {
+                        EmailSendTask finalTask = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
+                        if (finalTask != null) {
+                            finalTask.setStatus("4"); // 失败
+                            emailSendTaskService.updateEmailSendTask(finalTask);
+                        }
+                        
+                        // 更新任务执行记录状态为失败
+                        if (finalExecution != null) {
+                            finalExecution.setExecutionStatus("3"); // 执行失败
+                            finalExecution.setEndTime(new Date());
+                            finalExecution.setErrorMessage(e.getMessage());
+                            finalExecution.setUpdateTime(new Date());
+                            emailTaskExecutionService.updateEmailTaskExecution(finalExecution);
+                        }
+                    } catch (Exception ex) {
+                        logger.error("更新任务失败状态失败: {}", ex.getMessage());
                     }
                 }
             }, executorService);
 
             // 等待发送完成（不阻塞主线程池）
             sendingTask.whenComplete((result, throwable) -> {
-                try {
-                    EmailSendTask finalTask = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
-                    if (finalTask != null) {
-                        if (throwable != null) {
-                            logger.error("邮件发送任务异常: {}", throwable.getMessage());
-                            finalTask.setStatus("4"); // 失败
-                        } else {
-                            logger.info("邮件发送任务完成: {}", taskId);
-                            finalTask.setStatus("2"); // 完成
-                        }
-                        emailSendTaskService.updateEmailSendTask(finalTask);
-                    }
-                } catch (Exception e) {
-                    logger.error("更新任务状态失败: {}", e.getMessage());
+                if (throwable != null) {
+                    logger.error("邮件发送任务异步执行异常: {}", throwable.getMessage(), throwable);
+                } else {
+                    logger.info("邮件发送任务异步执行完成: {}", taskId);
                 }
             });
 
@@ -471,12 +667,42 @@ public class EmailSendService {
      */
     public void startSendTaskWithLongConnection(Long taskId) {
         logger.info("使用长连接开始执行邮件发送任务: {}", taskId);
+        EmailTaskExecution execution = null;
         try {
             EmailSendTask task = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
             if (task == null) {
                 logger.error("任务不存在: {}", taskId);
                 throw new RuntimeException("Task not found: " + taskId);
             }
+
+            // 获取当前用户ID，用于后续的邮件跟踪记录
+            Long currentUserId = SecurityUtils.getUserId();
+            logger.info("获取当前用户ID: {}", currentUserId);
+
+            // 检查是否有未完成的执行记录，如果有则先完成它们
+            List<EmailTaskExecution> existingExecutions = emailTaskExecutionService.selectExecutionsByTaskId(taskId);
+            for (EmailTaskExecution existingExecution : existingExecutions) {
+                if ("1".equals(existingExecution.getExecutionStatus())) { // 执行中
+                    logger.info("发现未完成的执行记录，ID: {}，将其标记为已完成", existingExecution.getExecutionId());
+                    existingExecution.setExecutionStatus("2"); // 已完成
+                    existingExecution.setEndTime(new Date());
+                    existingExecution.setUpdateTime(new Date());
+                    emailTaskExecutionService.updateEmailTaskExecution(existingExecution);
+                }
+            }
+
+            // 创建任务执行记录
+            execution = new EmailTaskExecution();
+            execution.setTaskId(taskId);
+            execution.setExecutionStatus("1"); // 执行中
+            execution.setExecutionUser(SecurityUtils.getUsername());
+            execution.setExecutionIp(IpUtils.getIpAddr());
+            execution.setStartTime(new Date());
+            execution.setCreateBy(SecurityUtils.getUsername());
+            execution.setCreateTime(new Date());
+            
+            emailTaskExecutionService.insertEmailTaskExecution(execution);
+            logger.info("创建长连接任务执行记录成功，执行ID: {}", execution.getExecutionId());
 
             // 更新任务状态为发送中
             task.setStatus("1");
@@ -507,7 +733,7 @@ public class EmailSendService {
             
             if (hasLongConnection && isConnectionHealthy) {
                 logger.info("使用健康的长连接发送邮件，账户: {}, 健康度: {}", account.getEmailAddress(), healthScore);
-                sendWithLongConnection(task, account);
+                sendWithLongConnection(task, account, currentUserId, execution);
             } else if (hasLongConnection && !isConnectionHealthy) {
                 logger.warn("长连接存在但不健康 (健康度: {})，使用普通连接发送邮件，账户: {}", healthScore, account.getEmailAddress());
                 // 回退到普通发送方式
@@ -526,6 +752,15 @@ public class EmailSendService {
                     task.setStatus("4"); // 失败
                     emailSendTaskService.updateEmailSendTask(task);
                 }
+                
+                // 更新任务执行记录状态为失败
+                if (execution != null) {
+                    execution.setExecutionStatus("3"); // 执行失败
+                    execution.setEndTime(new Date());
+                    execution.setErrorMessage(e.getMessage());
+                    execution.setUpdateTime(new Date());
+                    emailTaskExecutionService.updateEmailTaskExecution(execution);
+                }
             } catch (Exception ex) {
                 logger.error("更新任务状态失败: {}", ex.getMessage());
             }
@@ -536,7 +771,7 @@ public class EmailSendService {
      * 使用长连接发送邮件
      * 现在使用 sendEmailWithTracking 来确保邮件追踪功能
      */
-    private void sendWithLongConnection(EmailSendTask task, EmailAccount account) throws Exception {
+    private void sendWithLongConnection(EmailSendTask task, EmailAccount account, Long userId, EmailTaskExecution execution) throws Exception {
         // 获取邮件模板（如果使用模板）
         EmailTemplate template;
         if (task.getTemplateId() != null) {
@@ -556,6 +791,21 @@ public class EmailSendService {
         }
 
         logger.info("准备使用长连接发送邮件（带追踪功能），收件人数量: {}", recipients.size());
+
+        // 初始化长连接执行日志
+        if (execution != null) {
+            StringBuilder executionLog = new StringBuilder();
+            executionLog.append("=== 长连接邮件发送任务开始 ===\n");
+            executionLog.append("任务ID: ").append(task.getTaskId()).append("\n");
+            executionLog.append("开始时间: ").append(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())).append("\n");
+            executionLog.append("执行人: ").append(SecurityUtils.getUsername()).append("\n");
+            executionLog.append("收件人数量: ").append(recipients.size()).append("\n");
+            executionLog.append("发件人账户: ").append(account.getEmailAddress()).append("\n");
+            executionLog.append("\n");
+            execution.setExecutionLog(executionLog.toString());
+            execution.setUpdateTime(new Date());
+            emailTaskExecutionService.updateEmailTaskExecution(execution);
+        }
 
         // 初始化任务统计
         task.setTotalCount(recipients.size());
@@ -590,12 +840,15 @@ public class EmailSendService {
                     String content = getEmailContent(template, task, recipient);
                     
                     // 使用 EmailListener 发送带跟踪的邮件（长连接方式）
+                    logger.info("开始长连接发送邮件: {} -> {}, 任务ID: {}", account.getEmailAddress(), recipient.getEmail(), task.getTaskId());
+                    
                     EmailListener.EmailSendResult emailSendResult = emailListener.sendEmailWithTracking(
                             account,
                             recipient.getEmail(),
                             subject,
                             content,
-                            task.getTaskId()
+                            task.getTaskId(),
+                            userId
                     );
 
                     if (emailSendResult.isSuccess()) {
@@ -611,8 +864,58 @@ public class EmailSendService {
                         
                         logger.debug("长连接邮件发送成功: {} -> {}, MessageID: {}", 
                             account.getEmailAddress(), recipient.getEmail(), emailSendResult.getMessageId());
+                        
+                        // 实时更新执行记录统计
+                        if (execution != null) {
+                            String logMsg = String.format("[%s] 长连接邮件发送成功: %s -> %s, MessageID: %s\n", 
+                                new java.text.SimpleDateFormat("HH:mm:ss").format(new Date()),
+                                account.getEmailAddress(), recipient.getEmail(), emailSendResult.getMessageId());
+                            execution.setExecutionLog(execution.getExecutionLog() + logMsg);
+                            
+                            // 实时更新统计字段
+                            execution.setTotalCount(recipients.size());
+                            execution.setSentCount(execution.getSentCount() + 1);
+                            execution.setSuccessCount(execution.getSuccessCount() + 1);
+                            
+                            execution.setUpdateTime(new Date());
+                            emailTaskExecutionService.updateEmailTaskExecution(execution);
+                            logger.debug("长连接执行记录统计已更新: 总数={}, 已发送={}, 成功={}, 失败={}", 
+                                       execution.getTotalCount(), execution.getSentCount(), 
+                                       execution.getSuccessCount(), execution.getFailedCount());
+                        }
                     } else {
-                        logger.error("长连接邮件发送失败: {} -> {}", account.getEmailAddress(), recipient.getEmail());
+                        String errorMsg = String.format("长连接邮件发送失败: %s -> %s, 错误: %s", 
+                            account.getEmailAddress(), recipient.getEmail(), 
+                            emailSendResult.getErrorMessage() != null ? emailSendResult.getErrorMessage() : "未知错误");
+                        logger.error(errorMsg);
+                        
+                        // 实时更新执行记录统计（失败情况）
+                        if (execution != null) {
+                            String currentErrorMsg = execution.getErrorMessage();
+                            if (currentErrorMsg == null || currentErrorMsg.isEmpty()) {
+                                execution.setErrorMessage(errorMsg);
+                            } else {
+                                execution.setErrorMessage(currentErrorMsg + "; " + errorMsg);
+                            }
+                            
+                            // 记录失败日志到执行记录
+                            String logMsg = String.format("[%s] 长连接邮件发送失败: %s -> %s, 错误: %s\n", 
+                                new java.text.SimpleDateFormat("HH:mm:ss").format(new Date()),
+                                account.getEmailAddress(), recipient.getEmail(), 
+                                emailSendResult.getErrorMessage() != null ? emailSendResult.getErrorMessage() : "未知错误");
+                            execution.setExecutionLog(execution.getExecutionLog() + logMsg);
+                            
+                            // 实时更新统计字段
+                            execution.setTotalCount(recipients.size());
+                            execution.setSentCount(execution.getSentCount() + 1);
+                            execution.setFailedCount(execution.getFailedCount() + 1);
+                            
+                            execution.setUpdateTime(new Date());
+                            emailTaskExecutionService.updateEmailTaskExecution(execution);
+                            logger.debug("长连接执行记录统计已更新（失败）: 总数={}, 已发送={}, 成功={}, 失败={}", 
+                                       execution.getTotalCount(), execution.getSentCount(), 
+                                       execution.getSuccessCount(), execution.getFailedCount());
+                        }
                     }
 
                     // 发送间隔
@@ -621,12 +924,31 @@ public class EmailSendService {
                     }
                 }
                 
-                // 发送完成，更新任务状态
+                // 发送完成，更新任务状态和执行记录
                 EmailSendTask finalTask = emailSendTaskService.selectEmailSendTaskByTaskId(task.getTaskId());
                 if (finalTask != null) {
                     logger.info("长连接邮件发送任务完成: {}", task.getTaskId());
                     finalTask.setStatus("2"); // 完成
                     emailSendTaskService.updateEmailSendTask(finalTask);
+                    
+                    // 更新任务执行记录状态为完成
+                    if (execution != null) {
+                        execution.setExecutionStatus("2"); // 已完成
+                        execution.setEndTime(new Date());
+                        
+                        // 添加任务完成日志
+                        String completionLog = String.format("\n=== 长连接邮件发送任务完成 ===\n");
+                        completionLog += String.format("结束时间: %s\n", new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+                        completionLog += String.format("总收件人: %d\n", recipients.size());
+                        completionLog += String.format("成功发送: %d\n", execution.getSuccessCount());
+                        completionLog += String.format("发送失败: %d\n", execution.getFailedCount());
+                        completionLog += String.format("成功率: %.2f%%\n", recipients.size() > 0 ? (execution.getSuccessCount() * 100.0 / recipients.size()) : 0);
+                        execution.setExecutionLog(execution.getExecutionLog() + completionLog);
+                        
+                        execution.setUpdateTime(new Date());
+                        emailTaskExecutionService.updateEmailTaskExecution(execution);
+                        logger.info("长连接任务执行记录已更新为完成状态，执行ID: {}", execution.getExecutionId());
+                    }
                 }
                 
             } catch (Exception e) {
@@ -636,6 +958,16 @@ public class EmailSendService {
                     if (finalTask != null) {
                         finalTask.setStatus("4"); // 失败
                         emailSendTaskService.updateEmailSendTask(finalTask);
+                    }
+                    
+                    // 更新任务执行记录状态为失败
+                    if (execution != null) {
+                        execution.setExecutionStatus("3"); // 执行失败
+                        execution.setEndTime(new Date());
+                        execution.setErrorMessage(e.getMessage());
+                        execution.setUpdateTime(new Date());
+                        emailTaskExecutionService.updateEmailTaskExecution(execution);
+                        logger.info("长连接任务执行记录已更新为失败状态，执行ID: {}", execution.getExecutionId());
                     }
                 } catch (Exception ex) {
                     logger.error("更新长连接任务状态失败: {}", ex.getMessage());

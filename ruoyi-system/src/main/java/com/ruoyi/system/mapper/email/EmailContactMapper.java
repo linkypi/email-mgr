@@ -122,5 +122,12 @@ public interface EmailContactMapper
      * @return 结果
      */
     public int batchUpdateContactStatistics(List<Long> contactIds);
+
+    /**
+     * 统计总联系人数量
+     * 
+     * @return 总联系人数量
+     */
+    public long countTotalContacts();
 }
 

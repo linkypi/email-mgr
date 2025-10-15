@@ -28,14 +28,23 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="updateBy"    column="update_by"    />
         <result property="updateTime"    column="update_time"    />
         <result property="deleted"    column="deleted"    />
+        <result property="isStarred"    column="is_starred"    />
+        <result property="isImportant"    column="is_important"    />
+        <result property="isRead"    column="is_read"    />
+        <result property="folderType"    column="folder_type"    />
+        <result property="userId"    column="user_id"    />
+        <result property="readTime"    column="read_time"    />
+        <result property="starredTime"    column="starred_time"    />
+        <!-- <result property="receiveTime"    column="receive_time"    /> -->
     </resultMap>
 
     <sql id="selectEmailTrackRecordVo">
-        select id, task_id, message_id, subject, recipient, sender, content, status, sent_time, delivered_time, opened_time, replied_time, clicked_time, retry_count, error_logs, account_id, tracking_pixel_url, tracking_link_url, create_by, create_time, update_by, update_time, deleted from email_track_record
+        id, task_id, message_id, subject, recipient, sender, content, status, sent_time, delivered_time, opened_time, replied_time, clicked_time, retry_count, error_logs, account_id, tracking_pixel_url, tracking_link_url, create_by, create_time, update_by, update_time, deleted, is_starred, is_important, is_read, folder_type, user_id, read_time, starred_time
     </sql>
 
     <select id="selectEmailTrackRecordList" parameterType="EmailTrackRecord" resultMap="EmailTrackRecordResult">
-        <include refid="selectEmailTrackRecordVo"/>
+        SELECT <include refid="selectEmailTrackRecordVo"/>
+        FROM email_track_record
         <where>  
             <if test="taskId != null "> and task_id = #{taskId}</if>
             <if test="messageId != null  and messageId != ''"> and message_id = #{messageId}</if>
@@ -50,29 +59,42 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </select>
     
     <select id="selectEmailTrackRecordById" parameterType="Long" resultMap="EmailTrackRecordResult">
-        <include refid="selectEmailTrackRecordVo"/>
+        SELECT <include refid="selectEmailTrackRecordVo"/>
+        FROM email_track_record
         where id = #{id} and deleted = '0'
     </select>
 
     <select id="selectEmailTrackRecordByMessageId" parameterType="String" resultMap="EmailTrackRecordResult">
-        <include refid="selectEmailTrackRecordVo"/>
+        SELECT <include refid="selectEmailTrackRecordVo"/>
+        FROM email_track_record
         where message_id = #{messageId} and deleted = '0'
     </select>
 
+    <select id="selectEmailTrackRecordBySubjectFuzzy" parameterType="String" resultMap="EmailTrackRecordResult">
+        SELECT <include refid="selectEmailTrackRecordVo"/>
+        FROM email_track_record
+        where subject = #{subject} and deleted = '0'
+        order by create_time desc
+        limit 10
+    </select>
+
     <select id="selectEmailTrackRecordByTaskId" parameterType="Long" resultMap="EmailTrackRecordResult">
-        <include refid="selectEmailTrackRecordVo"/>
+        SELECT <include refid="selectEmailTrackRecordVo"/>
+        FROM email_track_record
         where task_id = #{taskId} and deleted = '0'
         order by create_time desc
     </select>
 
     <select id="selectEmailTrackRecordByAccountId" parameterType="Long" resultMap="EmailTrackRecordResult">
-        <include refid="selectEmailTrackRecordVo"/>
+        SELECT <include refid="selectEmailTrackRecordVo"/>
+        FROM email_track_record
         where account_id = #{accountId} and deleted = '0'
         order by create_time desc
     </select>
 
     <select id="selectEmailTrackRecordByStatus" parameterType="String" resultMap="EmailTrackRecordResult">
-        <include refid="selectEmailTrackRecordVo"/>
+        SELECT <include refid="selectEmailTrackRecordVo"/>
+        FROM email_track_record
         where status = #{status} and deleted = '0'
         order by create_time desc
     </select>
@@ -105,6 +127,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="deliveredTime != null">delivered_time,</if>
             <if test="openedTime != null">opened_time,</if>
             <if test="repliedTime != null">replied_time,</if>
+            <!-- <if test="receiveTime != null">receive_time,</if> -->
             <if test="clickedTime != null">clicked_time,</if>
             <if test="retryCount != null">retry_count,</if>
             <if test="errorLogs != null">error_logs,</if>
@@ -116,6 +139,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="updateBy != null">update_by,</if>
             <if test="updateTime != null">update_time,</if>
             <if test="deleted != null">deleted,</if>
+            <if test="isStarred != null">is_starred,</if>
+            <if test="isImportant != null">is_important,</if>
+            <if test="isRead != null">is_read,</if>
+            <if test="folderType != null">folder_type,</if>
+            <if test="userId != null">user_id,</if>
+            <if test="readTime != null">read_time,</if>
+            <if test="starredTime != null">starred_time,</if>
          </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="taskId != null">#{taskId},</if>
@@ -129,6 +159,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="deliveredTime != null">#{deliveredTime},</if>
             <if test="openedTime != null">#{openedTime},</if>
             <if test="repliedTime != null">#{repliedTime},</if>
+            <!-- <if test="receiveTime != null">#{receiveTime},</if> -->
             <if test="clickedTime != null">#{clickedTime},</if>
             <if test="retryCount != null">#{retryCount},</if>
             <if test="errorLogs != null">#{errorLogs},</if>
@@ -140,6 +171,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="updateBy != null">#{updateBy},</if>
             <if test="updateTime != null">#{updateTime},</if>
             <if test="deleted != null">#{deleted},</if>
+            <if test="isStarred != null">#{isStarred},</if>
+            <if test="isImportant != null">#{isImportant},</if>
+            <if test="isRead != null">#{isRead},</if>
+            <if test="folderType != null">#{folderType},</if>
+            <if test="userId != null">#{userId},</if>
+            <if test="readTime != null">#{readTime},</if>
+            <if test="starredTime != null">#{starredTime},</if>
          </trim>
     </insert>
 
@@ -188,4 +226,342 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <delete id="deleteEmailTrackRecordByTaskId" parameterType="Long">
         update email_track_record set deleted = '2' where task_id = #{taskId}
     </delete>
+
+    <!-- 统计查询 -->
+    <select id="countTotalEmails" resultType="long">
+        SELECT COUNT(*) FROM email_track_record 
+        WHERE deleted = '0' 
+        AND folder_type = 'sent'  -- 只统计发件箱的数据
+    </select>
+
+    <select id="countTodaySentEmails" parameterType="String" resultType="long">
+        SELECT COUNT(*) FROM email_track_record 
+        WHERE deleted = '0' 
+        AND folder_type = 'sent'  -- 只统计发件箱的数据
+        AND DATE(sent_time) = #{date}
+    </select>
+
+    <select id="countRepliedEmails" resultType="long">
+        SELECT COUNT(*) FROM email_track_record 
+        WHERE deleted = '0' 
+        AND folder_type = 'sent'  -- 只统计发件箱的数据
+        AND replied_time IS NOT NULL
+    </select>
+
+    <select id="countTodayOpenedEmails" parameterType="String" resultType="long">
+        SELECT COUNT(*) FROM email_track_record 
+        WHERE deleted = '0' 
+        AND folder_type = 'sent'  -- 只统计发件箱的数据
+        AND opened_time IS NOT NULL
+        AND DATE(opened_time) = #{date}
+    </select>
+
+    <select id="countTotalOpenedEmails" resultType="long">
+        SELECT COUNT(*) FROM email_track_record 
+        WHERE deleted = '0' 
+        AND folder_type = 'sent'  -- 只统计发件箱的数据
+        AND opened_time IS NOT NULL
+    </select>
+
+    <select id="getSentEmailsByDateRange" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(sent_time, '%Y-%m-%d') as date,
+            COUNT(*) as count
+        FROM email_track_record 
+        WHERE deleted = '0' 
+        AND folder_type = 'sent'  -- 只统计发件箱的数据
+        AND sent_time IS NOT NULL
+        AND DATE(sent_time) BETWEEN #{startDate} AND #{endDate}
+        GROUP BY DATE_FORMAT(sent_time, '%Y-%m-%d')
+        ORDER BY date
+    </select>
+
+    <select id="getDeliveredEmailsByDateRange" resultType="java.util.Map">
+        SELECT 
+            DATE_FORMAT(delivered_time, '%Y-%m-%d') as date,
+            COUNT(*) as count
+        FROM email_track_record 
+        WHERE deleted = '0' 
+        AND folder_type = 'sent'  -- 只统计发件箱的数据
+        AND delivered_time IS NOT NULL
+        AND DATE(delivered_time) BETWEEN #{startDate} AND #{endDate}
+        GROUP BY DATE_FORMAT(delivered_time, '%Y-%m-%d')
+        ORDER BY date
+    </select>
+
+    <select id="countTodayDeliveredEmails" parameterType="String" resultType="long">
+        SELECT COUNT(*) FROM email_track_record 
+        WHERE deleted = '0' 
+        AND folder_type = 'sent'  -- 只统计发件箱的数据
+        AND delivered_time IS NOT NULL
+        AND DATE(delivered_time) = #{date}
+    </select>
+
+    <select id="countTodayClickedEmails" parameterType="String" resultType="long">
+        SELECT COUNT(*) FROM email_track_record 
+        WHERE deleted = '0' 
+        AND folder_type = 'sent'  -- 只统计发件箱的数据
+        AND clicked_time IS NOT NULL
+        AND DATE(clicked_time) = #{date}
+    </select>
+
+    <select id="getRecentEmails" parameterType="int" resultMap="EmailTrackRecordResult">
+        SELECT 
+            <include refid="selectEmailTrackRecordVo"/>
+        FROM email_track_record 
+        WHERE deleted = '0'
+        AND folder_type = 'sent'  -- 只统计发件箱的数据
+        ORDER BY create_time DESC 
+        LIMIT #{limit}
+    </select>
+
+    <select id="getRecentReplies" parameterType="int" resultMap="EmailTrackRecordResult">
+        SELECT 
+            <include refid="selectEmailTrackRecordVo"/>
+        FROM email_track_record 
+        WHERE deleted = '0' 
+        AND folder_type = 'sent'  -- 只统计发件箱的数据
+        AND replied_time IS NOT NULL
+        ORDER BY replied_time DESC 
+        LIMIT #{limit}
+    </select>
+
+    <!-- ==================== 个人邮件管理相关SQL ==================== -->
+
+    <!-- 查询个人邮件跟踪记录列表 -->
+    <select id="selectPersonalTrackList" parameterType="EmailTrackRecord" resultMap="EmailTrackRecordResult">
+        SELECT 
+            <include refid="selectEmailTrackRecordVo"/>
+        FROM email_track_record
+        <where>
+            deleted = '0'
+            <if test="userId != null">AND user_id = #{userId}</if>
+            <if test="folderType != null and folderType != ''">AND folder_type = #{folderType}</if>
+            <if test="isStarred != null">AND is_starred = #{isStarred}</if>
+            <if test="isRead != null">AND is_read = #{isRead}</if>
+            <if test="isImportant != null">AND is_important = #{isImportant}</if>
+            <if test="subject != null and subject != ''">AND subject LIKE CONCAT('%', #{subject}, '%')</if>
+            <if test="recipient != null and recipient != ''">AND recipient LIKE CONCAT('%', #{recipient}, '%')</if>
+            <if test="sender != null and sender != ''">AND sender LIKE CONCAT('%', #{sender}, '%')</if>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+            <if test="params.beginTime != null and params.beginTime != ''"><!-- 开始时间检索 -->
+                AND date_format(sent_time,'%y%m%d') &gt;= date_format(#{params.beginTime},'%y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''"><!-- 结束时间检索 -->
+                AND date_format(sent_time,'%y%m%d') &lt;= date_format(#{params.endTime},'%y%m%d')
+            </if>
+            
+            <!-- 数据权限过滤 -->
+            <if test="params.dataScope != null and params.dataScope != ''">
+                AND ${params.dataScope}
+            </if>
+        </where>
+        ORDER BY sent_time DESC
+    </select>
+
+    <!-- 标记邮件为星标 -->
+    <update id="markAsStarred" parameterType="Long">
+        UPDATE email_track_record 
+        SET is_starred = 1, starred_time = NOW(), update_time = NOW()
+        WHERE id IN
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 取消星标 -->
+    <update id="unmarkAsStarred" parameterType="Long">
+        UPDATE email_track_record 
+        SET is_starred = 0, starred_time = NULL, update_time = NOW()
+        WHERE id IN
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 标记邮件为已读 -->
+    <update id="markAsRead" parameterType="Long">
+        UPDATE email_track_record 
+        SET is_read = 1, read_time = NOW(), update_time = NOW()
+        WHERE id IN
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 标记邮件为未读 -->
+    <update id="markAsUnread" parameterType="Long">
+        UPDATE email_track_record 
+        SET is_read = 0, read_time = NULL, update_time = NOW()
+        WHERE id IN
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 标记邮件为重要 -->
+    <update id="markAsImportant" parameterType="Long">
+        UPDATE email_track_record 
+        SET is_important = 1, update_time = NOW()
+        WHERE id IN
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 取消重要标记 -->
+    <update id="unmarkAsImportant" parameterType="Long">
+        UPDATE email_track_record 
+        SET is_important = 0, update_time = NOW()
+        WHERE id IN
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 移动到已删除 -->
+    <update id="moveToDeleted" parameterType="Long">
+        UPDATE email_track_record 
+        SET deleted = '1', folder_type = 'deleted', update_time = NOW()
+        WHERE id IN
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 从已删除恢复 -->
+    <update id="restoreFromDeleted" parameterType="Long">
+        UPDATE email_track_record 
+        SET deleted = '0', folder_type = 'sent', update_time = NOW()
+        WHERE id IN
+        <foreach item="id" collection="array" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </update>
+
+    <!-- 获取发件箱未读数量 -->
+    <select id="getSentUnreadCount" parameterType="Long" resultType="int">
+        SELECT COUNT(*) FROM email_track_record 
+        WHERE deleted = '0' 
+        AND user_id = #{userId} 
+        AND folder_type = 'sent' 
+        AND is_read = 0
+    </select>
+
+    <!-- 获取发件箱总数量 -->
+    <select id="getSentTotalCount" parameterType="Long" resultType="int">
+        SELECT COUNT(*) FROM email_track_record 
+        WHERE deleted = '0' 
+        AND user_id = #{userId} 
+        AND folder_type = 'sent'
+    </select>
+
+    <!-- 获取收件箱未读数量 -->
+    <select id="getInboxUnreadCount" parameterType="Long" resultType="int">
+        SELECT COUNT(*) FROM email_track_record 
+        WHERE deleted = '0' 
+        AND user_id = #{userId} 
+        AND folder_type = 'inbox' 
+        AND is_read = 0
+    </select>
+
+    <!-- 查询星标邮件列表 -->
+    <select id="selectStarredList" parameterType="EmailTrackRecord" resultMap="EmailTrackRecordResult">
+        SELECT <include refid="selectEmailTrackRecordVo"/>
+        FROM email_track_record
+        <where>
+            deleted = '0'
+            <if test="userId != null">AND user_id = #{userId}</if>
+            AND is_starred = 1
+            <if test="subject != null and subject != ''">AND subject LIKE CONCAT('%', #{subject}, '%')</if>
+            <if test="recipient != null and recipient != ''">AND recipient LIKE CONCAT('%', #{recipient}, '%')</if>
+            <if test="sender != null and sender != ''">AND sender LIKE CONCAT('%', #{sender}, '%')</if>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+            <if test="params.beginTime != null and params.beginTime != ''"><!-- 开始时间检索 -->
+                AND date_format(sent_time,'%y%m%d') &gt;= date_format(#{params.beginTime},'%y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''"><!-- 结束时间检索 -->
+                AND date_format(sent_time,'%y%m%d') &lt;= date_format(#{params.endTime},'%y%m%d')
+            </if>
+        </where>
+        ORDER BY starred_time DESC, sent_time DESC
+    </select>
+
+    <!-- 获取星标邮件数量 -->
+    <select id="getStarredCount" parameterType="Long" resultType="int">
+        SELECT COUNT(*) FROM email_track_record 
+        WHERE deleted = '0' 
+        AND user_id = #{userId} 
+        AND is_starred = 1
+    </select>
+
+    <!-- 查询已删除邮件列表 -->
+    <select id="selectDeletedList" parameterType="EmailTrackRecord" resultMap="EmailTrackRecordResult">
+        SELECT <include refid="selectEmailTrackRecordVo"/>
+        FROM email_track_record
+        <where>
+            deleted = '1'
+            <if test="userId != null">AND user_id = #{userId}</if>
+            <if test="subject != null and subject != ''">AND subject LIKE CONCAT('%', #{subject}, '%')</if>
+            <if test="recipient != null and recipient != ''">AND recipient LIKE CONCAT('%', #{recipient}, '%')</if>
+            <if test="sender != null and sender != ''">AND sender LIKE CONCAT('%', #{sender}, '%')</if>
+            <if test="status != null and status != ''">AND status = #{status}</if>
+            <if test="params.beginTime != null and params.beginTime != ''"><!-- 开始时间检索 -->
+                AND date_format(sent_time,'%y%m%d') &gt;= date_format(#{params.beginTime},'%y%m%d')
+            </if>
+            <if test="params.endTime != null and params.endTime != ''"><!-- 结束时间检索 -->
+                AND date_format(sent_time,'%y%m%d') &lt;= date_format(#{params.endTime},'%y%m%d')
+            </if>
+        </where>
+        ORDER BY update_time DESC, sent_time DESC
+    </select>
+
+    <!-- 获取已删除邮件数量 -->
+    <select id="getDeletedCount" parameterType="Long" resultType="int">
+        SELECT COUNT(*) FROM email_track_record 
+        WHERE deleted = '1' 
+        AND user_id = #{userId}
+    </select>
+
+    <!-- 获取个人邮件统计信息 -->
+    <select id="getPersonalEmailStatistics" parameterType="Long" resultType="map">
+        SELECT 
+            COUNT(*) as totalEmails,
+            SUM(CASE WHEN folder_type = 'sent' THEN 1 ELSE 0 END) as sentCount,
+            SUM(CASE WHEN folder_type = 'inbox' THEN 1 ELSE 0 END) as inboxCount,
+            SUM(CASE WHEN is_starred = 1 THEN 1 ELSE 0 END) as starredCount,
+            SUM(CASE WHEN folder_type = 'deleted' THEN 1 ELSE 0 END) as deletedCount,
+            SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END) as unreadCount,
+            SUM(CASE WHEN opened_time IS NOT NULL THEN 1 ELSE 0 END) as openedCount,
+            SUM(CASE WHEN replied_time IS NOT NULL THEN 1 ELSE 0 END) as repliedCount,
+            SUM(CASE WHEN clicked_time IS NOT NULL THEN 1 ELSE 0 END) as clickedCount
+        FROM email_track_record 
+        WHERE deleted = '0' 
+        AND user_id = #{userId}
+    </select>
+
+    <!-- 获取详细统计数据 -->
+    <select id="getDetailedStatistics" resultType="java.util.Map">
+        SELECT
+            DATE(sent_time) as date,
+            sender as accountName,
+            COUNT(*) as totalSent,
+            COUNT(CASE WHEN delivered_time IS NOT NULL THEN 1 END) as delivered,
+            COUNT(CASE WHEN opened_time IS NOT NULL THEN 1 END) as opened,
+            COUNT(CASE WHEN replied_time IS NOT NULL THEN 1 END) as replied,
+            ROUND(COUNT(CASE WHEN delivered_time IS NOT NULL THEN 1 END) * 100.0 / COUNT(*), 1) as deliveryRate,
+            ROUND(COUNT(CASE WHEN opened_time IS NOT NULL THEN 1 END) * 100.0 / COUNT(*), 1) as openRate,
+            ROUND(COUNT(CASE WHEN replied_time IS NOT NULL THEN 1 END) * 100.0 / COUNT(*), 1) as replyRate
+        FROM email_track_record
+        WHERE deleted = '0'
+        AND folder_type = 'sent'  -- 只统计发件箱的数据
+        <if test="startDate != null and endDate != null">
+            AND sent_time BETWEEN #{startDate} AND #{endDate}
+        </if>
+        <if test="accountId != null">
+            AND account_id = #{accountId}
+        </if>
+        GROUP BY DATE(sent_time), sender
+        ORDER BY date DESC
+    </select>
 </mapper>

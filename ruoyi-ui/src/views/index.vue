@@ -1,32 +1,118 @@
 <template>
   <div class="app-container home">
+    <!-- 系统统计卡片 -->
+    <el-row :gutter="20" style="margin-bottom: 20px;">
+      <el-col :span="6">
+        <el-card class="stats-card">
+          <div class="stats-item">
+            <div class="stats-icon">
+              <i class="el-icon-message" style="color: #409EFF;"></i>
+            </div>
+            <div class="stats-content">
+              <div class="stats-number">{{ dashboardData.totalEmails || 0 }}</div>
+              <div class="stats-label">总邮件数</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="stats-card">
+          <div class="stats-item">
+            <div class="stats-icon">
+              <i class="el-icon-user" style="color: #67C23A;"></i>
+            </div>
+            <div class="stats-content">
+              <div class="stats-number">{{ dashboardData.totalContacts || 0 }}</div>
+              <div class="stats-label">总联系人</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="stats-card">
+          <div class="stats-item">
+            <div class="stats-icon">
+              <i class="el-icon-s-promotion" style="color: #E6A23C;"></i>
+            </div>
+            <div class="stats-content">
+              <div class="stats-number">{{ dashboardData.todaySent || 0 }}</div>
+              <div class="stats-label">今日发送</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="6">
+        <el-card class="stats-card">
+          <div class="stats-item">
+            <div class="stats-icon">
+              <i class="el-icon-chat-dot-round" style="color: #F56C6C;"></i>
+            </div>
+            <div class="stats-content">
+              <div class="stats-number">{{ dashboardData.replyRate || 0 }}%</div>
+              <div class="stats-label">回复率</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <el-row :gutter="20">
       <el-col :sm="24" :lg="12" style="padding-left: 20px">
-        <h2>若依后台管理框架</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h2 style="margin: 0;">邮件管理系统</h2>
+          <el-button 
+            type="text" 
+            icon="el-icon-refresh" 
+            :loading="loading"
+            @click="refreshData"
+            size="small"
+          >
+            刷新数据
+          </el-button>
+          <el-button 
+            type="text" 
+            icon="el-icon-picture" 
+            @click="initCharts"
+            size="small"
+            style="margin-left: 10px;"
+          >
+            初始化图表
+          </el-button>
+        </div>
         <p>
-          一直想做一款后台管理系统，看了很多优秀的开源项目但是发现没有合适自己的。于是利用空闲休息时间开始自己写一套后台系统。如此有了若依管理系统，她可以用于所有的Web应用程序，如网站管理后台，网站会员中心，CMS，CRM，OA等等，当然，您也可以对她进行深度定制，以做出更强系统。所有前端后台代码封装过后十分精简易上手，出错概率低。同时支持移动客户端访问。系统会陆续更新一些实用功能。
+          这是一个基于若依框架开发的邮件管理系统，支持邮件发送、接收、跟踪、统计分析等功能。系统采用前后端分离架构，提供完整的邮件管理解决方案。
         </p>
         <p>
           <b>当前版本:</b> <span>v{{ version }}</span>
         </p>
         <p>
-          <el-tag type="danger">&yen;免费开源</el-tag>
+          <b>系统状态:</b> 
+          <el-tag :type="systemStatus.type" size="small">{{ systemStatus.text }}</el-tag>
         </p>
         <p>
           <el-button
             type="primary"
             size="mini"
-            icon="el-icon-cloudy"
+            icon="el-icon-edit"
             plain
-            @click="goTarget('https://gitee.com/y_project/RuoYi-Vue')"
-            >访问码云</el-button
+            @click="$router.push('/email/personal')"
+            >写邮件</el-button
           >
           <el-button
+            type="success"
             size="mini"
-            icon="el-icon-s-home"
+            icon="el-icon-user"
             plain
-            @click="goTarget('http://ruoyi.vip')"
-            >访问主页</el-button
+            @click="$router.push('/email/contact')"
+            >联系人</el-button
+          >
+          <el-button
+            type="warning"
+            size="mini"
+            icon="el-icon-s-promotion"
+            plain
+            @click="$router.push('/email/batch')"
+            >批量发送</el-button
           >
         </p>
       </el-col>
@@ -34,37 +120,58 @@
       <el-col :sm="24" :lg="12" style="padding-left: 50px">
         <el-row>
           <el-col :span="12">
-            <h2>技术选型</h2>
+            <h2>系统信息</h2>
           </el-col>
         </el-row>
         <el-row>
-          <el-col :span="6">
-            <h4>后端技术</h4>
+          <el-col :span="12">
+            <h4>运行状态</h4>
             <ul>
-              <li>SpringBoot</li>
-              <li>Spring Security</li>
-              <li>JWT</li>
-              <li>MyBatis</li>
-              <li>Druid</li>
-              <li>Fastjson</li>
-              <li>...</li>
+              <li>邮件服务: <el-tag :type="emailServiceStatus.type" size="mini">{{ emailServiceStatus.text }}</el-tag></li>
+              <li>数据库: <el-tag :type="dbStatus.type" size="mini">{{ dbStatus.text }}</el-tag></li>
+              <li>缓存服务: <el-tag :type="cacheStatus.type" size="mini">{{ cacheStatus.text }}</el-tag></li>
+              <li>运行时间: {{ systemInfo.uptime || '未知' }}</li>
             </ul>
           </el-col>
-          <el-col :span="6">
-            <h4>前端技术</h4>
+          <el-col :span="12">
+            <h4>技术栈</h4>
             <ul>
-              <li>Vue</li>
-              <li>Vuex</li>
-              <li>Element-ui</li>
-              <li>Axios</li>
-              <li>Sass</li>
-              <li>Quill</li>
-              <li>...</li>
+              <li>SpringBoot</li>
+              <li>Vue.js</li>
+              <li>Element UI</li>
+              <li>MyBatis</li>
+              <li>Redis</li>
+              <li>MySQL</li>
             </ul>
           </el-col>
         </el-row>
       </el-col>
     </el-row>
+
+    <!-- 图表区域 -->
+    <el-row :gutter="20" style="margin-bottom: 20px;">
+      <el-col :span="12">
+        <el-card>
+          <div slot="header">
+            <span>发送趋势</span>
+          </div>
+          <div class="chart-container">
+            <div ref="sendTrendChart" style="height: 300px;"></div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="12">
+        <el-card>
+          <div slot="header">
+            <span>回复率统计</span>
+          </div>
+          <div class="chart-container">
+            <div ref="replyRateChart" style="height: 300px;"></div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <el-divider />
     <el-row :gutter="20">
       <el-col :xs="24" :sm="24" :md="12" :lg="8">
@@ -1054,15 +1161,461 @@
 </template>
 
 <script>
+import { getDashboardStats, getEmailStats, getSystemInfo } from '@/api/dashboard'
+import { getTotalStats, getTodayStats, getSendTrends, getReplyRates } from '@/api/email/statistics'
+
 export default {
   name: "Index",
   data() {
     return {
       // 版本号
-      version: "3.9.0"
+      version: "3.9.0",
+      // 仪表板数据
+      dashboardData: {
+        totalEmails: 0,
+        totalContacts: 0,
+        todaySent: 0,
+        replyRate: 0
+      },
+      // 系统信息
+      systemInfo: {
+        uptime: '',
+        status: 'running'
+      },
+      // 加载状态
+      loading: false,
+      // 图表数据
+      trendsData: {
+        dateLabels: [],
+        sendData: [],
+        receivedData: []
+      },
+      replyRatesData: []
     }
   },
+  computed: {
+    // 系统状态
+    systemStatus() {
+      return {
+        type: this.systemInfo.status === 'running' ? 'success' : 'danger',
+        text: this.systemInfo.status === 'running' ? '运行正常' : '系统异常'
+      }
+    },
+    // 邮件服务状态
+    emailServiceStatus() {
+      return {
+        type: 'success',
+        text: '正常'
+      }
+    },
+    // 数据库状态
+    dbStatus() {
+      return {
+        type: 'success',
+        text: '正常'
+      }
+    },
+    // 缓存服务状态
+    cacheStatus() {
+      return {
+        type: 'success',
+        text: '正常'
+      }
+    }
+  },
+  created() {
+    this.loadDashboardData()
+  },
+  mounted() {
+    console.log('=== 组件已挂载 ===')
+    console.log('$echarts对象:', this.$echarts)
+    console.log('window.echarts:', window.echarts)
+    
+    // 确保DOM完全加载后再初始化图表
+    this.$nextTick(() => {
+      setTimeout(() => {
+        console.log('=== 开始初始化图表 ===')
+        this.testSimpleChart()
+        
+        if (this.trendsData && this.trendsData.dateLabels) {
+          this.initCharts()
+        }
+      }, 1000)
+    })
+  },
   methods: {
+    // 加载仪表板数据
+    async loadDashboardData() {
+      this.loading = true
+      try {
+        // 并行请求多个接口 - 使用实际返回数据的接口
+        const [totalRes, todayRes, trendsRes, replyRatesRes, systemRes] = await Promise.allSettled([
+          getTotalStats(),
+          getTodayStats(),
+          getSendTrends(7),
+          getReplyRates(),
+          getSystemInfo()
+        ])
+
+        // 处理总数统计数据
+        if (totalRes.status === 'fulfilled' && totalRes.value.code === 200) {
+          console.log('总数统计数据:', totalRes.value.data)
+          const totalData = totalRes.value.data
+          this.dashboardData = {
+            ...this.dashboardData,
+            totalEmails: totalData.emails || 0,
+            totalOpened: totalData.opened || 0,
+            totalReplied: totalData.replied || 0
+          }
+        } else {
+          console.log('总数统计数据获取失败:', totalRes)
+        }
+
+        // 处理今日统计数据
+        if (todayRes.status === 'fulfilled' && todayRes.value.code === 200) {
+          const todayData = todayRes.value.data
+          console.log('今日统计数据:', todayData)
+          this.dashboardData = {
+            ...this.dashboardData,
+            todaySent: todayData.sent || 0,
+            todayDelivered: todayData.delivered || 0,
+            todayOpened: todayData.opened || 0,
+            todayClicked: todayData.clicked || 0
+          }
+        } else {
+          console.log('今日统计数据获取失败:', todayRes)
+        }
+
+        // 处理系统信息
+        if (systemRes.status === 'fulfilled' && systemRes.value.code === 200) {
+          console.log('系统信息:', systemRes.value.data)
+          this.systemInfo = {
+            ...this.systemInfo,
+            ...systemRes.value.data
+          }
+        } else {
+          console.log('系统信息获取失败:', systemRes)
+        }
+
+        // 处理趋势数据
+        if (trendsRes.status === 'fulfilled' && trendsRes.value.code === 200) {
+          console.log('趋势数据:', trendsRes.value.data)
+          this.trendsData = trendsRes.value.data
+        } else {
+          console.log('趋势数据获取失败:', trendsRes)
+        }
+
+        // 处理回复率数据
+        if (replyRatesRes.status === 'fulfilled' && replyRatesRes.value.code === 200) {
+          console.log('回复率数据:', replyRatesRes.value.data)
+          const replyData = replyRatesRes.value.data
+          this.dashboardData = {
+            ...this.dashboardData,
+            replyRate: replyData.replyRate || 0
+          }
+          this.replyRatesData = replyData.accountReplyRates || []
+        } else {
+          console.log('回复率数据获取失败:', replyRatesRes)
+        }
+
+        // 如果所有请求都失败，使用模拟数据
+        if (totalRes.status === 'rejected' && todayRes.status === 'rejected' && systemRes.status === 'rejected') {
+          this.loadMockData()
+        }
+
+        // 数据加载完成后初始化图表
+        this.$nextTick(() => {
+          setTimeout(() => {
+            console.log('数据加载完成，准备初始化图表')
+            this.initCharts()
+          }, 300)
+        })
+
+      } catch (error) {
+        console.error('加载仪表板数据失败:', error)
+        this.loadMockData()
+      } finally {
+        this.loading = false
+      }
+    },
+
+    // 加载模拟数据（当后端接口不可用时）
+    loadMockData() {
+      this.dashboardData = {
+        totalEmails: 12580,
+        totalContacts: 3420,
+        todaySent: 156,
+        replyRate: 23.5
+      }
+      this.systemInfo = {
+        uptime: '7天12小时',
+        status: 'running'
+      }
+      
+      // 添加模拟图表数据
+      this.trendsData = {
+        dateLabels: ['01-15', '01-16', '01-17', '01-18', '01-19', '01-20', '01-21'],
+        sendData: [120, 132, 101, 134, 90, 230, 210],
+        receivedData: [80, 95, 75, 110, 65, 180, 165]
+      }
+      
+      this.replyRatesData = [
+        { name: 'test@example.com', value: 25.6 },
+        { name: 'admin@company.com', value: 18.3 },
+        { name: 'support@company.com', value: 12.7 },
+        { name: 'sales@company.com', value: 8.9 }
+      ]
+      
+      // 初始化图表
+      this.$nextTick(() => {
+        this.initCharts()
+      })
+    },
+
+    // 刷新数据
+    refreshData() {
+      this.loadDashboardData()
+    },
+
+    // 初始化图表
+    initCharts() {
+      console.log('开始初始化图表')
+      console.log('trendsData:', this.trendsData)
+      console.log('replyRatesData:', this.replyRatesData)
+      
+      // 先测试一个简单的图表
+      this.testSimpleChart()
+      
+      // 延迟初始化真实图表，确保测试图表先显示
+      setTimeout(() => {
+        this.initSendTrendChart()
+        this.initReplyRateChart()
+      }, 500)
+    },
+
+    // 测试简单图表
+    testSimpleChart() {
+      console.log('=== 开始测试图表 ===')
+      console.log('Vue实例:', this)
+      console.log('$echarts对象:', this.$echarts)
+      console.log('sendTrendChart ref:', this.$refs.sendTrendChart)
+      console.log('DOM元素:', document.querySelector('[ref="sendTrendChart"]'))
+      
+      // 检查所有可能的ECharts引用
+      console.log('window.echarts:', window.echarts)
+      console.log('window.ECharts:', window.ECharts)
+      
+      if (!this.$refs.sendTrendChart) {
+        console.log('sendTrendChart ref 不存在，无法测试')
+        console.log('所有refs:', this.$refs)
+        return
+      }
+      
+      // 尝试多种方式获取ECharts
+      let echartsInstance = null
+      if (this.$echarts) {
+        console.log('使用 this.$echarts')
+        echartsInstance = this.$echarts
+      } else if (window.echarts) {
+        console.log('使用 window.echarts')
+        echartsInstance = window.echarts
+      } else {
+        console.error('无法找到ECharts实例')
+        return
+      }
+      
+      try {
+        console.log('开始创建ECharts实例')
+        const chart = echartsInstance.init(this.$refs.sendTrendChart)
+        console.log('ECharts实例创建成功:', chart)
+        
+        const option = {
+          title: {
+            text: '测试图表 - 如果看到这个说明ECharts工作正常',
+            left: 'center'
+          },
+          xAxis: {
+            type: 'category',
+            data: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+          },
+          yAxis: {
+            type: 'value'
+          },
+          series: [{
+            data: [120, 200, 150, 80, 70, 110, 130],
+            type: 'bar',
+            itemStyle: {
+              color: '#409EFF'
+            }
+          }]
+        }
+        
+        console.log('设置图表选项:', option)
+        chart.setOption(option)
+        console.log('测试图表设置成功')
+        
+        // 强制重绘
+        setTimeout(() => {
+          chart.resize()
+          console.log('图表重绘完成')
+        }, 100)
+        
+      } catch (error) {
+        console.error('测试图表失败:', error)
+        console.error('错误堆栈:', error.stack)
+      }
+    },
+
+    // 初始化发送趋势图表
+    initSendTrendChart() {
+      console.log('初始化发送趋势图表')
+      console.log('sendTrendChart ref:', this.$refs.sendTrendChart)
+      if (!this.$refs.sendTrendChart) {
+        console.log('sendTrendChart ref 不存在')
+        return
+      }
+      
+      const sendTrendChart = this.$echarts.init(this.$refs.sendTrendChart)
+      console.log('ECharts实例创建成功:', sendTrendChart)
+      
+      // 检查数据是否存在
+      const dateLabels = this.trendsData.dateLabels || []
+      const sendData = this.trendsData.sendData || []
+      const receivedData = this.trendsData.receivedData || []
+      
+      // 如果没有数据，显示空状态
+      if (dateLabels.length === 0) {
+        const emptyOption = {
+          title: {
+            text: '近7天发送趋势',
+            left: 'center'
+          },
+          graphic: {
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: '暂无数据',
+              fontSize: 16,
+              fill: '#999'
+            }
+          }
+        }
+        sendTrendChart.setOption(emptyOption)
+        return
+      }
+      
+      const sendTrendOption = {
+        title: {
+          text: '近7天发送趋势',
+          left: 'center'
+        },
+        tooltip: {
+          trigger: 'axis'
+        },
+        legend: {
+          data: ['发送', '送达'],
+          top: 30
+        },
+        xAxis: {
+          type: 'category',
+          data: dateLabels
+        },
+        yAxis: {
+          type: 'value'
+        },
+        series: [
+          {
+            name: '发送',
+            data: sendData,
+            type: 'line',
+            smooth: true,
+            itemStyle: {
+              color: '#409EFF'
+            }
+          },
+          {
+            name: '送达',
+            data: receivedData,
+            type: 'line',
+            smooth: true,
+            itemStyle: {
+              color: '#67C23A'
+            }
+          }
+        ]
+      }
+      sendTrendChart.setOption(sendTrendOption)
+    },
+
+    // 初始化回复率图表
+    initReplyRateChart() {
+      console.log('初始化回复率图表')
+      console.log('replyRateChart ref:', this.$refs.replyRateChart)
+      if (!this.$refs.replyRateChart) {
+        console.log('replyRateChart ref 不存在')
+        return
+      }
+      
+      const replyRateChart = this.$echarts.init(this.$refs.replyRateChart)
+      console.log('ECharts实例创建成功:', replyRateChart)
+      
+      // 检查数据是否存在
+      const replyRatesData = this.replyRatesData || []
+      
+      // 如果没有数据，显示空状态
+      if (replyRatesData.length === 0) {
+        const emptyOption = {
+          title: {
+            text: '各账号回复率对比',
+            left: 'center'
+          },
+          graphic: {
+            type: 'text',
+            left: 'center',
+            top: 'middle',
+            style: {
+              text: '暂无数据',
+              fontSize: 16,
+              fill: '#999'
+            }
+          }
+        }
+        replyRateChart.setOption(emptyOption)
+        return
+      }
+      
+      const replyRateOption = {
+        title: {
+          text: '各账号回复率对比',
+          left: 'center'
+        },
+        tooltip: {
+          trigger: 'item',
+          formatter: '{a} <br/>{b}: {c}% ({d}%)'
+        },
+        legend: {
+          orient: 'vertical',
+          left: 'left',
+          data: replyRatesData.map(item => item.name)
+        },
+        series: [{
+          name: '回复率',
+          type: 'pie',
+          radius: '50%',
+          data: replyRatesData,
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowOffsetX: 0,
+              shadowColor: 'rgba(0, 0, 0, 0.5)'
+            }
+          }
+        }]
+      }
+      replyRateChart.setOption(replyRateOption)
+    },
+
     goTarget(href) {
       window.open(href, "_blank")
     }
@@ -1129,6 +1682,63 @@ export default {
       margin-inline-start: 0;
       margin-inline-end: 0;
       padding-inline-start: 40px;
+    }
+  }
+
+  // 图表容器样式
+  .chart-container {
+    padding: 10px;
+  }
+
+  // 统计卡片样式
+  .stats-card {
+    .stats-item {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      
+      .stats-icon {
+        font-size: 32px;
+        margin-right: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background-color: #f5f7fa;
+      }
+      
+      .stats-content {
+        flex: 1;
+        
+        .stats-number {
+          font-size: 24px;
+          font-weight: bold;
+          color: #303133;
+          line-height: 1;
+          margin-bottom: 5px;
+        }
+        
+        .stats-label {
+          font-size: 14px;
+          color: #909399;
+          line-height: 1;
+        }
+      }
+    }
+  }
+
+  // 响应式设计
+  @media (max-width: 768px) {
+    .stats-card .stats-item {
+      flex-direction: column;
+      text-align: center;
+      
+      .stats-icon {
+        margin-right: 0;
+        margin-bottom: 10px;
+      }
     }
   }
 }

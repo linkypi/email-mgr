@@ -1,11 +1,11 @@
 package com.ruoyi.system.domain.email;
 
-import com.ruoyi.common.annotation.Excel;
-import com.ruoyi.common.core.domain.BaseEntity;
+import java.util.Date;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-
-import java.util.Date;
+import com.ruoyi.common.annotation.Excel;
+import com.ruoyi.common.core.domain.BaseEntity;
 
 /**
  * 个人邮件对象 email_personal
@@ -21,6 +21,7 @@ public class EmailPersonal extends BaseEntity
     private Long emailId;
 
     /** 邮件Message-ID */
+    @Excel(name = "邮件Message-ID")
     private String messageId;
 
     /** 发件人邮箱 */
@@ -42,42 +43,47 @@ public class EmailPersonal extends BaseEntity
     /** HTML内容 */
     private String htmlContent;
 
-    /** 邮件状态 */
+    /** 邮件状态(unread=未读,read=已读,starred=星标,deleted=已删除) */
     @Excel(name = "邮件状态", readConverterExp = "unread=未读,read=已读,starred=星标,deleted=已删除")
     private String status;
 
-    /** 是否星标 */
+    /** 是否星标(0=否,1=是) */
     @Excel(name = "是否星标", readConverterExp = "0=否,1=是")
     private Integer isStarred;
 
-    /** 是否重要 */
+    /** 是否重要(0=否,1=是) */
     @Excel(name = "是否重要", readConverterExp = "0=否,1=是")
     private Integer isImportant;
 
     /** 接收时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @Excel(name = "接收时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
     private Date receiveTime;
 
     /** 发送时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @Excel(name = "发送时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
     private Date sendTime;
 
-    /** 邮件类型 */
+    /** 邮件类型(inbox=收件箱,sent=发件箱,starred=星标,deleted=已删除) */
     @Excel(name = "邮件类型", readConverterExp = "inbox=收件箱,sent=发件箱,starred=星标,deleted=已删除")
     private String emailType;
 
     /** 附件数量 */
+    @Excel(name = "附件数量")
     private Integer attachmentCount;
 
-    /** 是否已回复 */
+    /** 是否已回复：0=否，1=是 */
     @Excel(name = "是否已回复", readConverterExp = "0=否,1=是")
     private Integer isReplied;
 
-    /** 是否已送达 */
+    /** 是否已送达：0=否，1=是 */
     @Excel(name = "是否已送达", readConverterExp = "0=否,1=是")
     private Integer isDelivered;
 
     /** 删除时间 */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Excel(name = "删除时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
     private Date deleteTime;
 
     public void setEmailId(Long emailId) 
@@ -89,7 +95,6 @@ public class EmailPersonal extends BaseEntity
     {
         return emailId;
     }
-
     public void setMessageId(String messageId) 
     {
         this.messageId = messageId;
@@ -239,6 +244,7 @@ public class EmailPersonal extends BaseEntity
     public String toString() {
         return new ToStringBuilder(this,ToStringStyle.MULTI_LINE_STYLE)
             .append("emailId", getEmailId())
+            .append("messageId", getMessageId())
             .append("fromAddress", getFromAddress())
             .append("toAddress", getToAddress())
             .append("subject", getSubject())

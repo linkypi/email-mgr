@@ -1,6 +1,7 @@
 package com.ruoyi.system.service.email.impl;
 
 import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.system.mapper.email.EmailPersonalMapper;
@@ -269,5 +270,112 @@ public class EmailPersonalServiceImpl implements IEmailPersonalService
     public int getDeletedUnreadCount(Long userId)
     {
         return emailPersonalMapper.getDeletedUnreadCount(userId);
+    }
+
+    /**
+     * 统计总邮件数
+     * 
+     * @return 总邮件数
+     */
+    @Override
+    public long countTotalEmails()
+    {
+        return emailPersonalMapper.countTotalEmails();
+    }
+
+    /**
+     * 统计今日发送邮件数
+     * 
+     * @param date 日期字符串 (yyyy-MM-dd)
+     * @return 今日发送邮件数
+     */
+    @Override
+    public long countTodaySentEmails(String date)
+    {
+        return emailPersonalMapper.countTodaySentEmails(date);
+    }
+
+    /**
+     * 统计回复邮件数
+     * 
+     * @return 回复邮件数
+     */
+    @Override
+    public long countRepliedEmails()
+    {
+        return emailPersonalMapper.countRepliedEmails();
+    }
+
+    /**
+     * 统计今日接收邮件数
+     * 
+     * @param date 日期字符串 (yyyy-MM-dd)
+     * @return 今日接收邮件数
+     */
+    @Override
+    public long countTodayReceivedEmails(String date)
+    {
+        return emailPersonalMapper.countTodayReceivedEmails(date);
+    }
+
+    /**
+     * 获取最近邮件记录
+     * 
+     * @param limit 限制数量
+     * @return 最近邮件记录
+     */
+    @Override
+    public List<EmailPersonal> getRecentEmails(int limit)
+    {
+        return emailPersonalMapper.getRecentEmails(limit);
+    }
+
+    /**
+     * 获取最近回复记录
+     * 
+     * @param limit 限制数量
+     * @return 最近回复记录
+     */
+    @Override
+    public List<EmailPersonal> getRecentReplies(int limit)
+    {
+        return emailPersonalMapper.getRecentReplies(limit);
+    }
+
+    /**
+     * 统计今日回复邮件数
+     * 
+     * @param date 日期字符串 (yyyy-MM-dd)
+     * @return 今日回复邮件数
+     */
+    @Override
+    public long countTodayRepliedEmails(String date)
+    {
+        return emailPersonalMapper.countTodayRepliedEmails(date);
+    }
+
+    /**
+     * 统计总接收邮件数
+     * 
+     * @return 总接收邮件数
+     */
+    @Override
+    public long countTotalReceivedEmails()
+    {
+        return emailPersonalMapper.countTotalReceivedEmails();
+    }
+
+    /**
+     * 获取详细统计数据
+     * 
+     * @param startDate 开始日期
+     * @param endDate 结束日期
+     * @param accountId 账号ID（可选）
+     * @return 详细统计数据
+     */
+    @Override
+    public List<Map<String, Object>> getDetailedStatistics(String startDate, String endDate, Long accountId)
+    {
+        return emailPersonalMapper.getDetailedStatistics(startDate, endDate, accountId);
     }
 }

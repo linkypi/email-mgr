@@ -623,4 +623,10 @@ public class EmailContactServiceImpl implements IEmailContactService
         }
         return restoreCount;
     }
+
+    @Override
+    public long countTotalContacts()
+    {
+        return emailContactMapper.countTotalContacts();
+    }
 }

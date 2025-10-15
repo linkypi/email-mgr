@@ -53,7 +53,10 @@ public class EmailSchedulerService {
     
     @PostConstruct
     public void init() {
-        logger.info("邮件定时调度器初始化开始");
+        // 减少调度器初始化的日志输出
+        if (logger.isDebugEnabled()) {
+            logger.debug("邮件定时调度器初始化开始");
+        }
         try {
             initThreadPools();
             startScheduler();
@@ -122,7 +125,10 @@ public class EmailSchedulerService {
         scheduler.scheduleAtFixedRate(this::checkAndExecuteTasks, 
             CHECK_INTERVAL, CHECK_INTERVAL, TimeUnit.SECONDS);
             
-        logger.info("邮件定时调度器已启动，检查间隔: {} 秒", CHECK_INTERVAL);
+        // 减少调度器启动的日志输出
+        if (logger.isDebugEnabled()) {
+            logger.debug("邮件定时调度器已启动，检查间隔: {} 秒", CHECK_INTERVAL);
+        }
     }
     
     private void stopScheduler() {

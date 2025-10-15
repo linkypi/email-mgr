@@ -9,37 +9,37 @@ export function listEmailPersonal(query) {
   })
 }
 
-// 查询收件箱列表
+// 查询收件箱列表（基于email_track_record）
 export function listInbox(query) {
   return request({
-    url: '/email/personal/inbox/list',
+    url: '/email/personal/inbox',
     method: 'get',
     params: query
   })
 }
 
-// 查询发件箱列表
+// 查询发件箱列表（基于email_track_record）
 export function listSent(query) {
   return request({
-    url: '/email/personal/sent/list',
+    url: '/email/personal/sent',
     method: 'get',
     params: query
   })
 }
 
-// 查询星标邮件列表
+// 查询星标邮件列表（基于email_track_record）
 export function listStarred(query) {
   return request({
-    url: '/email/personal/starred/list',
+    url: '/email/personal/starred',
     method: 'get',
     params: query
   })
 }
 
-// 查询已删除邮件列表
+// 查询已删除邮件列表（基于email_track_record）
 export function listDeleted(query) {
   return request({
-    url: '/email/personal/deleted/list',
+    url: '/email/personal/deleted',
     method: 'get',
     params: query
   })
@@ -79,42 +79,64 @@ export function delEmail(emailId) {
   })
 }
 
-// 标记邮件为已读
-export function markAsRead(emailId) {
+// 标记邮件为已读（基于email_track_record）
+export function markAsRead(ids) {
   return request({
-    url: '/email/personal/read/' + emailId,
-    method: 'put'
+    url: '/email/personal/read',
+    method: 'put',
+    data: ids
   })
 }
 
-// 标记邮件为星标
-export function markAsStarred(emailId) {
+// 标记邮件为星标（基于email_track_record）
+export function markAsStarred(ids) {
   return request({
-    url: '/email/personal/star/' + emailId,
-    method: 'put'
+    url: '/email/personal/starred',
+    method: 'put',
+    data: ids
   })
 }
 
-// 标记邮件为重要
-export function markAsImportant(emailId) {
+// 取消星标（基于email_track_record）
+export function unmarkAsStarred(ids) {
   return request({
-    url: '/email/personal/important/' + emailId,
-    method: 'put'
+    url: '/email/personal/unstarred',
+    method: 'put',
+    data: ids
   })
 }
 
-// 恢复已删除邮件
-export function restoreEmail(emailId) {
+// 标记邮件为重要（基于email_track_record）
+export function markAsImportant(ids) {
   return request({
-    url: '/email/personal/restore/' + emailId,
-    method: 'put'
+    url: '/email/personal/important',
+    method: 'put',
+    data: ids
   })
 }
 
-// 彻底删除邮件
-export function deletePermanently(emailId) {
+// 移动到已删除（基于email_track_record）
+export function moveToDeleted(ids) {
   return request({
-    url: '/email/personal/permanent/' + emailId,
+    url: '/email/personal/delete',
+    method: 'put',
+    data: ids
+  })
+}
+
+// 从已删除恢复（基于email_track_record）
+export function restoreEmail(ids) {
+  return request({
+    url: '/email/personal/restore',
+    method: 'put',
+    data: ids
+  })
+}
+
+// 彻底删除邮件（基于email_track_record）
+export function deletePermanently(ids) {
+  return request({
+    url: '/email/personal/' + ids,
     method: 'delete'
   })
 }
@@ -127,23 +149,39 @@ export function getUnreadCount() {
   })
 }
 
-// 获取收件箱未读数量
+// 获取收件箱未读数量（基于email_track_record）
 export function getInboxUnreadCount() {
   return request({
-    url: '/email/personal/inbox/unread/count',
+    url: '/email/personal/inbox/unread/count/track',
     method: 'get'
   })
 }
 
-// 获取发件箱未读数量
+// 获取发件箱未读数量（基于email_track_record）
 export function getSentUnreadCount() {
   return request({
-    url: '/email/personal/sent/unread/count',
+    url: '/email/personal/sent/unread/count/track',
     method: 'get'
   })
 }
 
-// 获取星标邮件未读数量
+// 获取发件箱总数量（基于email_track_record）
+export function getSentTotalCount() {
+  return request({
+    url: '/email/personal/sent/total/count/track',
+    method: 'get'
+  })
+}
+
+// 获取星标邮件数量（基于email_track_record）
+export function getStarredCount() {
+  return request({
+    url: '/email/personal/starred/count/track',
+    method: 'get'
+  })
+}
+
+// 获取星标邮件未读数量（基于email_track_record）
 export function getStarredUnreadCount() {
   return request({
     url: '/email/personal/starred/unread/count',
@@ -151,10 +189,26 @@ export function getStarredUnreadCount() {
   })
 }
 
-// 获取已删除邮件未读数量
+// 获取已删除邮件数量（基于email_track_record）
+export function getDeletedCount() {
+  return request({
+    url: '/email/personal/deleted/count/track',
+    method: 'get'
+  })
+}
+
+// 获取已删除邮件未读数量（基于email_track_record）
 export function getDeletedUnreadCount() {
   return request({
     url: '/email/personal/deleted/unread/count',
+    method: 'get'
+  })
+}
+
+// 获取个人邮件统计信息（基于email_track_record）
+export function getEmailStatistics() {
+  return request({
+    url: '/email/personal/statistics/track',
     method: 'get'
   })
 }

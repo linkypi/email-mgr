@@ -16,7 +16,14 @@ ruoyi:
   email:
     # 邮件跟踪服务基础URL
     tracking:
-      base-url: http://8.148.202.151:8080
+      base-url: http://localhost:28081
+  # 邮件监控间隔（秒）
+  monitor:
+    interval: 30
+  # DSN检查间隔（秒）
+  dsn:
+    check:
+      interval: 15
 
 # 开发环境配置
 server:

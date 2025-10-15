@@ -222,6 +222,45 @@ public class ImapService {
     }
     
     /**
+     * 创建持久IMAP连接（带重试机制）
+     */
+    public Store createPersistentConnectionWithRetry(EmailAccount account, int maxRetries) {
+        Exception lastException = null;
+        
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                Store store = createPersistentConnection(account);
+                if (store != null && store.isConnected()) {
+                    if (attempt > 1) {
+                        logger.info("IMAP连接重试成功: {} (第{}次尝试)", account.getEmailAddress(), attempt);
+                    }
+                    return store;
+                }
+            } catch (Exception e) {
+                lastException = e;
+                logger.warn("IMAP连接失败 (第{}次尝试): {} - {}", attempt, account.getEmailAddress(), e.getMessage());
+                
+                if (attempt < maxRetries) {
+                    try {
+                        // 指数退避：第1次重试等待2秒，第2次等待4秒
+                        long waitTime = 2000L * attempt;
+                        Thread.sleep(waitTime);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            }
+        }
+        
+        logger.error("IMAP连接重试{}次后仍然失败: {}", maxRetries, account.getEmailAddress());
+        if (lastException != null) {
+            logger.error("最后一次连接异常", lastException);
+        }
+        return null;
+    }
+
+    /**
      * 创建持久IMAP连接（用于实时监控）
      */
     public Store createPersistentConnection(EmailAccount account) throws MessagingException {
@@ -500,7 +539,10 @@ public class ImapService {
         Long accountId = account.getAccountId();
         
         if (trackingMonitors.containsKey(accountId)) {
-            logger.info("邮件跟踪监控已启动: {}", account.getEmailAddress());
+            // 减少邮件跟踪监控已启动的日志输出
+        if (logger.isDebugEnabled()) {
+            logger.debug("邮件跟踪监控已启动: {}", account.getEmailAddress());
+        }
             return;
         }
         
@@ -525,7 +567,10 @@ public class ImapService {
             }
         }, 0, getTrackingInterval(monitor), TimeUnit.SECONDS);
         
-        logger.info("启动邮件跟踪监控: {}", account.getEmailAddress());
+        // 减少邮件跟踪启动的日志输出
+        if (logger.isDebugEnabled()) {
+            logger.debug("启动邮件跟踪监控: {}", account.getEmailAddress());
+        }
     }
     
     /**
@@ -535,13 +580,18 @@ public class ImapService {
         // 根据监控统计动态调整扫描频率
         ImapService.EmailTrackingStats stats = monitor.getStats();
         
-        // 如果最近有活动，增加扫描频率
-        if (stats.getDsnCount() > 0 || stats.getReplyCount() > 0 || stats.getStatusChangeCount() > 0) {
+        // 如果最近有DSN活动，使用更频繁的扫描（DSN对送达状态很重要）
+        if (stats.getDsnCount() > 0) {
+            return 10; // 10秒扫描一次，确保DSN及时处理
+        }
+        
+        // 如果最近有其他活动，增加扫描频率
+        if (stats.getReplyCount() > 0 || stats.getStatusChangeCount() > 0) {
             return 15; // 15秒扫描一次
         }
         
-        // 默认30秒扫描一次
-        return 30;
+        // 默认20秒扫描一次（比之前的30秒更频繁，确保DSN及时检测）
+        return 20;
     }
     
     /**
@@ -568,12 +618,15 @@ public class ImapService {
         Folder folder = null;
         
         try {
-            logger.debug("开始执行邮件跟踪监控: {}", account.getEmailAddress());
+            // 减少邮件跟踪监控执行的日志输出
+        if (logger.isTraceEnabled()) {
+            logger.trace("开始执行邮件跟踪监控: {}", account.getEmailAddress());
+        }
             
-            // 建立IMAP连接
-            store = createPersistentConnection(account);
+            // 建立IMAP连接，增加重试机制
+            store = createPersistentConnectionWithRetry(account, 3);
             if (store == null || !store.isConnected()) {
-                logger.warn("IMAP连接失败或已断开: {}", account.getEmailAddress());
+                logger.warn("IMAP连接失败或已断开，跳过本次监控: {}", account.getEmailAddress());
                 return;
             }
             
@@ -583,7 +636,10 @@ public class ImapService {
                 return;
             }
             
-            logger.debug("IMAP连接成功，开始扫描邮件: {}", account.getEmailAddress());
+            // 减少IMAP连接成功的日志输出频率
+            if (logger.isTraceEnabled()) {
+                logger.trace("IMAP连接成功，开始扫描邮件: {}", account.getEmailAddress());
+            }
             
             // 扫描DSN邮件
             scanDSNEmails(folder, monitor);
@@ -641,8 +697,8 @@ public class ImapService {
                 return;
             }
             
-            // 检查最近200封邮件，提高检测覆盖率
-            int startIndex = Math.max(1, messageCount - 200);
+            // 检查最近500封邮件，提高DSN检测覆盖率（DSN对送达状态很重要）
+            int startIndex = Math.max(1, messageCount - 500);
             Message[] messages = folder.getMessages(startIndex, messageCount);
             
             for (Message message : messages) {
@@ -681,7 +737,8 @@ public class ImapService {
                 return;
             }
             
-            int startIndex = Math.max(1, messageCount - 200);
+            // 检查最近500封邮件，提高回复检测覆盖率
+            int startIndex = Math.max(1, messageCount - 500);
             Message[] messages = folder.getMessages(startIndex, messageCount);
             
             for (Message message : messages) {
@@ -719,10 +776,28 @@ public class ImapService {
                         String subject = mimeMessage.getSubject();
                         if (subject != null && (subject.toLowerCase().startsWith("re:") || 
                                                subject.toLowerCase().startsWith("回复:") ||
+                                               subject.toLowerCase().startsWith("re：") ||
+                                               subject.toLowerCase().startsWith("回复：") ||
                                                subject.toLowerCase().contains("reply"))) {
                             // 尝试从主题中提取原始邮件ID（如果主题包含）
                             originalMessageId = extractMessageIdFromSubject(subject);
                             detectionMethod = "Subject";
+                        }
+                    }
+                    
+                    // 方式4: 检查邮件内容中是否包含原始邮件的引用
+                    if (originalMessageId == null) {
+                        try {
+                            String content = extractEmailContent(mimeMessage);
+                            if (content != null) {
+                                // 查找内容中的Message-ID模式
+                                originalMessageId = extractMessageIdFromContent(content);
+                                if (originalMessageId != null) {
+                                    detectionMethod = "Content";
+                                }
+                            }
+                        } catch (Exception e) {
+                            logger.debug("从邮件内容提取Message-ID失败: {}", e.getMessage());
                         }
                     }
                     
@@ -851,30 +926,6 @@ public class ImapService {
         }
     }
     
-    /**
-     * 从邮件内容中提取MessageID
-     */
-    private String extractMessageIdFromContent(String content) {
-        if (content == null) return null;
-        
-        // 多种正则表达式模式尝试匹配Message-ID
-        String[] patterns = {
-            "Message-ID:\\s*(<[^>]+>)",
-            "Message-ID:\\s*([^\\s]+)",
-            "Message-ID\\s*:\\s*(<[^>]+>)",
-            "Message-ID\\s*:\\s*([^\\s]+)"
-        };
-        
-        for (String pattern : patterns) {
-            Pattern p = Pattern.compile(pattern, Pattern.CASE_INSENSITIVE);
-            Matcher matcher = p.matcher(content);
-            if (matcher.find()) {
-                return matcher.group(1);
-            }
-        }
-        
-        return null;
-    }
     
     /**
      * 检查是否是我们发送的邮件
@@ -1108,8 +1159,11 @@ public class ImapService {
             int startIndex = Math.max(1, messageCount - 500);
             Message[] messages = folder.getMessages(startIndex, messageCount);
             
-            logger.debug("开始扫描邮件状态变化: 账号={}, 扫描范围={}-{}, 邮件数量={}", 
-                        monitor.getAccount().getEmailAddress(), startIndex, messageCount, messages.length);
+            // 只在有状态变化时才输出详细日志
+            if (logger.isTraceEnabled()) {
+                logger.trace("开始扫描邮件状态变化: 账号={}, 扫描范围={}-{}, 邮件数量={}", 
+                            monitor.getAccount().getEmailAddress(), startIndex, messageCount, messages.length);
+            }
             
             int statusChangeCount = 0;
             int processedCount = 0;
@@ -1166,21 +1220,86 @@ public class ImapService {
                                 monitor.updateStatusCache(messageId, statusInfo);
                             }
                         } else {
-                            // 记录非我们发送的邮件，但不处理状态变化
-                            logger.debug("跳过非我们发送的邮件: {} (发件人: {})", messageId, from);
+                            // 跳过非我们发送的邮件，不处理状态变化
+                            // 注释掉DEBUG日志以减少日志输出
+                            // logger.debug("跳过非我们发送的邮件: {} (发件人: {})", messageId, from);
                         }
                     }
                 }
             }
             
-            logger.debug("邮件状态扫描完成: 账号={}, 总邮件数={}, 我们的邮件数={}, 状态变化数={}", 
-                        monitor.getAccount().getEmailAddress(), processedCount, ourEmailCount, statusChangeCount);
+            // 只在有状态变化或启用TRACE级别时才输出详细日志
+            if (statusChangeCount > 0 || logger.isTraceEnabled()) {
+                logger.debug("邮件状态扫描完成: 账号={}, 总邮件数={}, 我们的邮件数={}, 状态变化数={}", 
+                            monitor.getAccount().getEmailAddress(), processedCount, ourEmailCount, statusChangeCount);
+            }
             
         } catch (Exception e) {
             logger.error("扫描邮件状态变化失败: 账号={}", monitor.getAccount().getEmailAddress(), e);
         }
     }
     
+    /**
+     * 从邮件内容中提取Message-ID
+     */
+    private String extractMessageIdFromContent(String content) {
+        if (content == null || content.trim().isEmpty()) {
+            return null;
+        }
+        
+        // 查找常见的Message-ID模式
+        String[] patterns = {
+            "<[^>]+@[^>]+>",  // 标准Message-ID格式
+            "Message-ID:\\s*<([^>]+)>",  // Message-ID头格式
+            "In-Reply-To:\\s*<([^>]+)>",  // In-Reply-To头格式
+            "References:\\s*<([^>]+)>"   // References头格式
+        };
+        
+        for (String pattern : patterns) {
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern, java.util.regex.Pattern.CASE_INSENSITIVE);
+            java.util.regex.Matcher m = p.matcher(content);
+            if (m.find()) {
+                String messageId = m.group(1);
+                if (messageId != null && messageId.contains("@")) {
+                    return "<" + messageId + ">";
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    /**
+     * 提取邮件内容
+     */
+    private String extractEmailContent(MimeMessage message) {
+        try {
+            Object content = message.getContent();
+            if (content instanceof String) {
+                return (String) content;
+            } else if (content instanceof javax.mail.Multipart) {
+                javax.mail.Multipart multipart = (javax.mail.Multipart) content;
+                StringBuilder contentBuilder = new StringBuilder();
+                
+                for (int i = 0; i < multipart.getCount(); i++) {
+                    javax.mail.BodyPart bodyPart = multipart.getBodyPart(i);
+                    if (bodyPart.getContentType().toLowerCase().contains("text/plain")) {
+                        Object partContent = bodyPart.getContent();
+                        if (partContent instanceof String) {
+                            contentBuilder.append((String) partContent);
+                        }
+                    }
+                }
+                
+                return contentBuilder.toString();
+            }
+        } catch (Exception e) {
+            logger.debug("提取邮件内容失败: {}", e.getMessage());
+        }
+        
+        return null;
+    }
+
     /**
      * 从主题中提取邮件ID
      */
@@ -1255,7 +1374,7 @@ public class ImapService {
             // 解析邮件内容
             String content = extractMessageContent(message);
             if (content != null) {
-                logger.debug("DSN邮件内容: {}", content);
+//                logger.debug("DSN邮件内容: {}", content);
                 
                 // 提取原始Message-ID - 多种方式尝试
                 String originalMessageId = extractOriginalMessageId(content, message);

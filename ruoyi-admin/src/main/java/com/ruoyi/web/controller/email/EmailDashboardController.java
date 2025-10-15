@@ -12,6 +12,7 @@ import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.system.domain.email.EmailContact;
 import com.ruoyi.system.service.email.IEmailContactService;
+import com.ruoyi.system.service.email.IEmailTrackRecordService;
 
 /**
  * 邮件仪表板Controller
@@ -26,31 +27,56 @@ public class EmailDashboardController extends BaseController
     @Autowired
     private IEmailContactService emailContactService;
 
+    @Autowired
+    private IEmailTrackRecordService emailTrackRecordService;
+
     /**
      * 获取仪表板数据
      */
-    @PreAuthorize("@ss.hasPermi('email:dashboard:view')")
     @GetMapping("/data")
     public AjaxResult getDashboardData()
     {
-        Map<String, Object> data = new HashMap<>();
-        
-        // 模拟数据，实际应该从数据库查询
-        data.put("todaySent", 287);
-        data.put("yesterdaySent", 215);
-        data.put("totalSent", 4586);
-        data.put("monthGrowth", 15);
-        data.put("totalContacts", 1425);
-        data.put("activeContacts", 1389);
-        data.put("avgReplyRate", 64.7);
-        
-        return success(data);
+        try {
+            Map<String, Object> data = new HashMap<>();
+            
+            // 获取今日发送邮件数
+            String today = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            long todaySent = emailTrackRecordService.countTodaySentEmails(today);
+            data.put("todaySent", todaySent);
+            
+            // 获取昨日发送邮件数
+            String yesterday = java.time.LocalDate.now().minusDays(1).format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            long yesterdaySent = emailTrackRecordService.countTodaySentEmails(yesterday);
+            data.put("yesterdaySent", yesterdaySent);
+            
+            // 获取总发送邮件数
+            long totalSent = emailTrackRecordService.countTotalEmails();
+            data.put("totalSent", totalSent);
+            
+            // 计算月度增长率（简化计算）
+            long monthGrowth = yesterdaySent > 0 ? Math.round((double)(todaySent - yesterdaySent) / yesterdaySent * 100) : 0;
+            data.put("monthGrowth", monthGrowth);
+            
+            // 获取总联系人数量
+            long totalContacts = emailContactService.countTotalContacts();
+            data.put("totalContacts", totalContacts);
+            data.put("activeContacts", totalContacts); // 简化处理，假设所有联系人都活跃
+            
+            // 计算平均回复率
+            long totalReplied = emailTrackRecordService.countRepliedEmails();
+            double avgReplyRate = totalSent > 0 ? (double) totalReplied / totalSent * 100 : 0;
+            data.put("avgReplyRate", Math.round(avgReplyRate * 10.0) / 10.0);
+            
+            return success(data);
+        } catch (Exception e) {
+            logger.error("获取仪表板数据失败", e);
+            return error("获取仪表板数据失败: " + e.getMessage());
+        }
     }
 
     /**
      * 获取联系人统计
      */
-    @PreAuthorize("@ss.hasPermi('email:contact:list')")
     @GetMapping("/contact/statistics")
     public AjaxResult getContactStatistics()
     {
@@ -62,7 +88,6 @@ public class EmailDashboardController extends BaseController
     /**
      * 获取模板统计
      */
-    @PreAuthorize("@ss.hasPermi('email:template:list')")
     @GetMapping("/template/statistics")
     public AjaxResult getTemplateStatistics()
     {

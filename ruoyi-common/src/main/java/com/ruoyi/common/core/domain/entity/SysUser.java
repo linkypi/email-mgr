@@ -92,6 +92,10 @@ public class SysUser extends BaseEntity
     /** 角色ID */
     private Long roleId;
 
+    /** 用户角色代码（admin/regular/guest） */
+    @Excel(name = "用户角色", readConverterExp = "admin=管理员,regular=普通账号,guest=访客账号")
+    private String roleCode;
+
     public SysUser()
     {
 
@@ -308,6 +312,16 @@ public class SysUser extends BaseEntity
     public void setRoleId(Long roleId)
     {
         this.roleId = roleId;
+    }
+
+    public String getRoleCode()
+    {
+        return roleCode;
+    }
+
+    public void setRoleCode(String roleCode)
+    {
+        this.roleCode = roleCode;
     }
 
     @Override

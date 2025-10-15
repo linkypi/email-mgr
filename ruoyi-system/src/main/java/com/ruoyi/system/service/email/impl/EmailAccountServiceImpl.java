@@ -1,6 +1,7 @@
 package com.ruoyi.system.service.email.impl;
 
 import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.system.mapper.email.EmailAccountMapper;
@@ -43,6 +44,30 @@ public class EmailAccountServiceImpl implements IEmailAccountService
     public EmailAccount selectEmailAccountByAccountId(Long accountId)
     {
         return emailAccountMapper.selectEmailAccountByAccountId(accountId);
+    }
+
+    /**
+     * 根据邮箱地址查询邮箱账号
+     * 
+     * @param emailAddress 邮箱地址
+     * @return 邮箱账号
+     */
+    @Override
+    public EmailAccount selectEmailAccountByEmailAddress(String emailAddress)
+    {
+        return emailAccountMapper.selectEmailAccountByEmailAddress(emailAddress);
+    }
+
+    /**
+     * 根据用户ID查询邮箱账号
+     * 
+     * @param userId 用户ID
+     * @return 邮箱账号
+     */
+    @Override
+    public EmailAccount selectEmailAccountByUserId(Long userId)
+    {
+        return emailAccountMapper.selectEmailAccountByUserId(userId);
     }
 
     /**
@@ -417,5 +442,23 @@ public class EmailAccountServiceImpl implements IEmailAccountService
             successMsg.insert(0, "恭喜您，数据已全部导入成功！共 " + successNum + " 条，数据如下：");
             return successMsg.toString();
         }
+    }
+
+    @Override
+    public long countActiveAccounts()
+    {
+        return emailAccountMapper.countActiveAccounts();
+    }
+
+    @Override
+    public List<Map<String, Object>> getAccountReplyRates()
+    {
+        return emailAccountMapper.getAccountReplyRates();
+    }
+
+    @Override
+    public List<Map<String, Object>> getActiveAccountList()
+    {
+        return emailAccountMapper.getActiveAccountList();
     }
 }

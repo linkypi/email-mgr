@@ -197,4 +197,11 @@ public interface IEmailContactService
      * @return 恢复的数量
      */
     public int batchRestoreContacts(List<Long> contactIds);
+
+    /**
+     * 统计总联系人数量
+     * 
+     * @return 总联系人数量
+     */
+    public long countTotalContacts();
 }

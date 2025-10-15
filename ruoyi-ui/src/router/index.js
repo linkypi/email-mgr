@@ -6,6 +6,9 @@ Vue.use(Router)
 /* Layout */
 import Layout from '@/layout'
 
+/* Router Modules */
+import emailRouter from './modules/email'
+
 /**
  * Note: 路由配置项
  *
@@ -70,7 +73,7 @@ export const constantRoutes = [
         path: 'index',
         component: () => import('@/views/email/statistics/index'),
         name: 'Index',
-        meta: { title: '数据统计', icon: 'chart', affix: true }
+        meta: { title: '首页', icon: 'dashboard', affix: true }
       }
     ]
   },
@@ -166,6 +169,7 @@ export const constantRoutes = [
       }
     ]
   },
+  emailRouter,
 ]
 
 // 动态路由，基于用户权限动态去加载

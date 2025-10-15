@@ -106,6 +106,11 @@
           </el-button>
         </el-col>
         <el-col :span="1.5">
+          <el-button type="danger" icon="el-icon-warning" size="mini" @click="handleForceFixStatistics">
+            强制修复统计
+          </el-button>
+        </el-col>
+        <el-col :span="1.5">
           <el-button type="info" icon="el-icon-upload2" size="mini" @click="handleBatchRestore">
             批量恢复
           </el-button>
@@ -540,6 +545,13 @@ export default {
       })
     },
     
+    forceFixContactStatistics() {
+      return request({
+        url: '/email/contact/forceFixStatistics',
+        method: 'post'
+      })
+    },
+    
     // 获取所有可用标签
     getAllTags() {
       return request({
@@ -797,6 +809,24 @@ export default {
         this.getList()
         this.getStatistics()
       })
+    },
+    
+    /** 强制修复统计信息 */
+    handleForceFixStatistics() {
+      this.$modal.confirm('强制修复统计会重置所有联系人的统计数据并重新计算，是否继续？').then(() => {
+        this.forceFixContactStatistics().then(response => {
+          if (response.code === 200) {
+            this.$modal.msgSuccess(response.msg)
+            this.getList()
+            this.getStatistics()
+          } else {
+            this.$modal.msgError(response.msg || '强制修复失败')
+          }
+        }).catch(error => {
+          console.error('强制修复失败:', error)
+          this.$modal.msgError('强制修复失败: ' + (error.message || '未知错误'))
+        })
+      }).catch(() => {})
     },
     
     /** 批量恢复 */

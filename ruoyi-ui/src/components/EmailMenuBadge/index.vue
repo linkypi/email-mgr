@@ -5,7 +5,7 @@
 </template>
 
 <script>
-import { getInboxUnreadCount, getSentUnreadCount, getStarredUnreadCount, getDeletedUnreadCount } from "@/api/email/personal";
+import { getInboxUnreadCount, getSentUnreadCount, getStarredCount, getDeletedCount, getSentTotalCount } from "@/api/email/personal";
 
 export default {
   name: "EmailMenuBadge",
@@ -51,13 +51,13 @@ export default {
             response = await getInboxUnreadCount();
             break;
           case 'sent':
-            response = await getSentUnreadCount();
+            response = await getSentTotalCount(); // 发件箱显示总数量
             break;
           case 'starred':
-            response = await getStarredUnreadCount();
+            response = await getStarredCount(); // 星标邮件显示总数量
             break;
           case 'deleted':
-            response = await getDeletedUnreadCount();
+            response = await getDeletedCount(); // 已删除邮件显示总数量
             break;
           default:
             return;

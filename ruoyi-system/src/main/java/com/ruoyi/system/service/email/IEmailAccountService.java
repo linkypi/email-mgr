@@ -1,6 +1,7 @@
 package com.ruoyi.system.service.email;
 
 import java.util.List;
+import java.util.Map;
 import com.ruoyi.system.domain.email.EmailAccount;
 
 /**
@@ -18,6 +19,22 @@ public interface IEmailAccountService
      * @return 邮箱账号
      */
     public EmailAccount selectEmailAccountByAccountId(Long accountId);
+
+    /**
+     * 根据邮箱地址查询邮箱账号
+     * 
+     * @param emailAddress 邮箱地址
+     * @return 邮箱账号
+     */
+    public EmailAccount selectEmailAccountByEmailAddress(String emailAddress);
+
+    /**
+     * 根据用户ID查询邮箱账号
+     * 
+     * @param userId 用户ID
+     * @return 邮箱账号
+     */
+    public EmailAccount selectEmailAccountByUserId(Long userId);
 
     /**
      * 根据发件人ID查询邮箱账号列表
@@ -110,5 +127,26 @@ public interface IEmailAccountService
      * @return 结果
      */
     public String importAccount(List<EmailAccount> accountList, Boolean isUpdateSupport, String operName);
+
+    /**
+     * 统计活跃账号数量
+     * 
+     * @return 活跃账号数量
+     */
+    public long countActiveAccounts();
+
+    /**
+     * 获取各账号的回复率数据
+     * 
+     * @return 账号回复率数据
+     */
+    public List<Map<String, Object>> getAccountReplyRates();
+
+    /**
+     * 获取活跃账号列表
+     * 
+     * @return 活跃账号列表
+     */
+    public List<Map<String, Object>> getActiveAccountList();
 }
 

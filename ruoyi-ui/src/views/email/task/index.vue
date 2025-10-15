@@ -100,6 +100,137 @@
       :limit.sync="queryParams.pageSize"
       @pagination="getList"
     />
+
+    <!-- 执行记录对话框 -->
+    <el-dialog
+      title="任务执行记录"
+      :visible.sync="executionDialogVisible"
+      width="80%"
+      :close-on-click-modal="false"
+    >
+      <div v-loading="executionLoading">
+        <!-- 统计信息卡片 -->
+        <el-row :gutter="20" style="margin-bottom: 20px;" v-if="executionStatistics && Object.keys(executionStatistics).length > 0">
+          <el-col :span="6">
+            <el-card class="box-card">
+              <div slot="header" class="clearfix">
+                <span>执行次数</span>
+              </div>
+              <div class="text item">
+                <div style="font-size: 24px; font-weight: bold; color: #409EFF;">
+                  {{ executionStatistics.totalExecutions || 0 }}
+                </div>
+                <div style="font-size: 12px; color: #909399;">
+                  总执行次数
+                </div>
+              </div>
+            </el-card>
+          </el-col>
+          <el-col :span="6">
+            <el-card class="box-card">
+              <div slot="header" class="clearfix">
+                <span>成功次数</span>
+              </div>
+              <div class="text item">
+                <div style="font-size: 24px; font-weight: bold; color: #67C23A;">
+                  {{ executionStatistics.completedCount || 0 }}
+                </div>
+                <div style="font-size: 12px; color: #909399;">
+                  已完成执行
+                </div>
+              </div>
+            </el-card>
+          </el-col>
+          <el-col :span="6">
+            <el-card class="box-card">
+              <div slot="header" class="clearfix">
+                <span>失败次数</span>
+              </div>
+              <div class="text item">
+                <div style="font-size: 24px; font-weight: bold; color: #F56C6C;">
+                  {{ executionStatistics.failedCount || 0 }}
+                </div>
+                <div style="font-size: 12px; color: #909399;">
+                  执行失败
+                </div>
+              </div>
+            </el-card>
+          </el-col>
+          <el-col :span="6">
+            <el-card class="box-card">
+              <div slot="header" class="clearfix">
+                <span>成功率</span>
+              </div>
+              <div class="text item">
+                <div style="font-size: 24px; font-weight: bold; color: #E6A23C;">
+                  {{ executionStatistics.successRate || 0 }}%
+                </div>
+                <div style="font-size: 12px; color: #909399;">
+                  发送成功率
+                </div>
+              </div>
+            </el-card>
+          </el-col>
+        </el-row>
+
+        <!-- 执行记录表格 -->
+        <el-table :data="executionList" style="width: 100%">
+          <el-table-column prop="executionId" label="执行ID" width="80" />
+          <el-table-column prop="executionStatus" label="执行状态" width="100">
+            <template slot-scope="scope">
+              <el-tag :type="getExecutionStatusType(scope.row.executionStatus)">
+                {{ getExecutionStatusText(scope.row.executionStatus) }}
+              </el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="startTime" label="开始时间" width="180">
+            <template slot-scope="scope">
+              <span>{{ parseTime(scope.row.startTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="endTime" label="结束时间" width="180">
+            <template slot-scope="scope">
+              <span>{{ parseTime(scope.row.endTime, '{y}-{m}-{d} {h}:{i}:{s}') }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="executionUser" label="执行人" width="120" />
+          <el-table-column prop="totalCount" label="总数" width="80" />
+          <el-table-column prop="sentCount" label="已发送" width="80" />
+          <el-table-column prop="successCount" label="成功" width="80" />
+          <el-table-column prop="failedCount" label="失败" width="80" />
+          <el-table-column prop="errorMessage" label="错误信息" show-overflow-tooltip />
+          <el-table-column label="操作" width="120">
+            <template slot-scope="scope">
+              <el-button
+                size="mini"
+                type="text"
+                icon="el-icon-document"
+                @click="viewExecutionLog(scope.row)"
+              >查看日志</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+      </div>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="executionDialogVisible = false">关闭</el-button>
+        <el-button type="primary" @click="refreshExecutions">刷新</el-button>
+      </div>
+    </el-dialog>
+
+    <!-- 执行日志对话框 -->
+    <el-dialog
+      title="执行日志"
+      :visible.sync="logDialogVisible"
+      width="60%"
+      :close-on-click-modal="false"
+    >
+      <div class="execution-log">
+        <pre>{{ currentExecutionLog }}</pre>
+      </div>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="logDialogVisible = false">关闭</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -132,7 +263,16 @@ export default {
         status: null,
         orderByColumn: 'createTime',
         isAsc: 'desc'
-      }
+      },
+      // 执行记录相关
+      executionDialogVisible: false,
+      executionLoading: false,
+      executionList: [],
+      executionStatistics: {},
+      currentTaskId: null,
+      // 执行日志相关
+      logDialogVisible: false,
+      currentExecutionLog: ''
     };
   },
   created() {
@@ -215,12 +355,70 @@ export default {
     },
     /** 查看执行记录 */
     handleExecution(row) {
-      const taskId = row.taskId;
-      getTaskExecutions(taskId).then(response => {
-        this.$alert(JSON.stringify(response.data, null, 2), '执行记录', {
-          confirmButtonText: '确定'
-        });
+      this.currentTaskId = row.taskId;
+      this.executionDialogVisible = true;
+      this.loadExecutions();
+    },
+    /** 加载执行记录 */
+    loadExecutions() {
+      if (!this.currentTaskId) return;
+      
+      this.executionLoading = true;
+      getTaskExecutions(this.currentTaskId).then(response => {
+        // 处理新的返回数据结构
+        if (response.data && response.data.executions) {
+          this.executionList = response.data.executions || [];
+          this.executionStatistics = response.data.statistics || {};
+        } else {
+          // 兼容旧的返回格式
+          this.executionList = response.data || [];
+          this.executionStatistics = {};
+        }
+        this.executionLoading = false;
+      }).catch(error => {
+        this.$message.error('加载执行记录失败：' + error.message);
+        this.executionLoading = false;
       });
+    },
+    /** 刷新执行记录 */
+    refreshExecutions() {
+      this.loadExecutions();
+    },
+    /** 查看执行日志 */
+    viewExecutionLog(row) {
+      let logContent = '';
+      
+      // 基本信息
+      logContent += `执行ID: ${row.executionId}\n`;
+      logContent += `任务ID: ${row.taskId}\n`;
+      logContent += `执行状态: ${this.getExecutionStatusText(row.executionStatus)}\n`;
+      logContent += `开始时间: ${this.parseTime(row.startTime, '{y}-{m}-{d} {h}:{i}:{s}')}\n`;
+      logContent += `结束时间: ${row.endTime ? this.parseTime(row.endTime, '{y}-{m}-{d} {h}:{i}:{s}') : '未完成'}\n`;
+      logContent += `执行人: ${row.executionUser}\n`;
+      logContent += `执行IP: ${row.executionIp}\n`;
+      logContent += `总数: ${row.totalCount || 0}\n`;
+      logContent += `已发送: ${row.sentCount || 0}\n`;
+      logContent += `成功: ${row.successCount || 0}\n`;
+      logContent += `失败: ${row.failedCount || 0}\n`;
+      logContent += `\n`;
+      
+      // 错误信息
+      if (row.errorMessage) {
+        logContent += `=== 错误信息 ===\n`;
+        logContent += `${row.errorMessage}\n\n`;
+      }
+      
+      // 执行日志
+      if (row.executionLog) {
+        logContent += `=== 执行日志 ===\n`;
+        logContent += `${row.executionLog}\n`;
+      } else {
+        logContent += `=== 执行日志 ===\n`;
+        logContent += `暂无详细日志信息\n`;
+      }
+      
+      this.currentExecutionLog = logContent;
+      this.logDialogVisible = true;
     },
     /** 获取状态类型 */
     getStatusType(status) {
@@ -241,6 +439,40 @@ export default {
     },
     /** 获取状态文本 */
     getStatusText(status) {
+      switch (status) {
+        case '0':
+          return '未开始';
+        case '1':
+          return '执行中';
+        case '2':
+          return '已完成';
+        case '3':
+          return '执行失败';
+        case '4':
+          return '执行中断';
+        default:
+          return '未知';
+      }
+    },
+    /** 获取执行状态类型 */
+    getExecutionStatusType(status) {
+      switch (status) {
+        case '0':
+          return 'info';
+        case '1':
+          return 'warning';
+        case '2':
+          return 'success';
+        case '3':
+          return 'danger';
+        case '4':
+          return 'danger';
+        default:
+          return 'info';
+      }
+    },
+    /** 获取执行状态文本 */
+    getExecutionStatusText(status) {
       switch (status) {
         case '0':
           return '未开始';
@@ -279,5 +511,34 @@ export default {
 /* 确保列标题文字和排序图标在同一行 */
 .el-table .el-table__header-wrapper .el-table__header th .cell .caret-wrapper {
   margin-left: 4px;
+}
+
+/* 执行日志样式 */
+.execution-log {
+  max-height: 400px;
+  overflow-y: auto;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 10px;
+}
+
+.execution-log pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #333;
+}
+
+/* 对话框样式优化 */
+.el-dialog__body {
+  padding: 20px;
+}
+
+.dialog-footer {
+  text-align: right;
 }
 </style>

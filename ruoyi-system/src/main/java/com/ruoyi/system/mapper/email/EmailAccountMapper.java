@@ -1,6 +1,7 @@
 package com.ruoyi.system.mapper.email;
 
 import java.util.List;
+import java.util.Map;
 import com.ruoyi.system.domain.email.EmailAccount;
 
 /**
@@ -91,4 +92,33 @@ public interface EmailAccountMapper
      * @return 邮箱账号
      */
     public EmailAccount selectEmailAccountByEmailAddress(String emailAddress);
+
+    /**
+     * 根据用户ID查询邮箱账号
+     * 
+     * @param userId 用户ID
+     * @return 邮箱账号
+     */
+    public EmailAccount selectEmailAccountByUserId(Long userId);
+
+    /**
+     * 统计活跃账号数量
+     * 
+     * @return 活跃账号数量
+     */
+    public long countActiveAccounts();
+
+    /**
+     * 获取各账号的回复率数据
+     * 
+     * @return 账号回复率数据
+     */
+    public List<Map<String, Object>> getAccountReplyRates();
+
+    /**
+     * 获取活跃账号列表
+     * 
+     * @return 活跃账号列表
+     */
+    public List<Map<String, Object>> getActiveAccountList();
 }

@@ -113,7 +113,10 @@ public class EmailServiceMonitorService {
     
     @PostConstruct
     public void init() {
-        logger.info("邮件服务监控服务初始化开始");
+        // 减少监控服务初始化的日志输出
+        if (logger.isDebugEnabled()) {
+            logger.debug("邮件服务监控服务初始化开始");
+        }
         try {
             // 初始化线程池
             initThreadPools();
@@ -137,7 +140,10 @@ public class EmailServiceMonitorService {
      * 初始化线程池
      */
     private void initThreadPools() {
-        logger.info("开始初始化线程池...");
+        // 减少线程池初始化的日志输出
+        if (logger.isDebugEnabled()) {
+            logger.debug("开始初始化线程池...");
+        }
         
         // 强制重新创建监控调度线程池
         if (monitorScheduler != null) {
@@ -165,7 +171,10 @@ public class EmailServiceMonitorService {
             t.setDaemon(true);
             return t;
         });
-        logger.info("监控调度线程池创建成功");
+        // 减少线程池创建的日志输出
+        if (logger.isDebugEnabled()) {
+            logger.debug("监控调度线程池创建成功");
+        }
         
         // 强制重新创建事件处理线程池
         if (eventProcessor != null) {
@@ -193,7 +202,10 @@ public class EmailServiceMonitorService {
             t.setDaemon(true);
             return t;
         });
-        logger.info("事件处理线程池创建成功");
+        // 减少线程池创建的日志输出
+        if (logger.isDebugEnabled()) {
+            logger.debug("事件处理线程池创建成功");
+        }
         
         // 验证线程池状态
         if (monitorScheduler == null || monitorScheduler.isShutdown() || monitorScheduler.isTerminated()) {
@@ -204,7 +216,10 @@ public class EmailServiceMonitorService {
             throw new RuntimeException("事件处理线程池创建失败或状态异常");
         }
         
-        logger.info("线程池初始化完成，状态验证通过");
+        // 减少线程池初始化的日志输出
+        if (logger.isDebugEnabled()) {
+            logger.debug("线程池初始化完成，状态验证通过");
+        }
     }
     
     /**
@@ -244,7 +259,10 @@ public class EmailServiceMonitorService {
      * 启动全局监控
      */
     public void startGlobalMonitor() {
-        logger.info("开始启动全局监控...");
+        // 减少全局监控启动的日志输出
+        if (logger.isDebugEnabled()) {
+            logger.debug("开始启动全局监控...");
+        }
         
         if (globalMonitorRunning) {
             logger.warn("全局监控已在运行中");
@@ -252,7 +270,10 @@ public class EmailServiceMonitorService {
         }
         
         // 强制重新初始化线程池
-        logger.info("强制重新初始化线程池...");
+        // 减少线程池重新初始化的日志输出
+        if (logger.isDebugEnabled()) {
+            logger.debug("强制重新初始化线程池...");
+        }
         initThreadPools();
         
         // 严格检查线程池状态
@@ -295,18 +316,27 @@ public class EmailServiceMonitorService {
             logger.info("找到 {} 个邮箱账号", existingAccounts.size());
             
             for (EmailAccount account : existingAccounts) {
-                logger.info("检查账号: {} (ID: {}), 状态: {}, 邮件跟踪: {}", 
-                    account.getEmailAddress(), 
-                    account.getAccountId(),
-                    account.getStatus(), 
-                    account.getTrackingEnabled());
+                // 减少账号检查的日志输出
+                if (logger.isDebugEnabled()) {
+                    logger.debug("检查账号: {} (ID: {}), 状态: {}, 邮件跟踪: {}", 
+                        account.getEmailAddress(), 
+                        account.getAccountId(),
+                        account.getStatus(), 
+                        account.getTrackingEnabled());
+                }
                 
                 // 只监控启用发送邮件的账号
                 if ("0".equals(account.getStatus())) {
                     try {
-                        logger.info("符合监控条件，启动账号 {} 的监控", account.getEmailAddress());
+                        // 减少监控条件检查的日志输出
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("符合监控条件，启动账号 {} 的监控", account.getEmailAddress());
+                        }
                         startAccountMonitor(account.getAccountId());
-                        logger.info("已启动账号 {} 的监控（基于发送邮件启用状态）", account.getEmailAddress());
+                        // 减少监控启动成功的日志输出
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("已启动账号 {} 的监控（基于发送邮件启用状态）", account.getEmailAddress());
+                        }
                     } catch (Exception e) {
                         logger.error("启动账号 {} 监控失败", account.getEmailAddress(), e);
                     }
@@ -662,8 +692,11 @@ public class EmailServiceMonitorService {
                         
                         // 如果邮件数量发生变化，说明有新邮件
                         if (currentMessageCount != lastMessageCount) {
-                            logger.debug("检测到邮件数量变化: {} -> {}, 账户: {}", 
+                            // 减少邮件数量变化检测的日志输出频率
+                            if (logger.isTraceEnabled()) {
+                                logger.trace("检测到邮件数量变化: {} -> {}, 账户: {}", 
                                 lastMessageCount, currentMessageCount, account.getEmailAddress());
+                            }
                             
                             // 检查是否有新的DSN邮件
                             checkForNewDSNEmails(accountId, account, state.imapFolder, lastMessageCount, currentMessageCount);
@@ -817,8 +850,9 @@ public class EmailServiceMonitorService {
             String contentType = message.getContentType();
             Address[] from = message.getFrom();
             
-            logger.debug("检查邮件是否为DSN: 主题={}, 内容类型={}, 发件人={}", 
-                        subject, contentType, from != null && from.length > 0 ? from[0].toString() : "null");
+            // 注释掉频繁的DSN检测日志以减少日志输出
+            // logger.debug("检查邮件是否为DSN: 主题={}, 内容类型={}, 发件人={}", 
+            //             subject, contentType, from != null && from.length > 0 ? from[0].toString() : "null");
             
             // 首先检查Content-Type是否为multipart/report（最可靠的DSN标识）
             if (contentType != null && contentType.toLowerCase().contains("multipart/report")) {
@@ -855,7 +889,8 @@ public class EmailServiceMonitorService {
                 }
             }
             
-            logger.debug("邮件不是DSN邮件");
+            // 注释掉频繁的"邮件不是DSN邮件"日志以减少日志输出
+            // logger.debug("邮件不是DSN邮件");
             return false;
             
         } catch (Exception e) {
@@ -1029,7 +1064,10 @@ public class EmailServiceMonitorService {
      */
     private void scanAllFoldersForDSN(Long accountId, EmailAccount account, Store store) {
         try {
-            logger.debug("开始扫描所有文件夹寻找DSN邮件，账户: {}", account.getEmailAddress());
+            // 减少扫描所有文件夹的日志输出频率
+            if (logger.isTraceEnabled()) {
+                logger.trace("开始扫描所有文件夹寻找DSN邮件，账户: {}", account.getEmailAddress());
+            }
             
             // 获取所有文件夹
             Folder[] folders = store.getDefaultFolder().list("*");
@@ -1043,7 +1081,10 @@ public class EmailServiceMonitorService {
                     }
                 } catch (Exception e) {
                     // 某些文件夹可能不存在或无法访问，继续检查其他文件夹
-                    logger.debug("扫描文件夹 {} 失败: {}", folderName, e.getMessage());
+                    // 减少扫描文件夹失败的日志输出频率
+                    if (logger.isTraceEnabled()) {
+                        logger.trace("扫描文件夹 {} 失败: {}", folderName, e.getMessage());
+                    }
                 }
             }
             
@@ -1054,7 +1095,10 @@ public class EmailServiceMonitorService {
                     try {
                         scanFolderForDSN(accountId, account, folder, folder.getName());
                     } catch (Exception e) {
-                        logger.debug("扫描文件夹 {} 失败: {}", folder.getName(), e.getMessage());
+                        // 减少扫描文件夹失败的日志输出频率
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("扫描文件夹 {} 失败: {}", folder.getName(), e.getMessage());
+                        }
                     }
                 }
             }
@@ -1073,9 +1117,9 @@ public class EmailServiceMonitorService {
                 folder.open(Folder.READ_ONLY);
             }
             
-            // 获取最近3天的邮件 (DSN通常很快就会收到)
-            long threeDaysAgo = System.currentTimeMillis() - (3 * 24 * 60 * 60 * 1000);
-            Date searchDate = new Date(threeDaysAgo);
+            // 获取最近7天的邮件 (DSN可能延迟到达，扩大搜索范围)
+            long sevenDaysAgo = System.currentTimeMillis() - (7 * 24 * 60 * 60 * 1000);
+            Date searchDate = new Date(sevenDaysAgo);
             
             // 搜索最近的邮件
             Message[] messages = folder.search(new ReceivedDateTerm(ComparisonTerm.GT, searchDate));
@@ -1097,7 +1141,10 @@ public class EmailServiceMonitorService {
             }
             
         } catch (Exception e) {
-            logger.debug("扫描文件夹 {} 中的DSN邮件失败: {}", folderName, e.getMessage());
+            // 减少扫描文件夹DSN邮件失败的日志输出频率
+            if (logger.isTraceEnabled()) {
+                logger.trace("扫描文件夹 {} 中的DSN邮件失败: {}", folderName, e.getMessage());
+            }
         } finally {
             try {
                 if (folder.isOpen()) {
@@ -1528,7 +1575,10 @@ public class EmailServiceMonitorService {
                                 break; // 跳出内层循环，重新建立连接
                             } else {
                                 updateSmtpHealthScore(state, true); // 更新健康度评分
-                                logger.debug("SMTP心跳检测成功: {} (健康度评分: {})", account.getEmailAddress(), state.smtpHealthScore);
+                                // 减少SMTP心跳检测成功的日志输出频率
+                                if (logger.isTraceEnabled()) {
+                                    logger.trace("SMTP心跳检测成功: {} (健康度评分: {})", account.getEmailAddress(), state.smtpHealthScore);
+                                }
                             }
                             lastHeartbeatTime = currentTime;
                         }
@@ -1800,7 +1850,10 @@ public class EmailServiceMonitorService {
             // 执行一个简单的操作来检测连接是否有效
             state.imapFolder.getMessageCount();
             
-            logger.debug("IMAP心跳检测成功");
+            // 减少IMAP心跳检测成功的日志输出频率
+            if (logger.isTraceEnabled()) {
+                logger.trace("IMAP心跳检测成功");
+            }
             return true;
             
         } catch (Exception e) {
@@ -1937,14 +1990,20 @@ public class EmailServiceMonitorService {
                         // 发送NOOP命令来保持连接活跃并测试连接有效性
                         // NOOP命令不会对服务器产生副作用，但能验证连接状态
                         smtpTransport.issueCommand("NOOP", 250);
-                        logger.debug("SMTP心跳检测成功: NOOP命令响应正常，连接保持活跃");
+                        // 减少SMTP心跳检测成功的日志输出频率
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("SMTP心跳检测成功: NOOP命令响应正常，连接保持活跃");
+                        }
                         return true;
                     } catch (Exception noopEx) {
                         // 分析异常信息，QQ邮箱和其他SMTP服务商的成功响应可能被当作异常抛出
                         String errorMsg = noopEx.getMessage();
                         if (isSmtpSuccessResponse(errorMsg)) {
-                            logger.debug("SMTP心跳检测成功: NOOP命令返回成功响应: {}", 
+                            // 减少SMTP心跳检测成功的日志输出频率
+                            if (logger.isTraceEnabled()) {
+                                logger.trace("SMTP心跳检测成功: NOOP命令返回成功响应: {}", 
                                        errorMsg != null ? errorMsg.replaceAll("[\\r\\n]", " ") : "null");
+                            }
                             return true;
                         }
                         
@@ -1954,14 +2013,20 @@ public class EmailServiceMonitorService {
                         try {
                             // 发送RSET命令作为备用心跳检测
                             smtpTransport.issueCommand("RSET", 250);
-                            logger.debug("SMTP备用心跳检测成功: RSET命令响应正常");
+                            // 减少SMTP备用心跳检测成功的日志输出频率
+                            if (logger.isTraceEnabled()) {
+                                logger.trace("SMTP备用心跳检测成功: RSET命令响应正常");
+                            }
                             return true;
                         } catch (Exception rsetEx) {
                             String rsetErrorMsg = rsetEx.getMessage();
                             // 同样检查RSET的成功响应
                             if (isSmtpSuccessResponse(rsetErrorMsg)) {
-                                logger.debug("SMTP备用心跳检测成功: RSET命令返回成功响应: {}", 
+                                // 减少SMTP备用心跳检测成功的日志输出频率
+                                if (logger.isTraceEnabled()) {
+                                    logger.trace("SMTP备用心跳检测成功: RSET命令返回成功响应: {}", 
                                            rsetErrorMsg != null ? rsetErrorMsg.replaceAll("[\\r\\n]", " ") : "null");
+                                }
                                 return true;
                             }
                             logger.warn("SMTP备用心跳检测也失败: {}", rsetErrorMsg);
@@ -1976,7 +2041,10 @@ public class EmailServiceMonitorService {
                         
                         // 尝试获取更多属性来验证连接仍然有效
                         if (protocol != null && host != null) {
-                            logger.debug("SMTP心跳检测成功: protocol={}, host={}", protocol, host);
+                            // 减少SMTP心跳检测成功的日志输出频率
+                            if (logger.isTraceEnabled()) {
+                                logger.trace("SMTP心跳检测成功: protocol={}, host={}", protocol, host);
+                            }
                             
                             // 尝试更深入的连接验证
                             try {

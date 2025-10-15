@@ -194,12 +194,55 @@ if ($Target -eq "frontend" -or $Target -eq "all") {
     }
 }
 
+# Export Docker images to tar files
+Write-Host "[INFO] Exporting Docker images to tar files..." -ForegroundColor Green
+
+# Create docker directory if it doesn't exist
+$dockerDir = Join-Path $projectRoot "docker"
+if (-not (Test-Path $dockerDir)) {
+    New-Item -ItemType Directory -Path $dockerDir -Force | Out-Null
+}
+
+# Export backend image
+if ($Target -eq "backend" -or $Target -eq "all") {
+    Write-Host "[INFO] Exporting backend image to tar file..." -ForegroundColor Green
+    try {
+        $backendTarPath = Join-Path $dockerDir "ruoyi-backend-latest.tar"
+        & docker save -o $backendTarPath ruoyi-backend:latest
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[WARNING] Failed to export backend image" -ForegroundColor Yellow
+        } else {
+            $backendSize = (Get-Item $backendTarPath).Length / 1MB
+            Write-Host "[INFO] Backend image exported successfully: $backendTarPath (Size: $([math]::Round($backendSize, 2)) MB)" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "[WARNING] Failed to export backend image: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
+# Export frontend image
+if ($Target -eq "frontend" -or $Target -eq "all") {
+    Write-Host "[INFO] Exporting frontend image to tar file..." -ForegroundColor Green
+    try {
+        $frontendTarPath = Join-Path $dockerDir "ruoyi-frontend-latest.tar"
+        & docker save -o $frontendTarPath ruoyi-frontend:latest
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "[WARNING] Failed to export frontend image" -ForegroundColor Yellow
+        } else {
+            $frontendSize = (Get-Item $frontendTarPath).Length / 1MB
+            Write-Host "[INFO] Frontend image exported successfully: $frontendTarPath (Size: $([math]::Round($frontendSize, 2)) MB)" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "[WARNING] Failed to export frontend image: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
 # Return to original directory
 Write-Host "[INFO] Returning to original directory: $originalDirectory" -ForegroundColor Yellow
 Set-Location $originalDirectory
 
 # Final message
-Write-Host "[INFO] Build completed successfully!" -ForegroundColor Green
+Write-Host "[INFO] Build and export completed successfully!" -ForegroundColor Green
 Write-Host ""
 Write-Host "Built images:" -ForegroundColor Yellow
 if ($Target -eq "backend" -or $Target -eq "all") {
@@ -209,7 +252,16 @@ if ($Target -eq "frontend" -or $Target -eq "all") {
     Write-Host "  - ruoyi-frontend:latest" -ForegroundColor Green
 }
 Write-Host ""
+Write-Host "Exported tar files:" -ForegroundColor Yellow
+if ($Target -eq "backend" -or $Target -eq "all") {
+    Write-Host "  - docker/ruoyi-backend-latest.tar" -ForegroundColor Green
+}
+if ($Target -eq "frontend" -or $Target -eq "all") {
+    Write-Host "  - docker/ruoyi-frontend-latest.tar" -ForegroundColor Green
+}
+Write-Host ""
 Write-Host "Next step: Run .\deploy.bat start to start services" -ForegroundColor Yellow
+Write-Host "Or use 'docker load -i docker/ruoyi-*.tar' to load images on other machines" -ForegroundColor Cyan
 Read-Host "Press Enter to exit"
 
 

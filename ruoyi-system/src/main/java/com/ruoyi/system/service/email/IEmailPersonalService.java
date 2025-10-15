@@ -1,6 +1,7 @@
 package com.ruoyi.system.service.email;
 
 import java.util.List;
+import java.util.Map;
 import com.ruoyi.system.domain.email.EmailPersonal;
 
 /**
@@ -178,4 +179,75 @@ public interface IEmailPersonalService
      * @return 未读数量
      */
     public int getDeletedUnreadCount(Long userId);
+
+    /**
+     * 统计总邮件数
+     * 
+     * @return 总邮件数
+     */
+    public long countTotalEmails();
+
+    /**
+     * 统计今日发送邮件数
+     * 
+     * @param date 日期字符串 (yyyy-MM-dd)
+     * @return 今日发送邮件数
+     */
+    public long countTodaySentEmails(String date);
+
+    /**
+     * 统计回复邮件数
+     * 
+     * @return 回复邮件数
+     */
+    public long countRepliedEmails();
+
+    /**
+     * 统计今日接收邮件数
+     * 
+     * @param date 日期字符串 (yyyy-MM-dd)
+     * @return 今日接收邮件数
+     */
+    public long countTodayReceivedEmails(String date);
+
+    /**
+     * 获取最近邮件记录
+     * 
+     * @param limit 限制数量
+     * @return 最近邮件记录
+     */
+    public List<EmailPersonal> getRecentEmails(int limit);
+
+    /**
+     * 获取最近回复记录
+     *
+     * @param limit 限制数量
+     * @return 最近回复记录
+     */
+    public List<EmailPersonal> getRecentReplies(int limit);
+
+    /**
+     * 统计今日回复邮件数
+     *
+     * @param date 日期字符串 (yyyy-MM-dd)
+     * @return 今日回复邮件数
+     */
+    public long countTodayRepliedEmails(String date);
+
+    /**
+     * 统计总接收邮件数
+     *
+     * @return 总接收邮件数
+     */
+    public long countTotalReceivedEmails();
+
+    /**
+     * 获取详细统计数据
+     *
+     * @param startDate 开始日期
+     * @param endDate 结束日期
+     * @param accountId 账号ID（可选）
+     * @return 详细统计数据
+     */
+    public List<Map<String, Object>> getDetailedStatistics(String startDate, String endDate, Long accountId);
 }

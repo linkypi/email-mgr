@@ -44,6 +44,9 @@
 </template>
 
 <script>
+import { sendEmail, getEmail } from "@/api/email/personal";
+import request from '@/utils/request';
+
 export default {
   name: 'EmailCompose',
   data() {
@@ -52,25 +55,26 @@ export default {
         toAddress: '',
         ccAddress: '',
         subject: '',
-        content: ''
+        content: '',
+        originalMessageId: ''
       },
       fileList: []
     }
   },
   mounted() {
     // 检查是否是回复或转发
-    const { type, emailId } = this.$route.query
-    if (type === 'reply') {
-      this.handleReply(emailId)
-    } else if (type === 'forward') {
-      this.handleForward(emailId)
+    const { replyTo, forward, subject, recipient } = this.$route.query
+    if (replyTo) {
+      this.handleReply(replyTo, subject, recipient)
+    } else if (forward) {
+      this.handleForward(forward, subject)
     }
   },
   methods: {
     handleFileChange(file) {
       this.fileList.push(file)
     },
-    handleSend() {
+    async handleSend() {
       if (!this.emailForm.toAddress || !this.emailForm.subject || !this.emailForm.content) {
         this.$message.warning('请填写完整信息')
         return
@@ -80,9 +84,60 @@ export default {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
         type: 'warning'
-      }).then(() => {
-        this.$message.success('邮件发送成功')
-        this.$router.push('/email/personal/inbox')
+      }).then(async () => {
+        try {
+          // 判断是回复、转发还是普通发送
+          const isReply = this.emailForm.originalMessageId && this.emailForm.content.includes('--- 原邮件内容 ---')
+          const isForward = this.emailForm.originalMessageId && this.emailForm.content.includes('--- 转发邮件 ---')
+          
+          let apiUrl = '/email/personal/send'
+          if (isReply) {
+            apiUrl = '/email/personal/reply'
+          } else if (isForward) {
+            apiUrl = '/email/personal/forward'
+          }
+          
+          const requestData = {
+            recipient: this.emailForm.toAddress,
+            cc: this.emailForm.ccAddress,
+            subject: this.emailForm.subject,
+            content: this.emailForm.content,
+            attachments: this.fileList
+          }
+          
+          // 如果是回复，添加原邮件信息
+          if (isReply) {
+            requestData.originalMessageId = this.emailForm.originalMessageId
+            requestData.remark = `reply_to:${this.emailForm.originalMessageId}`
+          } else if (isForward) {
+            // 如果是转发，添加转发标记
+            requestData.originalMessageId = this.emailForm.originalMessageId
+            requestData.remark = `forward_from:${this.emailForm.originalMessageId}`
+          }
+          
+          // 调用发送邮件API
+          const response = await request({
+            url: apiUrl,
+            method: 'post',
+            data: requestData
+          })
+          
+          if (response.code === 200) {
+            let successMsg = '邮件发送成功'
+            if (isReply) {
+              successMsg = '回复发送成功'
+            } else if (isForward) {
+              successMsg = '转发发送成功'
+            }
+            this.$message.success(successMsg)
+            this.$router.push('/email/personal/sent')
+          } else {
+            this.$message.error(response.msg || '邮件发送失败')
+          }
+        } catch (error) {
+          console.error('发送邮件失败:', error)
+          this.$message.error('邮件发送失败，请稍后重试')
+        }
       })
     },
     handleSaveDraft() {
@@ -91,15 +146,80 @@ export default {
     handleCancel() {
       this.$router.go(-1)
     },
-    handleReply(emailId) {
-      // 模拟获取原邮件信息
-      this.emailForm.subject = '回复：重要会议通知'
-      this.emailForm.content = '\n\n--- 原邮件内容 ---\n请参加明天下午2点的项目会议...'
+    async handleReply(emailId, subject, recipient) {
+      try {
+        // 获取原邮件详情
+        const response = await request({
+          url: `/email/personal/detail/${emailId}`,
+          method: 'get'
+        })
+        if (response.code === 200) {
+          const originalEmail = response.data
+          
+          // 设置回复邮件信息
+          this.emailForm.subject = subject || `Re: ${originalEmail.subject}`
+          // 对于发件箱的回复，收件人应该是原邮件的收件人
+          this.emailForm.toAddress = recipient || originalEmail.recipient
+          
+          // 格式化回复内容
+          const replyContent = `\n\n--- 原邮件内容 ---\n` +
+            `发件人: ${originalEmail.sender}\n` +
+            `收件人: ${originalEmail.recipient}\n` +
+            `时间: ${this.formatDateTime(originalEmail.sentTime || originalEmail.receiveTime)}\n` +
+            `主题: ${originalEmail.subject}\n\n` +
+            `${originalEmail.content}\n\n` +
+            `--- 回复内容 ---\n`
+          
+          this.emailForm.content = replyContent
+          
+          // 设置回复标记
+          this.emailForm.originalMessageId = originalEmail.messageId
+        } else {
+          this.$message.error('获取原邮件详情失败')
+        }
+      } catch (error) {
+        console.error('获取原邮件详情失败:', error)
+        this.$message.error('获取原邮件详情失败')
+      }
     },
-    handleForward(emailId) {
-      // 模拟获取原邮件信息
-      this.emailForm.subject = '转发：重要会议通知'
-      this.emailForm.content = '\n\n--- 转发邮件 ---\n请参加明天下午2点的项目会议...'
+    async handleForward(emailId, subject) {
+      try {
+        // 获取原邮件详情
+        const response = await request({
+          url: `/email/personal/detail/${emailId}`,
+          method: 'get'
+        })
+        if (response.code === 200) {
+          const originalEmail = response.data
+          
+          // 设置转发邮件信息
+          this.emailForm.subject = subject || `Fwd: ${originalEmail.subject}`
+          
+          // 格式化转发内容
+          const forwardContent = `\n\n--- 转发邮件 ---\n` +
+            `发件人: ${originalEmail.sender}\n` +
+            `收件人: ${originalEmail.recipient}\n` +
+            `时间: ${this.formatDateTime(originalEmail.sentTime || originalEmail.receiveTime)}\n` +
+            `主题: ${originalEmail.subject}\n\n` +
+            `${originalEmail.content}\n\n` +
+            `--- 转发说明 ---\n`
+          
+          this.emailForm.content = forwardContent
+          
+          // 设置转发标记
+          this.emailForm.originalMessageId = originalEmail.messageId
+        } else {
+          this.$message.error('获取原邮件详情失败')
+        }
+      } catch (error) {
+        console.error('获取原邮件详情失败:', error)
+        this.$message.error('获取原邮件详情失败')
+      }
+    },
+    formatDateTime(dateTime) {
+      if (!dateTime) return ''
+      const date = new Date(dateTime)
+      return date.toLocaleString('zh-CN')
     }
   }
 }

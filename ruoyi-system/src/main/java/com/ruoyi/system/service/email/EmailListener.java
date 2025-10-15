@@ -2,10 +2,13 @@ package com.ruoyi.system.service.email;
 
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.SecurityUtils;
+import com.ruoyi.system.service.ISysUserService;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.system.domain.email.EmailAccount;
 import com.ruoyi.system.domain.email.EmailStatistics;
 import com.ruoyi.system.domain.email.EmailTrackRecord;
 import com.ruoyi.system.domain.email.EmailPersonal;
+import com.ruoyi.system.domain.email.EmailSendTask;
 import com.ruoyi.system.mapper.email.EmailAccountMapper;
 import com.ruoyi.system.service.ISysConfigService;
 import org.slf4j.Logger;
@@ -18,6 +21,8 @@ import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.mail.*;
 import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
+import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeUtility;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
@@ -71,8 +76,23 @@ public class EmailListener {
     @Autowired
     private ISysConfigService sysConfigService;
     
-    @Value("${ruoyi.email.tracking.base-url:http://8.148.202.151:8080}")
+    @Autowired
+    private EmailReadTrackingService emailReadTrackingService;
+
+    @Autowired
+    private IEmailSendTaskService emailSendTaskService;
+
+    @Autowired
+    private ISysUserService sysUserService;
+    
+    @Value("${ruoyi.email.tracking.base-url:http://localhost:28081}")
     private String defaultTrackingBaseUrl;
+    
+    @Value("${ruoyi.email.monitor.interval:30}")
+    private int defaultMonitorInterval;
+    
+    @Value("${ruoyi.email.dsn.check.interval:15}")
+    private int defaultDsnCheckInterval;
     
     private final Map<Long, AccountConnectionInfo> activeConnections = new ConcurrentHashMap<>();
     private final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(10);
@@ -154,10 +174,11 @@ public class EmailListener {
         loadEmailAccounts();
         
         // 启动定期检查任务
-        scheduledExecutor.scheduleWithFixedDelay(this::checkAllConnections, 30, 30, TimeUnit.SECONDS);
+        int monitorInterval = getMonitorInterval();
+        scheduledExecutor.scheduleWithFixedDelay(this::checkAllConnections, monitorInterval, monitorInterval, TimeUnit.SECONDS);
         scheduledExecutor.scheduleWithFixedDelay(this::loadEmailAccounts, 5, 5, TimeUnit.MINUTES);
         
-        logger.info("邮件监听服务启动成功，当前监控 {} 个邮箱账号", activeConnections.size());
+        logger.info("邮件监听服务启动成功，当前监控 {} 个邮箱账号，监控间隔: {} 秒", activeConnections.size(), monitorInterval);
     }
     
     /**
@@ -217,7 +238,10 @@ public class EmailListener {
                 // 只处理启用发送邮件的账号
                 if (!activeConnections.containsKey(account.getAccountId())) {
                     // 新增账号连接
-                    logger.info("为启用发送邮件的账号 {} 建立连接", account.getEmailAddress());
+                    // 减少启动时的连接建立日志输出
+        if (logger.isDebugEnabled()) {
+            logger.debug("为启用发送邮件的账号 {} 建立连接", account.getEmailAddress());
+        }
                     addAccountConnection(account);
                 }
             }
@@ -242,7 +266,10 @@ public class EmailListener {
      * 添加账号连接
      */
     public void addAccountConnection(EmailAccount account) {
-        logger.info("为邮箱账号 {} 建立连接", account.getEmailAddress());
+        // 减少启动时的连接建立日志输出
+        if (logger.isDebugEnabled()) {
+            logger.debug("为邮箱账号 {} 建立连接", account.getEmailAddress());
+        }
         
         AccountConnectionInfo connectionInfo = new AccountConnectionInfo(account);
         activeConnections.put(account.getAccountId(), connectionInfo);
@@ -277,7 +304,10 @@ public class EmailListener {
             connectionInfo.setSmtpConnected(true);
             connectionInfo.setSmtpError(null);
             
-            logger.debug("SMTP连接建立成功: {}", account.getEmailAddress());
+            // 减少SMTP连接成功的日志输出
+        if (logger.isTraceEnabled()) {
+            logger.trace("SMTP连接建立成功: {}", account.getEmailAddress());
+        }
             
             // 更新监控状态
             updateServiceMonitorStatus(account.getAccountId(), "smtp", "running", null);
@@ -311,12 +341,18 @@ public class EmailListener {
             connectionInfo.setImapConnected(true);
             connectionInfo.setImapError(null);
             
-            logger.debug("IMAP连接建立成功: {}", account.getEmailAddress());
+            // 减少IMAP连接成功的日志输出
+        if (logger.isTraceEnabled()) {
+            logger.trace("IMAP连接建立成功: {}", account.getEmailAddress());
+        }
             
             // 启动邮件跟踪监控（只监控发送方邮箱）
             if (account.getTrackingEnabled() != null && "1".equals(account.getTrackingEnabled())) {
                 startEmailTracking(account);
-                logger.info("启动发送方邮箱的邮件跟踪监控: {}", account.getEmailAddress());
+                // 减少邮件跟踪启动的日志输出
+                if (logger.isDebugEnabled()) {
+                    logger.debug("启动发送方邮箱的邮件跟踪监控: {}", account.getEmailAddress());
+                }
             } else {
                 logger.debug("跳过非发送方邮箱的邮件跟踪监控: {}", account.getEmailAddress());
             }
@@ -722,6 +758,7 @@ public class EmailListener {
                 statistics.setAccountId(account.getAccountId());
                 statistics.setMessageId(messageId);
                 statistics.setStatus(EmailStatus.SEND_SUCCESS.name());
+                statistics.setStatDate(new Date()); // 设置统计日期
                 statistics.setCreateBy("system");
                 statistics.setCreateTime(new Date());
                 
@@ -771,6 +808,14 @@ public class EmailListener {
      */
     public EmailSendResult sendEmailWithTracking(EmailAccount account, String to, String subject, 
                                                String content, Long taskId) {
+        return sendEmailWithTracking(account, to, subject, content, taskId, null);
+    }
+
+    /**
+     * 发送带跟踪的邮件（带用户ID参数）
+     */
+    public EmailSendResult sendEmailWithTracking(EmailAccount account, String to, String subject, 
+                                               String content, Long taskId, Long userId) {
         String messageId = null;
         try {
             // 检查数据库连接是否可用
@@ -778,6 +823,9 @@ public class EmailListener {
                 logger.error("数据库连接不可用，无法发送带跟踪的邮件: {} -> {}", account.getEmailAddress(), to);
                 return EmailSendResult.failure("数据库连接不可用");
             }
+            
+            // 记录数据库连接状态
+            logger.info("数据库连接正常，准备发送邮件: {} -> {}, TaskID: {}", account.getEmailAddress(), to, taskId);
             
             // 生成唯一的Message-ID
             messageId = generateMessageId();
@@ -798,21 +846,98 @@ public class EmailListener {
             trackRecord.setCreateBy("system");
             trackRecord.setCreateTime(new Date());
             
+            // 设置个人邮件管理相关字段
+            Long finalUserId = userId;
+            try {
+                // 如果传入了用户ID，直接使用
+                if (finalUserId != null) {
+                    logger.debug("使用传入的用户ID: UserID={}", finalUserId);
+                } else {
+                    // 尝试从任务中获取用户ID
+                    if (taskId != null) {
+                        try {
+                            // 通过任务ID查询任务的创建者ID
+                            EmailSendTask task = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
+                            if (task != null && task.getCreateBy() != null) {
+                                // 根据createBy字段获取用户ID
+                                finalUserId = getUserIdByUsername(task.getCreateBy());
+                                logger.debug("从任务获取创建者信息: TaskID={}, CreateBy={}, UserID={}", taskId, task.getCreateBy(), finalUserId);
+                            } else {
+                                logger.warn("任务不存在或创建者为空: TaskID={}", taskId);
+                            }
+                        } catch (Exception taskException) {
+                            logger.warn("查询任务信息失败: TaskID={}, 错误: {}", taskId, taskException.getMessage());
+                        }
+                    }
+                    
+                    // 如果无法从任务获取用户ID，尝试其他方法
+                    if (finalUserId == null) {
+                        try {
+                            // 尝试从当前安全上下文获取用户ID
+                            finalUserId = SecurityUtils.getUserId();
+                            if (finalUserId != null) {
+                                logger.debug("从安全上下文获取用户ID: UserID={}", finalUserId);
+                            }
+                        } catch (Exception e) {
+                            logger.warn("从安全上下文获取用户ID失败: {}", e.getMessage());
+                        }
+                    }
+                    
+                    // 如果仍然无法获取用户ID，使用默认值
+                    if (finalUserId == null) {
+                        finalUserId = 1L; // 默认使用admin用户ID
+                        logger.warn("无法获取用户ID，使用默认值: UserID={}", finalUserId);
+                    }
+                }
+                
+                trackRecord.setUserId(finalUserId);
+                logger.info("设置邮件跟踪记录用户ID: UserID={}, TaskID={}", finalUserId, taskId);
+                
+            } catch (Exception e) {
+                // 发生异常时使用默认用户ID
+                finalUserId = 1L;
+                trackRecord.setUserId(finalUserId);
+                logger.error("设置用户ID时发生异常，使用默认值: UserID={}, 错误: {}", finalUserId, e.getMessage());
+            }
+            trackRecord.setFolderType("sent"); // 设置为发件箱
+            trackRecord.setIsRead(1); // 发送的邮件默认为已读
+            trackRecord.setIsStarred(0); // 默认不星标
+            trackRecord.setIsImportant(0); // 默认不重要
+            
             // 生成跟踪URL
             String trackingPixelUrl = generateTrackingPixelUrl(messageId);
             String trackingLinkUrl = generateTrackingLinkUrl(messageId);
             trackRecord.setTrackingPixelUrl(trackingPixelUrl);
             trackRecord.setTrackingLinkUrl(trackingLinkUrl);
             
+            // 启动增强版已读跟踪
+            try {
+                emailReadTrackingService.startTrackingEmailRead(messageId, to, account.getEmailAddress());
+                logger.info("启动增强版邮件已读跟踪: MessageID={}, 收件人={}", messageId, to);
+            } catch (Exception e) {
+                logger.warn("启动增强版已读跟踪失败: MessageID={}", messageId, e);
+            }
+            
             logger.debug("准备插入邮件跟踪记录: MessageID={}, TaskID={}", messageId, taskId);
             
             // 保存跟踪记录
+            logger.info("准备插入邮件跟踪记录: MessageID={}, TaskID={}, 收件人={}, 发件人={}", 
+                       messageId, taskId, to, account.getEmailAddress());
+            
             int insertResult = emailTrackRecordService.insertEmailTrackRecord(trackRecord);
             if (insertResult <= 0) {
-                logger.error("插入邮件跟踪记录失败: MessageID={}, TaskID={}", messageId, taskId);
+                logger.error("插入邮件跟踪记录失败: MessageID={}, TaskID={}, 插入结果={}", messageId, taskId, insertResult);
                 return EmailSendResult.failure(messageId, "插入邮件跟踪记录失败");
             }
-            logger.info("邮件跟踪记录插入成功: MessageID={}, TaskID={}", messageId, taskId);
+            logger.info("邮件跟踪记录插入成功: MessageID={}, TaskID={}, 插入结果={}", messageId, taskId, insertResult);
+            
+            // 验证记录是否真的插入成功
+            EmailTrackRecord verifyRecord = emailTrackRecordService.selectEmailTrackRecordByMessageId(messageId);
+            if (verifyRecord == null) {
+                logger.error("验证失败：邮件跟踪记录插入后无法查询到: MessageID={}, TaskID={}", messageId, taskId);
+                return EmailSendResult.failure(messageId, "邮件跟踪记录插入后验证失败");
+            }
+            logger.info("邮件跟踪记录验证成功: MessageID={}, TaskID={}, 记录ID={}", messageId, taskId, verifyRecord.getId());
             
             // 更新状态为发送中
             emailTrackRecordService.updateEmailStatus(messageId, EmailStatus.SENDING.name());
@@ -827,6 +952,15 @@ public class EmailListener {
                 emailTrackRecordService.updateEmailStatus(messageId, EmailStatus.SEND_SUCCESS.name());
                 logger.info("邮件发送成功: {} -> {}, MessageID: {}", account.getEmailAddress(), to, messageId);
                 
+                // 验证记录是否真的存在
+                EmailTrackRecord finalRecord = emailTrackRecordService.selectEmailTrackRecordByMessageId(messageId);
+                if (finalRecord != null) {
+                    logger.info("邮件发送成功并验证记录存在: MessageID={}, 记录ID={}, 状态={}", 
+                               messageId, finalRecord.getId(), finalRecord.getStatus());
+                } else {
+                    logger.error("邮件发送成功但记录验证失败: MessageID={}", messageId);
+                }
+                
                 // 注意：送达状态将通过DSN（Delivery Status Notification）来更新
                 // 系统会监听IMAP收件箱中的DSN邮件，并自动更新邮件状态
                 // 如果Gmail等现代邮件服务不发送DSN，可以考虑使用其他方式检测送达状态
@@ -840,6 +974,16 @@ public class EmailListener {
                 emailTrackRecordService.updateEmailStatus(messageId, EmailStatus.SEND_FAILED.name());
                 logger.error("邮件发送失败: {} -> {}, MessageID: {}, 错误: {}", 
                            account.getEmailAddress(), to, messageId, result.getErrorMessage());
+                
+                // 验证失败记录是否真的存在
+                EmailTrackRecord failedRecord = emailTrackRecordService.selectEmailTrackRecordByMessageId(messageId);
+                if (failedRecord != null) {
+                    logger.info("邮件发送失败但记录存在: MessageID={}, 记录ID={}, 状态={}", 
+                               messageId, failedRecord.getId(), failedRecord.getStatus());
+                } else {
+                    logger.error("邮件发送失败且记录验证失败: MessageID={}", messageId);
+                }
+                
                 return EmailSendResult.failure(messageId, result.getErrorMessage());
             }
             
@@ -864,6 +1008,84 @@ public class EmailListener {
     }
     
     /**
+     * 创建收件箱记录
+     */
+    private void createInboxRecord(MimeMessage mimeMessage, EmailAccount account) {
+        try {
+            String messageId = mimeMessage.getMessageID();
+            String subject = decodeMimeText(mimeMessage.getSubject());
+            String from = extractEmailAddress(mimeMessage.getFrom());
+            String to = extractEmailAddress(mimeMessage.getRecipients(Message.RecipientType.TO));
+            
+            // 检查是否已经存在该邮件的记录
+            EmailTrackRecord existingRecord = emailTrackRecordService.selectEmailTrackRecordByMessageId(messageId);
+            if (existingRecord != null) {
+                logger.debug("邮件记录已存在，跳过创建: {}", messageId);
+                return;
+            }
+            
+            // 创建收件箱记录
+            EmailTrackRecord inboxRecord = new EmailTrackRecord();
+            inboxRecord.setMessageId(messageId);
+            inboxRecord.setSubject(subject);
+            inboxRecord.setSender(from);
+            inboxRecord.setRecipient(to);
+            inboxRecord.setContent(extractEmailContent(mimeMessage));
+            inboxRecord.setStatus("RECEIVED");
+            // inboxRecord.setReceiveTime(new Date()); // 暂时注释，等数据库字段添加后再启用
+            inboxRecord.setAccountId(account.getAccountId());
+            inboxRecord.setCreateBy("system");
+            inboxRecord.setCreateTime(new Date());
+            
+            // 设置个人邮件管理相关字段
+            // 根据收件人邮箱地址查找对应的用户ID
+            Long userId = getUserIdByEmailAddress(to);
+            inboxRecord.setUserId(userId);
+            inboxRecord.setFolderType("inbox"); // 设置为收件箱
+            inboxRecord.setIsRead(0); // 收件箱邮件默认为未读
+            inboxRecord.setIsStarred(0); // 默认不星标
+            inboxRecord.setIsImportant(0); // 默认不重要
+            
+            // 保存收件箱记录
+            int insertResult = emailTrackRecordService.insertEmailTrackRecord(inboxRecord);
+            if (insertResult > 0) {
+                logger.info("收件箱记录创建成功: {} - {}", subject, messageId);
+            } else {
+                logger.warn("收件箱记录创建失败: {}", messageId);
+            }
+            
+        } catch (Exception e) {
+            logger.error("创建收件箱记录失败", e);
+        }
+    }
+    
+    /**
+     * 提取邮件内容
+     */
+    private String extractEmailContent(MimeMessage mimeMessage) {
+        try {
+            Object content = mimeMessage.getContent();
+            if (content instanceof String) {
+                return (String) content;
+            } else if (content instanceof Multipart) {
+                Multipart multipart = (Multipart) content;
+                StringBuilder contentBuilder = new StringBuilder();
+                for (int i = 0; i < multipart.getCount(); i++) {
+                    Part bodyPart = multipart.getBodyPart(i);
+                    if (bodyPart.getContentType().startsWith("text/")) {
+                        contentBuilder.append(bodyPart.getContent().toString());
+                    }
+                }
+                return contentBuilder.toString();
+            }
+            return "邮件内容解析失败";
+        } catch (Exception e) {
+            logger.error("提取邮件内容失败", e);
+            return "邮件内容提取失败";
+        }
+    }
+
+    /**
      * 处理收到的邮件
      */
     public void processIncomingMessage(Message message, EmailAccount account) {
@@ -881,9 +1103,40 @@ public class EmailListener {
                 
                 // 检查是否是回复邮件
                 if (isReplyMessage(mimeMessage)) {
-                    // 更新原始邮件的回复状态
-                    emailTrackRecordService.recordEmailReplied(messageId);
-                    logger.info("检测到邮件回复: {}", messageId);
+                    logger.info("邮件被识别为回复邮件，开始处理: {}", messageId);
+                    
+            // 提取原始邮件的Message-ID
+            String originalMessageId = extractOriginalMessageIdFromReply(mimeMessage);
+            if (originalMessageId != null) {
+                logger.info("准备更新原始邮件的回复状态: {} -> {}", originalMessageId, messageId);
+                
+                // 更新原始邮件的回复状态
+                int updateResult = emailTrackRecordService.recordEmailReplied(originalMessageId);
+                if (updateResult > 0) {
+                    logger.info("✓ 成功更新邮件回复状态: {} -> {} (影响行数: {})", originalMessageId, messageId, updateResult);
+                } else {
+                    logger.warn("✗ 直接匹配失败，尝试模糊匹配: {} -> {}", originalMessageId, messageId);
+                    
+                    // 如果直接匹配失败，尝试模糊匹配
+                    updateResult = emailTrackRecordService.recordEmailRepliedByFuzzyMatch(originalMessageId, mimeMessage.getSubject());
+                    if (updateResult > 0) {
+                        logger.info("✓ 模糊匹配成功更新邮件回复状态: {} -> {} (影响行数: {})", originalMessageId, messageId, updateResult);
+                    } else {
+                        logger.warn("✗ 模糊匹配也失败: {} -> {}", originalMessageId, messageId);
+                    }
+                }
+                
+                // 回复邮件不创建收件箱记录，只更新原始邮件的回复状态
+                // 回复邮件应该在发件箱中显示
+            } else {
+                logger.warn("✗ 回复邮件中未找到原始Message-ID: {}，将作为普通邮件处理", messageId);
+                // 如果无法确定是回复邮件，则作为普通邮件处理
+                createInboxRecord(mimeMessage, account);
+            }
+                } else {
+                    logger.debug("邮件被识别为非回复邮件，创建收件箱记录: {}", messageId);
+                    // 非回复邮件，创建收件箱记录
+                    createInboxRecord(mimeMessage, account);
                 }
                 
                 // 检查是否是送达状态通知
@@ -983,6 +1236,9 @@ public class EmailListener {
                 if (message instanceof MimeMessage) {
                     MimeMessage mimeMessage = (MimeMessage) message;
                     
+                    // 首先处理邮件回复检测（这是关键！）
+                    processIncomingMessage(mimeMessage, account);
+                    
                     // 同步到个人邮件表
                     syncToPersonalEmail(mimeMessage, account);
                     
@@ -1042,6 +1298,12 @@ public class EmailListener {
                     
                     logger.info("DSN解析结果 - 原始MessageID: {}, 状态: {}, 收件人: {}", 
                         originalMessageId, deliveryStatus, recipientEmail);
+                    
+                    // 增强DSN状态解析
+                    if (deliveryStatus == null || deliveryStatus.trim().isEmpty()) {
+                        deliveryStatus = extractDeliveryStatusFromContent(mimeMessage);
+                        logger.info("从邮件内容重新解析DSN状态: {}", deliveryStatus);
+                    }
                     
                     if (originalMessageId != null) {
                         // 查找对应的跟踪记录
@@ -1141,6 +1403,93 @@ public class EmailListener {
     }
     
     /**
+     * 从回复邮件中提取原始Message-ID
+     */
+    private String extractOriginalMessageIdFromReply(MimeMessage message) {
+        try {
+            String currentMessageId = message.getMessageID();
+            logger.info("开始从回复邮件提取原始Message-ID: 当前邮件ID={}", currentMessageId);
+            
+            // 方式1: 检查In-Reply-To头
+            String[] inReplyToHeaders = message.getHeader("In-Reply-To");
+            logger.info("In-Reply-To头检查: {}", inReplyToHeaders != null ? String.join(", ", inReplyToHeaders) : "null");
+            
+            if (inReplyToHeaders != null && inReplyToHeaders.length > 0) {
+                String originalMessageId = extractMessageIdFromHeader(inReplyToHeaders[0]);
+                if (originalMessageId != null) {
+                    logger.info("✓ 从In-Reply-To头提取到原始Message-ID: {} -> {}", currentMessageId, originalMessageId);
+                    return originalMessageId;
+                } else {
+                    logger.warn("In-Reply-To头存在但无法提取Message-ID: {}", inReplyToHeaders[0]);
+                }
+            }
+            
+            // 方式2: 检查References头
+            String[] referencesHeaders = message.getHeader("References");
+            logger.info("References头检查: {}", referencesHeaders != null ? String.join(", ", referencesHeaders) : "null");
+            
+            if (referencesHeaders != null && referencesHeaders.length > 0) {
+                String references = referencesHeaders[0];
+                // References头可能包含多个Message-ID，取最后一个
+                String[] messageIds = references.split("\\s+");
+                logger.info("References头解析结果: 包含{}个Message-ID", messageIds.length);
+                
+                if (messageIds.length > 0) {
+                    String originalMessageId = extractMessageIdFromHeader(messageIds[messageIds.length - 1]);
+                    if (originalMessageId != null) {
+                        logger.info("✓ 从References头提取到原始Message-ID: {} -> {}", currentMessageId, originalMessageId);
+                        return originalMessageId;
+                    } else {
+                        logger.warn("References头存在但无法提取Message-ID: {}", messageIds[messageIds.length - 1]);
+                    }
+                }
+            }
+            
+            // 方式3: 从主题中提取（如果主题包含Message-ID）
+            String subject = message.getSubject();
+            logger.info("主题检查: {}", subject);
+            
+            if (subject != null) {
+                String originalMessageId = extractMessageIdFromSubject(subject);
+                if (originalMessageId != null) {
+                    logger.info("✓ 从主题中提取到原始Message-ID: {} -> {}", currentMessageId, originalMessageId);
+                    return originalMessageId;
+                } else {
+                    logger.debug("主题中未找到Message-ID");
+                }
+            }
+            
+            logger.warn("✗ 无法从回复邮件中提取原始Message-ID: {}", currentMessageId);
+            return null;
+        } catch (Exception e) {
+            try {
+                logger.error("提取原始Message-ID时发生异常: MessageID={}", message.getMessageID(), e);
+            } catch (Exception ex) {
+                logger.error("提取原始Message-ID时发生异常: 无法获取MessageID", e);
+            }
+            return null;
+        }
+    }
+    
+    /**
+     * 从主题中提取Message-ID
+     */
+    private String extractMessageIdFromSubject(String subject) {
+        if (subject == null) {
+            return null;
+        }
+        
+        // 尝试从主题中提取Message-ID格式的字符串
+        java.util.regex.Pattern messageIdPattern = java.util.regex.Pattern.compile("<([^>]+@[^>]+)>");
+        java.util.regex.Matcher matcher = messageIdPattern.matcher(subject);
+        if (matcher.find()) {
+            return matcher.group(1);
+        }
+        
+        return null;
+    }
+    
+    /**
      * 从DSN邮件中提取原始Message-ID
      */
     private String extractOriginalMessageIdFromDSN(MimeMessage message) {
@@ -1194,6 +1543,64 @@ public class EmailListener {
         }
     }
     
+    /**
+     * 从邮件内容中提取DSN状态
+     */
+    private String extractDeliveryStatusFromContent(MimeMessage message) {
+        try {
+            Object content = message.getContent();
+            String contentText = null;
+            
+            if (content instanceof String) {
+                contentText = (String) content;
+            } else if (content instanceof javax.mail.Multipart) {
+                javax.mail.Multipart multipart = (javax.mail.Multipart) content;
+                for (int i = 0; i < multipart.getCount(); i++) {
+                    javax.mail.BodyPart bodyPart = multipart.getBodyPart(i);
+                    if (bodyPart.getContentType().toLowerCase().contains("text/plain")) {
+                        Object partContent = bodyPart.getContent();
+                        if (partContent instanceof String) {
+                            contentText = (String) partContent;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            if (contentText != null) {
+                // 查找常见的DSN状态关键词
+                String[] deliveredKeywords = {"delivered", "success", "2.0.0", "delivery successful", "邮件已送达"};
+                String[] failedKeywords = {"failed", "bounced", "rejected", "5.0.0", "5.1.1", "5.2.1", "delivery failed", "邮件发送失败"};
+                String[] deferredKeywords = {"deferred", "delayed", "4.0.0", "4.2.2", "temporarily unavailable", "暂时不可用"};
+                
+                String lowerContent = contentText.toLowerCase();
+                
+                for (String keyword : deliveredKeywords) {
+                    if (lowerContent.contains(keyword.toLowerCase())) {
+                        return "DELIVERED";
+                    }
+                }
+                
+                for (String keyword : failedKeywords) {
+                    if (lowerContent.contains(keyword.toLowerCase())) {
+                        return "BOUNCED";
+                    }
+                }
+                
+                for (String keyword : deferredKeywords) {
+                    if (lowerContent.contains(keyword.toLowerCase())) {
+                        return "DEFERRED";
+                    }
+                }
+            }
+            
+            return null;
+        } catch (Exception e) {
+            logger.debug("从邮件内容提取DSN状态失败: {}", e.getMessage());
+            return null;
+        }
+    }
+
     /**
      * 从DSN邮件中提取收件人
      */
@@ -1280,8 +1687,64 @@ public class EmailListener {
      * 检查是否是回复邮件
      */
     private boolean isReplyMessage(Message message) throws MessagingException {
-        String subject = message.getSubject();
-        return subject != null && (subject.startsWith("Re:") || subject.startsWith("回复:"));
+        try {
+            String subject = message.getSubject();
+            String messageId = null;
+            if (message instanceof MimeMessage) {
+                messageId = ((MimeMessage) message).getMessageID();
+            }
+            
+            // 方式1: 检查主题是否以Re:或回复:开头
+            boolean isReplyBySubject = subject != null && (
+                subject.toLowerCase().startsWith("re:") || 
+                subject.toLowerCase().startsWith("回复:") ||
+                subject.toLowerCase().startsWith("re：") ||
+                subject.toLowerCase().startsWith("回复：")
+            );
+            
+            // 方式2: 检查In-Reply-To头
+            boolean isReplyByHeader = false;
+            String[] inReplyToHeaders = message.getHeader("In-Reply-To");
+            if (inReplyToHeaders != null && inReplyToHeaders.length > 0) {
+                isReplyByHeader = true;
+            }
+            
+            // 方式3: 检查References头
+            boolean isReplyByReferences = false;
+            String[] referencesHeaders = message.getHeader("References");
+            if (referencesHeaders != null && referencesHeaders.length > 0) {
+                isReplyByReferences = true;
+            }
+            
+            boolean isReply = isReplyBySubject || isReplyByHeader || isReplyByReferences;
+            
+            // 增加详细的调试日志
+            logger.info("检查邮件是否为回复: MessageID={}, 主题={}, 检测结果={}", 
+                       messageId, subject, isReply);
+            logger.info("回复检测详情: 主题检测={}, In-Reply-To检测={}, References检测={}", 
+                       isReplyBySubject, isReplyByHeader, isReplyByReferences);
+            
+            if (inReplyToHeaders != null && inReplyToHeaders.length > 0) {
+                logger.info("In-Reply-To头内容: {}", String.join(", ", inReplyToHeaders));
+            }
+            
+            if (referencesHeaders != null && referencesHeaders.length > 0) {
+                logger.info("References头内容: {}", String.join(", ", referencesHeaders));
+            }
+            
+            if (isReply) {
+                logger.info("✓ 检测到回复邮件: {} - 主题: {} - 检测方式: 主题={}, In-Reply-To={}, References={}", 
+                           messageId, subject, isReplyBySubject, isReplyByHeader, isReplyByReferences);
+            } else {
+                logger.debug("✗ 非回复邮件: {} - 主题: {}", messageId, subject);
+            }
+            
+            return isReply;
+        } catch (Exception e) {
+            logger.error("检查回复邮件时发生异常: MessageID={}", 
+                        message instanceof MimeMessage ? ((MimeMessage) message).getMessageID() : "unknown", e);
+            return false;
+        }
     }
     
     /**
@@ -1298,13 +1761,69 @@ public class EmailListener {
     private String generateMessageId() {
         return "<" + UUID.randomUUID().toString() + "@" + System.currentTimeMillis() + ">";
     }
+
+    /**
+     * 根据用户名获取用户ID
+     */
+    private Long getUserIdByUsername(String username) {
+        try {
+            SysUser user = sysUserService.selectUserByUserName(username);
+            if (user != null) {
+                return user.getUserId();
+            }
+        } catch (Exception e) {
+            logger.warn("根据用户名获取用户ID失败: username={}, 错误: {}", username, e.getMessage());
+        }
+        // 如果获取失败，返回当前登录用户ID
+        return SecurityUtils.getUserId();
+    }
+
+    /**
+     * 根据邮箱地址获取用户ID
+     */
+    private Long getUserIdByEmailAddress(String emailAddress) {
+        try {
+            // 尝试从用户表中查找
+            // 这里可以根据实际业务逻辑调整，比如根据邮箱前缀匹配用户名
+            String username = extractUsernameFromEmail(emailAddress);
+            if (username != null) {
+                SysUser user = sysUserService.selectUserByUserName(username);
+                if (user != null) {
+                    return user.getUserId();
+                }
+            }
+            
+            // 也可以尝试根据邮箱地址直接查找用户
+            // 这里可以根据实际业务逻辑调整，暂时注释掉，因为ISysUserService没有selectUserByEmail方法
+            // SysUser userByEmail = sysUserService.selectUserByEmail(emailAddress);
+            // if (userByEmail != null) {
+            //     return userByEmail.getUserId();
+            // }
+        } catch (Exception e) {
+            logger.warn("根据邮箱地址获取用户ID失败: email={}, 错误: {}", emailAddress, e.getMessage());
+        }
+        
+        // 如果都获取失败，返回默认用户ID（通常是admin用户）
+        return 1L;
+    }
+
+    /**
+     * 从邮箱地址中提取用户名
+     */
+    private String extractUsernameFromEmail(String emailAddress) {
+        if (emailAddress == null || !emailAddress.contains("@")) {
+            return null;
+        }
+        return emailAddress.substring(0, emailAddress.indexOf("@"));
+    }
     
     /**
      * 生成跟踪像素URL
      */
     private String generateTrackingPixelUrl(String messageId) {
         String baseUrl = getTrackingBaseUrl();
-        return baseUrl + "/api/email/tracking/open?msgid=" + messageId;
+        // 使用增强版跟踪接口，支持多种检测方式
+        return baseUrl + "/email/read-tracking/open?msgid=" + messageId + "&method=pixel";
     }
     
     /**
@@ -1312,7 +1831,7 @@ public class EmailListener {
      */
     private String generateTrackingLinkUrl(String messageId) {
         String baseUrl = getTrackingBaseUrl();
-        return baseUrl + "/api/email/tracking/click?msgid=" + messageId;
+        return baseUrl + "/email/tracking/click?msgid=" + messageId;
     }
     
     /**
@@ -1342,6 +1861,56 @@ public class EmailListener {
         }
         logger.debug("使用yml配置的邮件跟踪基础URL: {}", baseUrl);
         return baseUrl;
+    }
+    
+    /**
+     * 获取邮件监控间隔（秒）
+     * 优先从数据库配置获取，如果获取不到再从yml配置文件获取
+     */
+    private int getMonitorInterval() {
+        try {
+            // 首先尝试从数据库配置中获取
+            String intervalStr = sysConfigService.selectConfigByKey("email.monitor.interval");
+            if (intervalStr != null && !intervalStr.trim().isEmpty()) {
+                int interval = Integer.parseInt(intervalStr.trim());
+                if (interval > 0) {
+                    logger.debug("从数据库配置获取邮件监控间隔: {} 秒", interval);
+                    return interval;
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("从数据库配置获取邮件监控间隔失败，将使用yml配置", e);
+        }
+        
+        // 如果数据库配置获取失败，使用yml配置文件中的默认值
+        int interval = defaultMonitorInterval;
+        logger.debug("使用yml配置的邮件监控间隔: {} 秒", interval);
+        return interval;
+    }
+    
+    /**
+     * 获取DSN检查间隔（秒）
+     * 优先从数据库配置获取，如果获取不到再从yml配置文件获取
+     */
+    private int getDsnCheckInterval() {
+        try {
+            // 首先尝试从数据库配置中获取
+            String intervalStr = sysConfigService.selectConfigByKey("email.dsn.check.interval");
+            if (intervalStr != null && !intervalStr.trim().isEmpty()) {
+                int interval = Integer.parseInt(intervalStr.trim());
+                if (interval > 0) {
+                    logger.debug("从数据库配置获取DSN检查间隔: {} 秒", interval);
+                    return interval;
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("从数据库配置获取DSN检查间隔失败，将使用yml配置", e);
+        }
+        
+        // 如果数据库配置获取失败，使用yml配置文件中的默认值
+        int interval = defaultDsnCheckInterval;
+        logger.debug("使用yml配置的DSN检查间隔: {} 秒", interval);
+        return interval;
     }
     
     /**
@@ -1691,7 +2260,10 @@ public class EmailListener {
             };
             
             imapService.startEmailTracking(account, callback);
-            logger.info("启动邮件跟踪监控: {}", account.getEmailAddress());
+            // 减少邮件跟踪启动的日志输出
+        if (logger.isDebugEnabled()) {
+            logger.debug("启动邮件跟踪监控: {}", account.getEmailAddress());
+        }
             
         } catch (Exception e) {
             logger.error("启动邮件跟踪监控失败: {} - {}", account.getEmailAddress(), e.getMessage());
@@ -2183,9 +2755,189 @@ public class EmailListener {
     private boolean isDatabaseConnectionAvailable() {
         try {
             // 尝试执行一个简单的查询来检查数据库连接
-            emailTrackRecordService.selectEmailTrackRecordList(new EmailTrackRecord());
+            List<EmailTrackRecord> testList = emailTrackRecordService.selectEmailTrackRecordList(new EmailTrackRecord());
+            logger.debug("数据库连接检查成功，查询到 {} 条记录", testList != null ? testList.size() : 0);
             return true;
         } catch (Exception e) {
+            logger.error("数据库连接检查失败: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+    
+    /**
+     * 手动检测回复邮件
+     * 用于在IMAP连接失败时作为备用机制
+     */
+    public void manualReplyDetection(Long taskId) {
+        try {
+            logger.info("开始手动检测回复邮件，任务ID: {}", taskId);
+            
+            // 检查数据库连接
+            if (!isDatabaseConnectionAvailable()) {
+                logger.error("数据库连接不可用，无法进行手动回复检测");
+                return;
+            }
+            
+            // 获取任务的所有邮件跟踪记录
+            List<EmailTrackRecord> trackRecords = emailTrackRecordService.selectEmailTrackRecordByTaskId(taskId);
+            if (trackRecords.isEmpty()) {
+                logger.warn("任务 {} 没有找到邮件跟踪记录", taskId);
+                return;
+            }
+            
+            logger.info("找到 {} 条邮件跟踪记录，开始检测回复状态", trackRecords.size());
+            
+            // 获取所有发件人账户
+            List<EmailAccount> senderAccounts = emailAccountService.selectEmailAccountList(new EmailAccount());
+            int detectedReplies = 0;
+            
+            for (EmailAccount account : senderAccounts) {
+                if (account.getTrackingEnabled() != null && "1".equals(account.getTrackingEnabled())) {
+                    try {
+                        // 尝试连接IMAP并检测回复
+                        Store store = imapService.createPersistentConnectionWithRetry(account, 2);
+                        if (store != null && store.isConnected()) {
+                            Folder folder = imapService.openInboxFolder(store);
+                            if (folder != null && folder.isOpen()) {
+                                int replyCount = scanRepliesForTask(folder, trackRecords, account);
+                                detectedReplies += replyCount;
+                                logger.info("账户 {} 检测到 {} 个回复", account.getEmailAddress(), replyCount);
+                                
+                                folder.close(false);
+                            }
+                            store.close();
+                        } else {
+                            logger.warn("无法连接到账户 {} 进行回复检测", account.getEmailAddress());
+                        }
+                    } catch (Exception e) {
+                        logger.warn("检测账户 {} 的回复邮件时发生异常: {}", account.getEmailAddress(), e.getMessage());
+                    }
+                }
+            }
+            
+            logger.info("手动回复检测完成，任务ID: {}，共检测到 {} 个回复", taskId, detectedReplies);
+            
+        } catch (Exception e) {
+            logger.error("手动回复检测失败，任务ID: {}", taskId, e);
+        }
+    }
+    
+    /**
+     * 扫描指定任务的回复邮件
+     */
+    private int scanRepliesForTask(Folder folder, List<EmailTrackRecord> trackRecords, EmailAccount account) {
+        int replyCount = 0;
+        try {
+            int messageCount = folder.getMessageCount();
+            if (messageCount == 0) {
+                return 0;
+            }
+            
+            // 检查最近200封邮件
+            int startIndex = Math.max(1, messageCount - 200);
+            Message[] messages = folder.getMessages(startIndex, messageCount);
+            
+            for (Message message : messages) {
+                if (message instanceof MimeMessage) {
+                    MimeMessage mimeMessage = (MimeMessage) message;
+                    
+                    // 检查是否是回复邮件
+                    if (isReplyMessage(mimeMessage)) {
+                        String originalMessageId = extractOriginalMessageIdFromReply(mimeMessage);
+                        if (originalMessageId != null) {
+                            // 检查是否是我们发送的邮件
+                            for (EmailTrackRecord record : trackRecords) {
+                                if (originalMessageId.equals(record.getMessageId()) && 
+                                    record.getRepliedTime() == null) {
+                                    
+                                    // 更新回复时间
+                                    record.setRepliedTime(new Date());
+                                    record.setStatus("REPLIED");
+                                    record.setUpdateTime(new Date());
+                                    emailTrackRecordService.updateEmailTrackRecord(record);
+                                    
+                                    logger.info("检测到回复邮件: {} -> {} (任务ID: {})", 
+                                               originalMessageId, mimeMessage.getMessageID(), record.getTaskId());
+                                    replyCount++;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            logger.error("扫描回复邮件失败: {}", account.getEmailAddress(), e);
+        }
+        
+        return replyCount;
+    }
+
+    /**
+     * 测试邮件跟踪记录插入功能
+     * 用于调试和验证数据库连接
+     */
+    public boolean testEmailTrackRecordInsertion(Long taskId) {
+        try {
+            logger.info("开始测试邮件跟踪记录插入功能，任务ID: {}", taskId);
+            
+            // 检查数据库连接
+            if (!isDatabaseConnectionAvailable()) {
+                logger.error("数据库连接不可用，无法测试邮件跟踪记录插入");
+                return false;
+            }
+            
+            // 创建测试记录
+            EmailTrackRecord testRecord = new EmailTrackRecord();
+            testRecord.setTaskId(taskId);
+            testRecord.setMessageId("TEST-" + System.currentTimeMillis());
+            testRecord.setSubject("测试邮件主题");
+            testRecord.setRecipient("test@example.com");
+            testRecord.setSender("test@example.com");
+            testRecord.setContent("测试邮件内容");
+            testRecord.setStatus(EmailStatus.PENDING.name());
+            testRecord.setSentTime(new Date());
+            testRecord.setAccountId(1L);
+            testRecord.setCreateBy("system");
+            testRecord.setCreateTime(new Date());
+            try {
+                testRecord.setUserId(SecurityUtils.getUserId());
+            } catch (Exception e) {
+                logger.warn("测试方法中无法获取当前用户ID，使用默认值: {}", e.getMessage());
+                testRecord.setUserId(1L); // 使用默认用户ID
+            }
+            testRecord.setFolderType("sent");
+            testRecord.setIsRead(1);
+            testRecord.setIsStarred(0);
+            testRecord.setIsImportant(0);
+            
+            // 插入测试记录
+            int insertResult = emailTrackRecordService.insertEmailTrackRecord(testRecord);
+            logger.info("测试记录插入结果: {}", insertResult);
+            
+            if (insertResult > 0) {
+                // 验证记录是否真的插入成功
+                EmailTrackRecord verifyRecord = emailTrackRecordService.selectEmailTrackRecordByMessageId(testRecord.getMessageId());
+                if (verifyRecord != null) {
+                    logger.info("测试记录验证成功: MessageID={}, 记录ID={}", testRecord.getMessageId(), verifyRecord.getId());
+                    
+                    // 删除测试记录
+                    emailTrackRecordService.deleteEmailTrackRecordById(verifyRecord.getId());
+                    logger.info("测试记录已删除: 记录ID={}", verifyRecord.getId());
+                    
+                    return true;
+                } else {
+                    logger.error("测试记录验证失败: MessageID={}", testRecord.getMessageId());
+                    return false;
+                }
+            } else {
+                logger.error("测试记录插入失败: 插入结果={}", insertResult);
+                return false;
+            }
+            
+        } catch (Exception e) {
+            logger.error("测试邮件跟踪记录插入功能时发生异常", e);
             return false;
         }
     }

@@ -204,4 +204,38 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <include refid="selectEmailAccountVo"/>
         where a.email_address = #{emailAddress} and a.deleted = '0'
     </select>
+
+    <select id="selectEmailAccountByUserId" parameterType="Long" resultMap="EmailAccountResult">
+        <include refid="selectEmailAccountVo"/>
+        where a.sender_id = #{userId} and a.deleted = '0'
+        order by a.create_time desc, a.account_id desc
+    </select>
+
+    <!-- 统计活跃账号数量 -->
+    <select id="countActiveAccounts" resultType="long">
+        SELECT COUNT(*) FROM email_account WHERE deleted = '0' AND status = '1'
+    </select>
+
+    <!-- 获取各账号的回复率数据 -->
+    <select id="getAccountReplyRates" resultType="java.util.Map">
+        SELECT 
+            a.email_address as name,
+            ROUND(COUNT(CASE WHEN etr.replied_time IS NOT NULL THEN 1 END) * 100.0 / COUNT(etr.id), 1) as value
+        FROM email_account a
+        LEFT JOIN email_track_record etr ON a.account_id = etr.account_id AND etr.deleted = '0'
+        WHERE a.deleted = '0' AND a.status = '1'
+        GROUP BY a.account_id, a.email_address
+        HAVING COUNT(etr.id) > 0
+        ORDER BY value DESC
+    </select>
+
+    <!-- 获取活跃账号列表 -->
+    <select id="getActiveAccountList" resultType="java.util.Map">
+        SELECT 
+            account_id as value,
+            email_address as label
+        FROM email_account 
+        WHERE deleted = '0' AND status = '1'
+        ORDER BY email_address
+    </select>
 </mapper>

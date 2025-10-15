@@ -1,7 +1,9 @@
 package com.ruoyi.system.service.email.impl;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.ruoyi.system.service.email.EmailSendService;
 import org.slf4j.Logger;
@@ -207,10 +209,15 @@ public class EmailTrackRecordServiceImpl implements IEmailTrackRecordService
     @Override
     public int updateEmailStatus(String messageId, String status)
     {
+        logger.info("开始更新邮件状态: MessageID={}, 新状态={}", messageId, status);
+        
         EmailTrackRecord record = selectEmailTrackRecordByMessageId(messageId);
         if (record != null) {
+            String oldStatus = record.getStatus();
             record.setStatus(status);
             record.setUpdateTime(new Date());
+            
+            logger.info("找到邮件跟踪记录: ID={}, 原状态={}, 新状态={}", record.getId(), oldStatus, status);
             
             // 根据状态设置相应的时间字段
             switch (status) {
@@ -221,17 +228,37 @@ public class EmailTrackRecordServiceImpl implements IEmailTrackRecordService
                     record.setDeliveredTime(new Date());
                     break;
                 case "OPENED":
+                    // 如果送达时间为空，先设置送达时间（逻辑上邮件必须先送达才能被打开）
+                    if (record.getDeliveredTime() == null) {
+                        record.setDeliveredTime(new Date());
+                        logger.info("邮件打开时自动设置送达时间: {}", messageId);
+                    }
                     record.setOpenedTime(new Date());
                     break;
                 case "REPLIED":
                     record.setRepliedTime(new Date());
+                    logger.info("设置邮件回复时间: MessageID={}, 回复时间={}", messageId, record.getRepliedTime());
                     break;
                 case "CLICKED":
+                    // 如果送达时间为空，先设置送达时间（逻辑上邮件必须先送达才能被点击）
+                    if (record.getDeliveredTime() == null) {
+                        record.setDeliveredTime(new Date());
+                        logger.info("邮件点击时自动设置送达时间: {}", messageId);
+                    }
+                    // 如果打开时间为空，先设置打开时间（逻辑上邮件必须先被打开才能被点击）
+                    if (record.getOpenedTime() == null) {
+                        record.setOpenedTime(new Date());
+                        logger.info("邮件点击时自动设置打开时间: {}", messageId);
+                    }
                     record.setClickedTime(new Date());
                     break;
             }
             
-            return updateEmailTrackRecord(record);
+            int result = updateEmailTrackRecord(record);
+            logger.info("邮件状态更新完成: MessageID={}, 状态={}, 影响行数={}", messageId, status, result);
+            return result;
+        } else {
+            logger.warn("未找到邮件跟踪记录: MessageID={}", messageId);
         }
         return 0;
     }
@@ -245,7 +272,23 @@ public class EmailTrackRecordServiceImpl implements IEmailTrackRecordService
     @Override
     public int recordEmailOpened(String messageId)
     {
-        return updateEmailStatus(messageId, "OPENED");
+        EmailTrackRecord record = selectEmailTrackRecordByMessageId(messageId);
+        if (record != null) {
+            // 如果送达时间为空，先设置送达时间（逻辑上邮件必须先送达才能被打开）
+            if (record.getDeliveredTime() == null) {
+                record.setDeliveredTime(new Date());
+                record.setStatus("DELIVERED");
+                logger.info("邮件打开时自动设置送达时间: {}", messageId);
+            }
+            
+            // 设置打开时间
+            record.setOpenedTime(new Date());
+            record.setStatus("OPENED");
+            record.setUpdateTime(new Date());
+            
+            return updateEmailTrackRecord(record);
+        }
+        return 0;
     }
 
     /**
@@ -257,7 +300,28 @@ public class EmailTrackRecordServiceImpl implements IEmailTrackRecordService
     @Override
     public int recordEmailClicked(String messageId)
     {
-        return updateEmailStatus(messageId, "CLICKED");
+        EmailTrackRecord record = selectEmailTrackRecordByMessageId(messageId);
+        if (record != null) {
+            // 如果送达时间为空，先设置送达时间（逻辑上邮件必须先送达才能被点击）
+            if (record.getDeliveredTime() == null) {
+                record.setDeliveredTime(new Date());
+                logger.info("邮件点击时自动设置送达时间: {}", messageId);
+            }
+            
+            // 如果打开时间为空，先设置打开时间（逻辑上邮件必须先被打开才能被点击）
+            if (record.getOpenedTime() == null) {
+                record.setOpenedTime(new Date());
+                logger.info("邮件点击时自动设置打开时间: {}", messageId);
+            }
+            
+            // 设置点击时间
+            record.setClickedTime(new Date());
+            record.setStatus("CLICKED");
+            record.setUpdateTime(new Date());
+            
+            return updateEmailTrackRecord(record);
+        }
+        return 0;
     }
 
     /**
@@ -270,6 +334,92 @@ public class EmailTrackRecordServiceImpl implements IEmailTrackRecordService
     public int recordEmailReplied(String messageId)
     {
         return updateEmailStatus(messageId, "REPLIED");
+    }
+
+    /**
+     * 通过模糊匹配记录邮件回复事件
+     * 
+     * @param originalMessageId 原始邮件Message-ID
+     * @param replySubject 回复邮件主题
+     * @return 结果
+     */
+    @Override
+    public int recordEmailRepliedByFuzzyMatch(String originalMessageId, String replySubject)
+    {
+        logger.info("开始模糊匹配回复邮件: 原始Message-ID={}, 回复主题={}", originalMessageId, replySubject);
+        
+        try {
+            // 从回复主题中提取原始主题（去掉"Re:"前缀）
+            String originalSubject = extractOriginalSubjectFromReply(replySubject);
+            if (originalSubject == null || originalSubject.trim().isEmpty()) {
+                logger.warn("无法从回复主题中提取原始主题: {}", replySubject);
+                return 0;
+            }
+            
+            logger.info("提取的原始主题: {}", originalSubject);
+            
+            // 查找匹配的邮件记录
+            List<EmailTrackRecord> candidates = emailTrackRecordMapper.selectEmailTrackRecordBySubjectFuzzy(originalSubject);
+            if (candidates == null || candidates.isEmpty()) {
+                logger.warn("未找到匹配的邮件记录: 主题={}", originalSubject);
+                return 0;
+            }
+            
+            logger.info("找到{}个候选邮件记录", candidates.size());
+            
+            // 选择最匹配的记录（优先选择未回复的）
+            EmailTrackRecord bestMatch = null;
+            for (EmailTrackRecord record : candidates) {
+                if (record.getRepliedTime() == null) {
+                    bestMatch = record;
+                    break;
+                }
+            }
+            
+            // 如果没有未回复的，选择第一个
+            if (bestMatch == null) {
+                bestMatch = candidates.get(0);
+            }
+            
+            logger.info("选择匹配记录: ID={}, Message-ID={}, 主题={}", 
+                       bestMatch.getId(), bestMatch.getMessageId(), bestMatch.getSubject());
+            
+            // 更新回复状态
+            return updateEmailStatus(bestMatch.getMessageId(), "REPLIED");
+            
+        } catch (Exception e) {
+            logger.error("模糊匹配回复邮件失败: 原始Message-ID={}, 回复主题={}", originalMessageId, replySubject, e);
+            return 0;
+        }
+    }
+    
+    /**
+     * 从回复主题中提取原始主题
+     * 
+     * @param replySubject 回复主题
+     * @return 原始主题
+     */
+    private String extractOriginalSubjectFromReply(String replySubject) {
+        if (replySubject == null || replySubject.trim().isEmpty()) {
+            return null;
+        }
+        
+        String subject = replySubject.trim();
+        
+        // 去掉常见的回复前缀
+        String[] replyPrefixes = {
+            "Re:", "RE:", "re:", "回复:", "回复：", "Re：", "RE：", "re：",
+            "Fwd:", "FWD:", "fwd:", "转发:", "转发：", "Fwd：", "FWD：", "fwd："
+        };
+        
+        for (String prefix : replyPrefixes) {
+            if (subject.startsWith(prefix)) {
+                subject = subject.substring(prefix.length()).trim();
+                break;
+            }
+        }
+        
+        return subject.isEmpty() ? null : subject;
     }
 
     /**
@@ -310,5 +460,91 @@ public class EmailTrackRecordServiceImpl implements IEmailTrackRecordService
             logger.error("记录邮件退信失败: {}", messageId, e);
             return 0;
         }
+    }
+
+    @Override
+    public long countTotalEmails()
+    {
+        return emailTrackRecordMapper.countTotalEmails();
+    }
+
+    @Override
+    public long countTodaySentEmails(String date)
+    {
+        return emailTrackRecordMapper.countTodaySentEmails(date);
+    }
+
+    @Override
+    public long countRepliedEmails()
+    {
+        return emailTrackRecordMapper.countRepliedEmails();
+    }
+
+    @Override
+    public long countTodayOpenedEmails(String date)
+    {
+        return emailTrackRecordMapper.countTodayOpenedEmails(date);
+    }
+
+    @Override
+    public long countTotalOpenedEmails()
+    {
+        return emailTrackRecordMapper.countTotalOpenedEmails();
+    }
+
+    @Override
+    public Map<String, Long> getSentEmailsByDateRange(String startDate, String endDate)
+    {
+        List<Map<String, Object>> results = emailTrackRecordMapper.getSentEmailsByDateRange(startDate, endDate);
+        Map<String, Long> resultMap = new HashMap<>();
+        for (Map<String, Object> result : results) {
+            String date = (String) result.get("date");
+            Long count = ((Number) result.get("count")).longValue();
+            resultMap.put(date, count);
+        }
+        return resultMap;
+    }
+
+    @Override
+    public Map<String, Long> getDeliveredEmailsByDateRange(String startDate, String endDate)
+    {
+        List<Map<String, Object>> results = emailTrackRecordMapper.getDeliveredEmailsByDateRange(startDate, endDate);
+        Map<String, Long> resultMap = new HashMap<>();
+        for (Map<String, Object> result : results) {
+            String date = (String) result.get("date");
+            Long count = ((Number) result.get("count")).longValue();
+            resultMap.put(date, count);
+        }
+        return resultMap;
+    }
+
+    @Override
+    public long countTodayDeliveredEmails(String date)
+    {
+        return emailTrackRecordMapper.countTodayDeliveredEmails(date);
+    }
+
+    @Override
+    public long countTodayClickedEmails(String date)
+    {
+        return emailTrackRecordMapper.countTodayClickedEmails(date);
+    }
+
+    @Override
+    public List<EmailTrackRecord> getRecentEmails(int limit)
+    {
+        return emailTrackRecordMapper.getRecentEmails(limit);
+    }
+
+    @Override
+    public List<EmailTrackRecord> getRecentReplies(int limit)
+    {
+        return emailTrackRecordMapper.getRecentReplies(limit);
+    }
+
+    @Override
+    public List<Map<String, Object>> getDetailedStatistics(String startDate, String endDate, Long accountId)
+    {
+        return emailTrackRecordMapper.getDetailedStatistics(startDate, endDate, accountId);
     }
 }

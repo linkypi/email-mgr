@@ -33,7 +33,8 @@ public class EmailServiceMonitorUtils {
             return EmailServiceStatus.RUNNING.getCode();
         }
         
-        log.debug("分析异常类型: {}", e.getClass().getSimpleName());
+        // 注释掉频繁的异常分析日志以减少日志输出
+        // log.debug("分析异常类型: {}", e.getClass().getSimpleName());
         
         // 网络连接相关异常
         if (e instanceof ConnectException) {

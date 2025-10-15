@@ -109,9 +109,17 @@ public class SecurityConfig
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             // 注解标记允许匿名访问的url
             .authorizeHttpRequests((requests) -> {
-                permitAllUrl.getUrls().forEach(url -> requests.antMatchers(url).permitAll());
+                System.out.println("=== 配置Spring Security匿名访问URL ===");
+                permitAllUrl.getUrls().forEach(url -> {
+                    System.out.println("配置匿名访问URL: " + url);
+                    requests.antMatchers(url).permitAll();
+                });
                 // 对于登录login 注册register 验证码captchaImage 允许匿名访问
                 requests.antMatchers("/login", "/register", "/captchaImage").permitAll()
+                    // 邮件跟踪接口允许匿名访问
+                    .antMatchers("/api/email/tracking/**").permitAll()
+                    // 增强版邮件已读跟踪接口允许匿名访问
+                    .antMatchers("/email/read-tracking/**").permitAll()
                     // 静态资源，可匿名访问
                     .antMatchers(HttpMethod.GET, "/", "/*.html", "/**/*.html", "/**/*.css", "/**/*.js", "/profile/**").permitAll()
                     .antMatchers("/swagger-ui.html", "/swagger-resources/**", "/webjars/**", "/*/api-docs", "/druid/**").permitAll()

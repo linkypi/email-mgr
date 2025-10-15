@@ -1,5 +1,6 @@
 package com.ruoyi.web.controller.email;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +75,205 @@ public class EmailContactController extends BaseController
             return success(result);
         } catch (Exception e) {
             return error("数据库连接异常: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 测试联系人统计更新功能
+     */
+    @GetMapping("/testStatistics")
+    public AjaxResult testStatistics()
+    {
+        try {
+            // 获取所有联系人
+            EmailContact queryContact = new EmailContact();
+            List<EmailContact> allContacts = emailContactService.selectEmailContactList(queryContact);
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("totalContacts", allContacts.size());
+            
+            // 测试更新前5个联系人的统计信息
+            int updateCount = 0;
+            for (int i = 0; i < Math.min(5, allContacts.size()); i++) {
+                EmailContact contact = allContacts.get(i);
+                try {
+                    int updateResult = emailContactService.updateContactStatistics(contact.getContactId());
+                    if (updateResult > 0) {
+                        updateCount++;
+                    }
+                } catch (Exception e) {
+                    logger.error("更新联系人统计失败: contactId={}, error={}", contact.getContactId(), e.getMessage());
+                }
+            }
+            
+            result.put("updateCount", updateCount);
+            result.put("message", "统计更新测试完成");
+            
+            return success(result);
+        } catch (Exception e) {
+            return error("统计更新测试失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 批量更新所有联系人统计信息
+     */
+    @PreAuthorize("@ss.hasPermi('email:contact:edit')")
+    @Log(title = "邮件联系人", businessType = BusinessType.UPDATE)
+    @PostMapping("/updateAllStatistics")
+    public AjaxResult updateAllStatistics()
+    {
+        try {
+            // 获取所有联系人
+            EmailContact queryContact = new EmailContact();
+            List<EmailContact> allContacts = emailContactService.selectEmailContactList(queryContact);
+            
+            int updateCount = 0;
+            int totalCount = allContacts.size();
+            
+            for (EmailContact contact : allContacts) {
+                try {
+                    int updateResult = emailContactService.updateContactStatistics(contact.getContactId());
+                    if (updateResult > 0) {
+                        updateCount++;
+                    }
+                } catch (Exception e) {
+                    logger.error("更新联系人统计失败: contactId={}, email={}, error={}", 
+                        contact.getContactId(), contact.getEmail(), e.getMessage());
+                }
+            }
+            
+            Map<String, Object> result = new HashMap<>();
+            result.put("totalContacts", totalCount);
+            result.put("updateCount", updateCount);
+            result.put("message", "批量更新完成，成功更新 " + updateCount + " 个联系人的统计信息");
+            
+            return success(result);
+        } catch (Exception e) {
+            return error("批量更新统计失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 诊断联系人统计问题
+     */
+    @GetMapping("/diagnoseStatistics")
+    public AjaxResult diagnoseStatistics()
+    {
+        try {
+            Map<String, Object> result = new HashMap<>();
+            
+            // 1. 检查联系人数据
+            EmailContact queryContact = new EmailContact();
+            List<EmailContact> allContacts = emailContactService.selectEmailContactList(queryContact);
+            result.put("totalContacts", allContacts.size());
+            
+            // 2. 检查email_track_record表数据
+            // 这里需要注入EmailTrackRecordService，暂时跳过
+            
+            // 3. 显示前5个联系人的邮箱地址
+            List<Map<String, Object>> contactEmails = new ArrayList<>();
+            for (int i = 0; i < Math.min(5, allContacts.size()); i++) {
+                EmailContact contact = allContacts.get(i);
+                Map<String, Object> contactInfo = new HashMap<>();
+                contactInfo.put("contactId", contact.getContactId());
+                contactInfo.put("name", contact.getName());
+                contactInfo.put("email", contact.getEmail());
+                contactInfo.put("sendCount", contact.getSendCount());
+                contactInfo.put("replyCount", contact.getReplyCount());
+                contactInfo.put("replyRate", contact.getReplyRate());
+                contactEmails.add(contactInfo);
+            }
+            result.put("sampleContacts", contactEmails);
+            
+            // 4. 测试更新第一个联系人的统计
+            if (!allContacts.isEmpty()) {
+                EmailContact firstContact = allContacts.get(0);
+                try {
+                    int updateResult = emailContactService.updateContactStatistics(firstContact.getContactId());
+                    result.put("testUpdateResult", updateResult);
+                    result.put("testContactId", firstContact.getContactId());
+                    result.put("testContactEmail", firstContact.getEmail());
+                } catch (Exception e) {
+                    result.put("testUpdateError", e.getMessage());
+                }
+            }
+            
+            result.put("message", "诊断完成");
+            return success(result);
+        } catch (Exception e) {
+            return error("诊断失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 强制修复联系人统计问题
+     */
+    @PostMapping("/forceFixStatistics")
+    public AjaxResult forceFixStatistics()
+    {
+        try {
+            Map<String, Object> result = new HashMap<>();
+            
+            // 1. 获取所有联系人
+            EmailContact queryContact = new EmailContact();
+            List<EmailContact> allContacts = emailContactService.selectEmailContactList(queryContact);
+            
+            int successCount = 0;
+            int failCount = 0;
+            List<Map<String, Object>> updateResults = new ArrayList<>();
+            
+            // 2. 逐个更新联系人统计
+            for (EmailContact contact : allContacts) {
+                Map<String, Object> updateResult = new HashMap<>();
+                updateResult.put("contactId", contact.getContactId());
+                updateResult.put("name", contact.getName());
+                updateResult.put("email", contact.getEmail());
+                
+                try {
+                    // 先重置统计为0
+                    contact.setSendCount(0);
+                    contact.setReplyCount(0);
+                    contact.setOpenCount(0);
+                    contact.setReplyRate(0.0);
+                    emailContactService.updateEmailContact(contact);
+                    
+                    // 然后重新计算统计
+                    int updateCount = emailContactService.updateContactStatistics(contact.getContactId());
+                    
+                    if (updateCount > 0) {
+                        successCount++;
+                        updateResult.put("status", "success");
+                        updateResult.put("updateCount", updateCount);
+                        
+                        // 重新查询更新后的数据
+                        EmailContact updatedContact = emailContactService.selectEmailContactByContactId(contact.getContactId());
+                        updateResult.put("newSendCount", updatedContact.getSendCount());
+                        updateResult.put("newReplyCount", updatedContact.getReplyCount());
+                        updateResult.put("newReplyRate", updatedContact.getReplyRate());
+                    } else {
+                        failCount++;
+                        updateResult.put("status", "failed");
+                        updateResult.put("reason", "更新返回0");
+                    }
+                } catch (Exception e) {
+                    failCount++;
+                    updateResult.put("status", "error");
+                    updateResult.put("error", e.getMessage());
+                }
+                
+                updateResults.add(updateResult);
+            }
+            
+            result.put("totalContacts", allContacts.size());
+            result.put("successCount", successCount);
+            result.put("failCount", failCount);
+            result.put("updateResults", updateResults);
+            result.put("message", String.format("强制修复完成：成功 %d 个，失败 %d 个", successCount, failCount));
+            
+            return success(result);
+        } catch (Exception e) {
+            return error("强制修复失败: " + e.getMessage());
         }
     }
 

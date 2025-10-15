@@ -32,7 +32,34 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </resultMap>
 
     <sql id="selectEmailContactVo">
-        select c.contact_id, c.name, c.email, c.company, c.address, c.age, c.gender, c.social_media, c.followers, c.level, c.group_id, c.tags, c.send_count, c.reply_count, c.open_count, c.reply_rate, c.status, c.remark, c.create_by, c.create_time, c.update_by, c.update_time, c.deleted,
+        select c.contact_id, c.name, c.email, c.company, c.address, c.age, c.gender, c.social_media, c.followers, c.level, c.group_id, c.tags, 
+        COALESCE((
+            select count(*) from email_track_record r 
+            where r.recipient = c.email and r.sent_time is not null and r.deleted = '0'
+        ), 0) as send_count,
+        COALESCE((
+            select count(*) from email_track_record r 
+            where r.recipient = c.email and r.replied_time is not null and r.deleted = '0'
+        ), 0) as reply_count,
+        COALESCE((
+            select count(*) from email_track_record r 
+            where r.recipient = c.email and r.opened_time is not null and r.deleted = '0'
+        ), 0) as open_count,
+        CASE 
+            WHEN COALESCE((
+                select count(*) from email_track_record r 
+                where r.recipient = c.email and r.sent_time is not null and r.deleted = '0'
+            ), 0) > 0 THEN 
+                ROUND(COALESCE((
+                    select count(*) from email_track_record r 
+                    where r.recipient = c.email and r.replied_time is not null and r.deleted = '0'
+                ), 0) * 100.0 / COALESCE((
+                    select count(*) from email_track_record r 
+                    where r.recipient = c.email and r.sent_time is not null and r.deleted = '0'
+                ), 1), 2)
+            ELSE 0.00
+        END as reply_rate,
+        c.status, c.remark, c.create_by, c.create_time, c.update_by, c.update_time, c.deleted,
         g.group_name
         from email_contact c
         left join email_contact_group g on c.group_id = g.group_id
@@ -48,6 +75,11 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="groupId != null "> and c.group_id = #{groupId}</if>
             <if test="tags != null  and tags != ''"> and c.tags like concat('%', #{tags}, '%')</if>
             <if test="status != null  and status != ''"> and c.status = #{status}</if>
+            
+            <!-- 数据权限过滤 -->
+            <if test="params.dataScope != null and params.dataScope != ''">
+                and ${params.dataScope}
+            </if>
             
             <!-- 多等级查询 -->
             <if test="levels != null and levels.size() > 0">
@@ -186,20 +218,36 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
 
     <update id="updateContactStatistics" parameterType="Long">
         update email_contact c
-        set c.send_count = (
-            select count(*) from email_send_record r 
-            where r.contact_id = c.contact_id and r.status in ('1','2','3','4')
-        ),
-        c.reply_count = (
-            select count(*) from email_send_record r 
-            where r.contact_id = c.contact_id and r.status = '4'
-        ),
-        c.open_count = (
-            select count(*) from email_send_record r 
-            where r.contact_id = c.contact_id and r.status in ('3','4')
-        ),
+        set c.send_count = COALESCE((
+            select count(*) from email_track_record r 
+            where (r.recipient = c.email OR r.recipient LIKE CONCAT('%', c.email, '%')) 
+            and r.sent_time is not null and r.deleted = '0'
+        ), 0),
+        c.reply_count = COALESCE((
+            select count(*) from email_track_record r 
+            where (r.recipient = c.email OR r.recipient LIKE CONCAT('%', c.email, '%')) 
+            and r.replied_time is not null and r.deleted = '0'
+        ), 0),
+        c.open_count = COALESCE((
+            select count(*) from email_track_record r 
+            where (r.recipient = c.email OR r.recipient LIKE CONCAT('%', c.email, '%')) 
+            and r.opened_time is not null and r.deleted = '0'
+        ), 0),
         c.reply_rate = case 
-            when c.send_count > 0 then round(c.reply_count * 100.0 / c.send_count, 2)
+            when COALESCE((
+                select count(*) from email_track_record r 
+                where (r.recipient = c.email OR r.recipient LIKE CONCAT('%', c.email, '%')) 
+                and r.sent_time is not null and r.deleted = '0'
+            ), 0) > 0 then 
+                round(COALESCE((
+                    select count(*) from email_track_record r 
+                    where (r.recipient = c.email OR r.recipient LIKE CONCAT('%', c.email, '%')) 
+                    and r.replied_time is not null and r.deleted = '0'
+                ), 0) * 100.0 / COALESCE((
+                    select count(*) from email_track_record r 
+                    where (r.recipient = c.email OR r.recipient LIKE CONCAT('%', c.email, '%')) 
+                    and r.sent_time is not null and r.deleted = '0'
+                ), 1), 2)
             else 0.00
         end
         where c.contact_id = #{contactId}
@@ -270,5 +318,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             #{contactId}
         </foreach>
     </update>
+
+    <!-- 统计总联系人数量 -->
+    <select id="countTotalContacts" resultType="long">
+        SELECT COUNT(*) FROM email_contact WHERE deleted = '0'
+    </select>
 </mapper>
 
