@@ -12,13 +12,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
-import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.system.service.email.IEmailTrackRecordService;
-import com.ruoyi.system.service.email.IEmailAccountService;
-import com.ruoyi.system.domain.email.EmailTrackRecord;
 
 /**
  * 邮件统计Controller
@@ -33,8 +29,8 @@ public class EmailStatisticsController extends BaseController
     @Autowired
     private IEmailTrackRecordService emailTrackRecordService;
 
-    @Autowired
-    private IEmailAccountService emailAccountService;
+    // @Autowired
+    // private IEmailAccountService emailAccountService;
 
     /**
      * 获取邮件跟踪统计
@@ -107,7 +103,7 @@ public class EmailStatisticsController extends BaseController
     /**
      * 获取今日统计
      */
-    @PreAuthorize("@ss.hasPermi('email:statistics:today')")
+    @PreAuthorize("@ss.hasPermi('dashboard:statistics:today')")
     @GetMapping("/today")
     public AjaxResult getTodayStatistics()
     {
@@ -142,7 +138,7 @@ public class EmailStatisticsController extends BaseController
     /**
      * 获取总数统计
      */
-    @PreAuthorize("@ss.hasPermi('email:statistics:total')")
+    @PreAuthorize("@ss.hasPermi('dashboard:statistics:total')")
     @GetMapping("/total")
     public AjaxResult getTotalStatistics()
     {
@@ -171,7 +167,7 @@ public class EmailStatisticsController extends BaseController
     /**
      * 获取趋势统计
      */
-    @PreAuthorize("@ss.hasPermi('email:statistics:trends')")
+    @PreAuthorize("@ss.hasPermi('dashboard:statistics:trends')")
     @GetMapping("/trends")
     public AjaxResult getTrendsStatistics(@RequestParam(defaultValue = "7") int days)
     {
@@ -224,7 +220,7 @@ public class EmailStatisticsController extends BaseController
     /**
      * 获取回复率统计
      */
-    @PreAuthorize("@ss.hasPermi('email:statistics:reply-rates')")
+    @PreAuthorize("@ss.hasPermi('dashboard:statistics:replyRates')")
     @GetMapping("/reply-rates")
     public AjaxResult getReplyRatesStatistics()
     {

@@ -6,6 +6,8 @@
 
 <script>
 import { getInboxUnreadCount, getSentUnreadCount, getStarredCount, getDeletedCount, getSentTotalCount } from "@/api/email/personal";
+import { mapGetters } from 'vuex';
+import { isGuestUser } from '@/utils/guestUserCheck';
 
 export default {
   name: "EmailMenuBadge",
@@ -26,14 +28,36 @@ export default {
       timer: null
     };
   },
+  computed: {
+    ...mapGetters(['roles']),
+    // 检查是否为访客用户
+    isGuestUser() {
+      return isGuestUser(this.roles);
+    }
+  },
   mounted() {
     console.log('EmailMenuBadge mounted, menuType:', this.menuType);
-    this.fetchUnreadCount();
-    // 每60秒刷新一次未读数量
-    this.timer = setInterval(this.fetchUnreadCount, 60000);
+    console.log('EmailMenuBadge roles:', this.roles);
+    console.log('EmailMenuBadge isGuestUser:', this.isGuestUser);
     
-    // 监听全局事件，当邮件状态改变时刷新
-    this.$bus.$on('email-status-changed', this.fetchUnreadCount);
+    // 延迟执行，确保角色信息已加载
+    this.$nextTick(() => {
+      // 再次检查角色信息
+      console.log('EmailMenuBadge $nextTick roles:', this.roles);
+      console.log('EmailMenuBadge $nextTick isGuestUser:', this.isGuestUser);
+      this.fetchUnreadCount();
+    });
+    
+    // 只有非访客用户才启动定时器
+    if (!this.isGuestUser) {
+      // 每60秒刷新一次未读数量
+      this.timer = setInterval(this.fetchUnreadCount, 60000);
+      // 监听全局事件，当邮件状态改变时刷新
+      this.$bus.$on('email-status-changed', this.fetchUnreadCount);
+      console.log('EmailMenuBadge: 用户有权限，启动定时器和事件监听器，用户角色:', this.roles);
+    } else {
+      console.log('EmailMenuBadge: 访客用户，跳过定时器和事件监听器');
+    }
   },
   beforeDestroy() {
     if (this.timer) {
@@ -44,6 +68,12 @@ export default {
   methods: {
     async fetchUnreadCount() {
       try {
+        // 如果是访客用户，不请求这些接口，直接返回0
+        if (this.isGuestUser) {
+          this.count = 0;
+          return;
+        }
+
         console.log('Fetching unread count for:', this.menuType);
         let response;
         switch (this.menuType) {
@@ -65,7 +95,12 @@ export default {
         this.count = response.data || 0;
         console.log('Unread count for', this.menuType, ':', this.count);
       } catch (error) {
-        console.error('获取未读数量失败:', error);
+        // 如果是访客用户，静默处理错误，不显示错误提示
+        if (this.isGuestUser) {
+          console.log('访客用户获取未读数量失败，静默处理:', error);
+        } else {
+          console.error('获取未读数量失败:', error);
+        }
         this.count = 0;
       }
     },

@@ -1,4 +1,6 @@
 import { getInboxUnreadCount, getSentUnreadCount, getStarredUnreadCount, getDeletedUnreadCount } from "@/api/email/personal";
+import store from '@/store';
+import { isGuestUser } from '@/utils/guestUserCheck';
 
 class EmailUnreadManager {
   constructor() {
@@ -13,9 +15,28 @@ class EmailUnreadManager {
     this.isInitialized = false;
   }
 
+  // 检查是否为访客用户
+  isGuestUser() {
+    const roles = store.getters.roles || [];
+    console.log('emailUnreadManager roles:', roles);
+    return isGuestUser(roles);
+  }
+
   // 初始化管理器
   async init() {
     if (this.isInitialized) return;
+    
+    console.log('EmailUnreadManager init, isGuestUser:', this.isGuestUser());
+    
+    // 如果是访客用户，不初始化
+    if (this.isGuestUser()) {
+      console.log('EmailUnreadManager: 访客用户，跳过初始化');
+      this.isInitialized = true;
+      return;
+    }
+    
+    // regular 角色现在有完整的权限，可以正常初始化
+    console.log('EmailUnreadManager: 用户有权限，开始初始化');
     
     await this.fetchAllCounts();
     this.startAutoRefresh();
@@ -25,6 +46,18 @@ class EmailUnreadManager {
   // 获取所有未读数量
   async fetchAllCounts() {
     try {
+      // 如果是访客用户，不请求这些接口，直接返回0
+      if (this.isGuestUser()) {
+        this.counts = {
+          inbox: 0,
+          sent: 0,
+          starred: 0,
+          deleted: 0
+        };
+        this.notifyListeners();
+        return;
+      }
+
       const [inboxCount, sentCount, starredCount, deletedCount] = await Promise.all([
         getInboxUnreadCount().catch(() => ({ data: 0 })),
         getSentUnreadCount().catch(() => ({ data: 0 })),
@@ -58,6 +91,13 @@ class EmailUnreadManager {
   // 手动刷新指定类型的未读数量
   async refreshCount(type) {
     try {
+      // 如果是访客用户，不请求这些接口，直接返回0
+      if (this.isGuestUser()) {
+        this.counts[type] = 0;
+        this.notifyListeners();
+        return;
+      }
+
       let response;
       switch (type) {
         case 'inbox':
@@ -93,6 +133,13 @@ class EmailUnreadManager {
     if (this.timer) {
       clearInterval(this.timer);
     }
+    
+    // 如果是访客用户，不启动定时器
+    if (this.isGuestUser()) {
+      console.log('EmailUnreadManager: 访客用户，跳过自动刷新定时器');
+      return;
+    }
+    
     // 每60秒自动刷新一次
     this.timer = setInterval(() => {
       this.fetchAllCounts();

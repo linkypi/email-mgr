@@ -1,6 +1,9 @@
 package com.ruoyi.framework.web.service;
 
 import java.util.concurrent.TimeUnit;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
@@ -29,6 +32,7 @@ public class SysPasswordService
 
     @Value(value = "${user.password.lockTime}")
     private int lockTime;
+    private static final Logger log = LoggerFactory.getLogger(UserDetailsServiceImpl.class);
 
     /**
      * 登录账户密码错误次数缓存键名
@@ -61,6 +65,8 @@ public class SysPasswordService
 
         if (!matches(user, password))
         {
+            log.error("用户密码不匹配，登录用户：{}, 登录用户密码: {}, 数据库用户: {}, 数据库用户Id: {}, 数据库用户密码: {}",
+                    username, password, user.getUserName(), user.getUserId(), user.getPassword());
             retryCount = retryCount + 1;
             redisCache.setCacheObject(getCacheKey(username), retryCount, lockTime, TimeUnit.MINUTES);
             throw new UserPasswordNotMatchException();

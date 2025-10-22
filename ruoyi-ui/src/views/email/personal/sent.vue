@@ -282,6 +282,7 @@
 import { listSent, markAsStarred, unmarkAsStarred, moveToDeleted, markAsRead, getSentUnreadCount, markAsImportant } from "@/api/email/personal";
 import request from '@/utils/request';
 import RichTextEditor from '@/components/RichTextEditor';
+import { mapGetters } from 'vuex';
 
 export default {
   name: "EmailSent",
@@ -340,6 +341,26 @@ export default {
         originalMessageId: ''
       }
     };
+  },
+  computed: {
+    ...mapGetters(['roles']),
+    // 检查是否为访客用户
+    isGuestUser() {
+      const roles = this.roles || [];
+      // 更健壮的角色判断逻辑
+      if (Array.isArray(roles)) {
+        return roles.some(role => {
+          if (typeof role === 'string') {
+            return role === 'guest' || role.includes('guest');
+          } else if (typeof role === 'object' && role !== null) {
+            return role.roleKey === 'guest' || role.roleName === '访客账号' || 
+                   (role.roleName && role.roleName.includes('访客'));
+          }
+          return false;
+        });
+      }
+      return false;
+    }
   },
   created() {
     this.getList();
@@ -425,6 +446,11 @@ export default {
     
     /** 获取未读邮件数量 */
     getUnreadCount() {
+      // 如果是访客用户，不请求这些接口
+      if (this.isGuestUser) {
+        return;
+      }
+      
       getSentUnreadCount().then(response => {
         // 这里可以更新侧边栏的未读计数
         // 由于这是发件箱页面，通常不需要显示未读计数

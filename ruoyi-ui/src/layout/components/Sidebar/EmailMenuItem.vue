@@ -13,7 +13,7 @@
           <span>{{ item.meta ? item.meta.title : item.name }}</span>
         </div>
         <email-menu-badge 
-          v-if="badgeType" 
+          v-if="badgeType && !isGuestUser && rolesLoaded" 
           :menu-type="badgeType" 
           class="menu-badge"
         />
@@ -26,6 +26,8 @@
 import path from 'path'
 import { isExternal } from '@/utils/validate'
 import EmailMenuBadge from '@/components/EmailMenuBadge'
+import { isGuestUser } from '@/utils/guestUserCheck'
+import { mapGetters } from 'vuex'
 
 export default {
   name: 'EmailMenuItem',
@@ -45,6 +47,20 @@ export default {
     }
   },
   computed: {
+    ...mapGetters(['roles']),
+    // 检查角色是否已加载
+    rolesLoaded() {
+      return this.roles && this.roles.length > 0;
+    },
+    // 检查是否为访客用户
+    isGuestUser() {
+      const result = isGuestUser(this.roles);
+      console.log('EmailMenuItem isGuestUser:', result, 'roles:', this.roles, 'rolesLoaded:', this.rolesLoaded);
+      if (!result) {
+        console.log('EmailMenuItem: 用户有权限，可以显示邮件菜单徽章');
+      }
+      return result;
+    },
     badgeType() {
       if (!this.item) return ''
       

@@ -7,6 +7,7 @@ import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.ruoyi.common.annotation.DataScope;
 import com.ruoyi.system.mapper.email.EmailContactMapper;
 import com.ruoyi.system.domain.email.EmailContact;
 import com.ruoyi.system.service.email.IEmailContactService;
@@ -46,6 +47,7 @@ public class EmailContactServiceImpl implements IEmailContactService
      * @return 邮件联系人
      */
     @Override
+    @DataScope(userAlias = "user_id")
     public List<EmailContact> selectEmailContactList(EmailContact emailContact)
     {
         return emailContactMapper.selectEmailContactList(emailContact);

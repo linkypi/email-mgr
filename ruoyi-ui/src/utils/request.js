@@ -6,6 +6,7 @@ import errorCode from '@/utils/errorCode'
 import { tansParams, blobValidate } from "@/utils/ruoyi"
 import cache from '@/plugins/cache'
 import { saveAs } from 'file-saver'
+import { isGuestUser, isRegularUser, isLimitedUser, isForbiddenForGuest, isForbiddenForRegularUser, isForbiddenForLimitedUser } from '@/utils/guestUserCheck'
 
 let downloadLoadingInstance
 // 是否显示重新登录
@@ -22,6 +23,73 @@ const service = axios.create({
 
 // request拦截器
 service.interceptors.request.use(config => {
+  // 用户权限检查 - 阻止访问禁止的接口
+  const roles = store.getters.roles || [];
+  const isGuest = isGuestUser(roles);
+  const isRegular = isRegularUser(roles);
+  const isLimited = isLimitedUser(roles);
+  
+  // 检查各种禁止访问的情况
+  const isGuestForbidden = isForbiddenForGuest(config.url);
+  const isRegularForbidden = isForbiddenForRegularUser(config.url);
+  const isLimitedForbidden = isForbiddenForLimitedUser(config.url);
+  
+  console.log('🔍 请求拦截器检查:', {
+    url: config.url,
+    roles: roles,
+    rolesLength: roles.length,
+    rolesType: typeof roles,
+    rolesIsArray: Array.isArray(roles),
+    isGuest: isGuest,
+    isRegular: isRegular,
+    isLimited: isLimited,
+    isGuestForbidden: isGuestForbidden,
+    isRegularForbidden: isRegularForbidden,
+    isLimitedForbidden: isLimitedForbidden
+  });
+  
+  // 根据用户角色阻止相应的禁止接口
+  let shouldBlock = false;
+  let blockReason = '';
+  
+  // 优先检查角色未加载的情况
+  if (!roles.length && (isGuestForbidden || isRegularForbidden || isLimitedForbidden)) {
+    console.log('❌ 角色未加载检查触发:', {
+      rolesLength: roles.length,
+      isGuestForbidden,
+      isRegularForbidden,
+      isLimitedForbidden,
+      url: config.url
+    });
+    shouldBlock = true;
+    blockReason = '用户角色未加载，无权限访问此接口';
+  }
+  // 检查访客用户权限
+  else if (isGuest && isGuestForbidden) {
+    shouldBlock = true;
+    blockReason = '访客用户无权限访问此接口';
+  }
+  // 检查普通账号用户权限
+  else if (isRegular && isRegularForbidden) {
+    shouldBlock = true;
+    blockReason = '普通账号用户无权限访问此接口';
+  }
+  // 注意：移除了兜底检查，因为我们已经明确检查了访客用户和普通账号用户
+  
+  if (shouldBlock) {
+    console.log('🚫 用户尝试访问禁止的接口:', config.url);
+    console.log('🚫 用户角色:', roles);
+    console.log('🚫 角色长度:', roles.length);
+    console.log('🚫 阻止原因:', blockReason);
+    // 返回一个被拒绝的Promise，阻止请求，但不显示错误提示
+    return Promise.reject({
+      code: 403,
+      message: blockReason,
+      url: config.url,
+      silent: true // 标记为静默错误，不显示给用户
+    });
+  }
+  
   // 是否需要设置 token
   const isToken = (config.headers || {}).isToken === false
   // 是否需要防止数据重复提交
@@ -118,6 +186,13 @@ service.interceptors.response.use(res => {
   },
   error => {
     console.log('err' + error)
+    
+    // 检查是否为静默错误（访客用户访问禁止接口的错误）
+    if (error && error.silent) {
+      console.log('静默错误，不显示给用户:', error.message)
+      return Promise.reject(error)
+    }
+    
     let { message } = error
     if (message == "Network Error") {
       message = "后端接口连接异常"

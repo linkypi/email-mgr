@@ -79,6 +79,44 @@ public class EmailContactController extends BaseController
     }
 
     /**
+     * 调试接口 - 检查当前用户信息和数据权限
+     */
+    @GetMapping("/debug")
+    public AjaxResult debug()
+    {
+        try {
+            Map<String, Object> result = new HashMap<>();
+            
+            // 获取当前用户信息
+            String currentUser = getUsername();
+            Long currentUserId = getUserId();
+            result.put("currentUser", currentUser);
+            result.put("currentUserId", currentUserId);
+            
+            // 查询所有联系人（不经过数据权限过滤）
+            EmailContact queryContact = new EmailContact();
+            List<EmailContact> allContacts = emailContactService.selectEmailContactList(queryContact);
+            result.put("allContactsCount", allContacts.size());
+            
+            // 查询当前用户创建的联系人
+            List<EmailContact> userContacts = allContacts.stream()
+                .filter(contact -> currentUser.equals(contact.getCreateBy()))
+                .collect(java.util.stream.Collectors.toList());
+            result.put("userContactsCount", userContacts.size());
+            
+            // 显示前5个联系人
+            List<EmailContact> sampleContacts = allContacts.stream()
+                .limit(5)
+                .collect(java.util.stream.Collectors.toList());
+            result.put("sampleContacts", sampleContacts);
+            
+            return success(result);
+        } catch (Exception e) {
+            return error("调试失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 测试联系人统计更新功能
      */
     @GetMapping("/testStatistics")
@@ -309,6 +347,8 @@ public class EmailContactController extends BaseController
     public AjaxResult add(@RequestBody EmailContact emailContact)
     {
         try {
+            // 设置创建者信息
+            emailContact.setCreateBy(getUsername());
             return toAjax(emailContactService.insertEmailContact(emailContact));
         } catch (RuntimeException e) {
             return error(e.getMessage());

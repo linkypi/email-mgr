@@ -331,24 +331,28 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     <!-- 查询个人邮件跟踪记录列表 -->
     <select id="selectPersonalTrackList" parameterType="EmailTrackRecord" resultMap="EmailTrackRecordResult">
         SELECT 
-            <include refid="selectEmailTrackRecordVo"/>
-        FROM email_track_record
+            etr.id, etr.task_id, etr.message_id, etr.subject, etr.recipient, etr.sender, etr.content, 
+            etr.status, etr.sent_time, etr.delivered_time, etr.opened_time, etr.replied_time, etr.clicked_time,
+            etr.retry_count, etr.error_logs, etr.account_id, etr.tracking_pixel_url, etr.tracking_link_url,
+            etr.create_by, etr.create_time, etr.update_by, etr.update_time, etr.deleted, etr.folder_type,
+            etr.is_starred, etr.is_read, etr.is_important, etr.starred_time, etr.user_id
+        FROM email_track_record etr
         <where>
-            deleted = '0'
-            <if test="userId != null">AND user_id = #{userId}</if>
-            <if test="folderType != null and folderType != ''">AND folder_type = #{folderType}</if>
-            <if test="isStarred != null">AND is_starred = #{isStarred}</if>
-            <if test="isRead != null">AND is_read = #{isRead}</if>
-            <if test="isImportant != null">AND is_important = #{isImportant}</if>
-            <if test="subject != null and subject != ''">AND subject LIKE CONCAT('%', #{subject}, '%')</if>
-            <if test="recipient != null and recipient != ''">AND recipient LIKE CONCAT('%', #{recipient}, '%')</if>
-            <if test="sender != null and sender != ''">AND sender LIKE CONCAT('%', #{sender}, '%')</if>
-            <if test="status != null and status != ''">AND status = #{status}</if>
+            etr.deleted = '0'
+            <if test="userId != null">AND etr.user_id = #{userId}</if>
+            <if test="folderType != null and folderType != ''">AND etr.folder_type = #{folderType}</if>
+            <if test="isStarred != null">AND etr.is_starred = #{isStarred}</if>
+            <if test="isRead != null">AND etr.is_read = #{isRead}</if>
+            <if test="isImportant != null">AND etr.is_important = #{isImportant}</if>
+            <if test="subject != null and subject != ''">AND etr.subject LIKE CONCAT('%', #{subject}, '%')</if>
+            <if test="recipient != null and recipient != ''">AND etr.recipient LIKE CONCAT('%', #{recipient}, '%')</if>
+            <if test="sender != null and sender != ''">AND etr.sender LIKE CONCAT('%', #{sender}, '%')</if>
+            <if test="status != null and status != ''">AND etr.status = #{status}</if>
             <if test="params.beginTime != null and params.beginTime != ''"><!-- 开始时间检索 -->
-                AND date_format(sent_time,'%y%m%d') &gt;= date_format(#{params.beginTime},'%y%m%d')
+                AND date_format(etr.sent_time,'%y%m%d') &gt;= date_format(#{params.beginTime},'%y%m%d')
             </if>
             <if test="params.endTime != null and params.endTime != ''"><!-- 结束时间检索 -->
-                AND date_format(sent_time,'%y%m%d') &lt;= date_format(#{params.endTime},'%y%m%d')
+                AND date_format(etr.sent_time,'%y%m%d') &lt;= date_format(#{params.endTime},'%y%m%d')
             </if>
             
             <!-- 数据权限过滤 -->
@@ -356,7 +360,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
                 AND ${params.dataScope}
             </if>
         </where>
-        ORDER BY sent_time DESC
+        ORDER BY etr.sent_time DESC
     </select>
 
     <!-- 标记邮件为星标 -->

@@ -1,6 +1,10 @@
 package com.ruoyi.framework.web.service;
 
 import javax.annotation.Resource;
+
+import com.ruoyi.system.service.email.impl.EmailAccountServiceImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -51,6 +55,7 @@ public class SysLoginService
 
     @Autowired
     private ISysConfigService configService;
+    private static final Logger logger = LoggerFactory.getLogger(EmailAccountServiceImpl.class);
 
     /**
      * 登录验证
@@ -67,6 +72,7 @@ public class SysLoginService
         validateCaptcha(username, code, uuid);
         // 登录前置校验
         loginPreCheck(username, password);
+        logger.info("login pre check success, username: {}, pwd: {}",username, password);
         // 用户验证
         Authentication authentication = null;
         try
@@ -76,15 +82,12 @@ public class SysLoginService
             // 该方法会去调用UserDetailsServiceImpl.loadUserByUsername
             authentication = authenticationManager.authenticate(authenticationToken);
         }
-        catch (Exception e)
-        {
-            if (e instanceof BadCredentialsException)
-            {
+        catch (Exception e) {
+            logger.error("登录失败，username: {}, password: {}", username, password, e);
+            if (e instanceof BadCredentialsException) {
                 AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, MessageUtils.message("user.password.not.match")));
                 throw new UserPasswordNotMatchException();
-            }
-            else
-            {
+            } else {
                 AsyncManager.me().execute(AsyncFactory.recordLogininfor(username, Constants.LOGIN_FAIL, e.getMessage()));
                 throw new ServiceException(e.getMessage());
             }

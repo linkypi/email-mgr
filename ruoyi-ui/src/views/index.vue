@@ -1163,6 +1163,8 @@
 <script>
 import { getDashboardStats, getEmailStats, getSystemInfo } from '@/api/dashboard'
 import { getTotalStats, getTodayStats, getSendTrends, getReplyRates } from '@/api/email/statistics'
+import { mapGetters } from 'vuex'
+import { isGuestUser, isRegularUser, isLimitedUser } from '@/utils/guestUserCheck'
 
 export default {
   name: "Index",
@@ -1194,6 +1196,19 @@ export default {
     }
   },
   computed: {
+    ...mapGetters(['roles']),
+    // 检查是否为访客用户
+    isGuestUser() {
+      return isGuestUser(this.roles);
+    },
+    // 检查是否为普通账号用户
+    isRegularUser() {
+      return isRegularUser(this.roles);
+    },
+    // 检查是否为受限用户
+    isLimitedUser() {
+      return isLimitedUser(this.roles);
+    },
     // 系统状态
     systemStatus() {
       return {
@@ -1248,6 +1263,16 @@ export default {
     async loadDashboardData() {
       this.loading = true
       try {
+        // 如果是访客用户，不请求统计相关接口，直接使用默认值
+        if (this.isGuestUser) {
+          console.log('访客用户，跳过统计接口请求，用户角色:', this.roles);
+          this.loading = false;
+          return;
+        }
+        
+        // regular 角色现在有完整的权限，可以正常访问所有统计接口
+        console.log('用户角色:', this.roles, '开始加载统计接口数据');
+
         // 并行请求多个接口 - 使用实际返回数据的接口
         const [totalRes, todayRes, trendsRes, replyRatesRes, systemRes] = await Promise.allSettled([
           getTotalStats(),

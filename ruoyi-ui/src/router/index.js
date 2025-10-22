@@ -68,6 +68,7 @@ export const constantRoutes = [
     path: '',
     component: Layout,
     redirect: 'index',
+    hidden: true, // 隐藏前端路由，只显示后端菜单数据
     children: [
       {
         path: 'index',
@@ -168,8 +169,10 @@ export const constantRoutes = [
         meta: { title: '销售数据管理', icon: 'data-line' }
       }
     ]
-  },
-  emailRouter,
+  }
+
+  // 移除 emailRouter，统一通过后端菜单数据管理
+  // emailRouter,
 ]
 
 // 动态路由，基于用户权限动态去加载

@@ -89,7 +89,7 @@
     </el-row>
 
     <!-- 详细统计表格 -->
-    <el-card>
+    <el-card v-if="!isGuestUser">
       <div slot="header">
         <span>详细统计数据</span>
         <el-button style="float: right" type="primary" size="small" @click="handleExport">
@@ -156,6 +156,7 @@
 
 <script>
 import { getTodayStats, getTotalStats, getSendTrends, getReplyRates, getDetailedStats, getAccounts, exportStatistics } from '@/api/email/statistics'
+import { isGuestUser } from '@/utils/guestUserCheck'
 
 export default {
   name: 'EmailStatistics',
@@ -192,20 +193,41 @@ export default {
   mounted() {
     this.loadData()
   },
+  computed: {
+    // 检查是否为访客用户
+    isGuestUser() {
+      const roles = this.$store.getters.roles || [];
+      console.log("roles", roles)
+      return isGuestUser(roles);
+    }
+  },
   methods: {
     // 加载所有数据
     async loadData() {
       this.loading = true
       try {
-        // 并行加载所有数据
-        const [todayRes, totalRes, trendsRes, replyRatesRes, accountsRes, detailedRes] = await Promise.allSettled([
+        console.log('开始加载数据，isGuestUser:', this.isGuestUser);
+        
+        // 根据用户角色决定加载哪些数据
+        let apiCalls = [
           getTodayStats(),
           getTotalStats(),
           getSendTrends(parseInt(this.trendTimeRange)),
-          getReplyRates(),
-          getAccounts(),
-          getDetailedStats()
-        ])
+          getReplyRates()
+        ];
+        
+        // 访客用户不请求 accounts 和 detailed 接口
+        if (!this.isGuestUser) {
+          console.log('非访客用户，添加 accounts 和 detailed 接口');
+          apiCalls.push(getAccounts());
+          apiCalls.push(getDetailedStats());
+        } else {
+          console.log('访客用户，跳过 accounts 和 detailed 接口');
+        }
+        
+        // 并行加载所有数据
+        const results = await Promise.allSettled(apiCalls);
+        const [todayRes, totalRes, trendsRes, replyRatesRes, accountsRes, detailedRes] = results;
 
         // 处理今日统计数据
         if (todayRes.status === 'fulfilled' && todayRes.value.code === 200) {
@@ -239,13 +261,13 @@ export default {
           this.replyRatesData = replyRatesRes.value.data.accountReplyRates || []
         }
 
-        // 处理账号列表
-        if (accountsRes.status === 'fulfilled' && accountsRes.value.code === 200) {
+        // 处理账号列表（仅非访客用户）
+        if (!this.isGuestUser && accountsRes && accountsRes.status === 'fulfilled' && accountsRes.value.code === 200) {
           this.accounts = accountsRes.value.data
         }
 
-        // 处理详细统计数据
-        if (detailedRes.status === 'fulfilled' && detailedRes.value.code === 200) {
+        // 处理详细统计数据（仅非访客用户）
+        if (!this.isGuestUser && detailedRes && detailedRes.status === 'fulfilled' && detailedRes.value.code === 200) {
           this.statisticsList = detailedRes.value.data.statisticsList || []
         }
 
