@@ -68,6 +68,9 @@ public class EmailSendService {
 
     @Autowired
     private EmailListener emailListener;
+    
+    @Autowired
+    private EmailTaskStatusService emailTaskStatusService;
 
     // 使用全局线程池，避免每次创建新的
     private final ExecutorService executorService = Executors.newFixedThreadPool(10);
@@ -133,6 +136,12 @@ public class EmailSendService {
             execution.setCreateBy(SecurityUtils.getUsername());
             execution.setCreateTime(new Date());
             
+            // 初始化计数字段，避免null值导致的计数问题
+            execution.setTotalCount(0);
+            execution.setSentCount(0);
+            execution.setSuccessCount(0);
+            execution.setFailedCount(0);
+            
             emailTaskExecutionService.insertEmailTaskExecution(execution);
             logger.info("创建任务执行记录成功，执行ID: {}", execution.getExecutionId());
             
@@ -152,6 +161,21 @@ public class EmailSendService {
             }
             
             logger.info("找到 {} 个可用的发件人账户", senderAccounts.size());
+            
+            // 检查所有发件邮箱是否都达到每日发送上限
+            boolean allAccountsReachedLimit = true;
+            for (EmailAccount account : senderAccounts) {
+                if (emailSendLimitService.canSendToday(account.getAccountId())) {
+                    allAccountsReachedLimit = false;
+                    break;
+                }
+            }
+            
+            if (allAccountsReachedLimit) {
+                logger.warn("所有发件邮箱都已达到每日发送上限，将任务延迟到第二天凌晨0点30分执行，任务ID: {}", taskId);
+                delayTaskToNextDay(task);
+                return;
+            }
 
             // 获取邮件模板（如果使用模板）
             EmailTemplate template;
@@ -212,9 +236,15 @@ public class EmailSendService {
                     // 获取当前可用的发件邮箱（每次重新检查可用性）
                     EmailAccount currentSender = getCurrentAvailableSender(senderAccounts, senderIndex);
                     if (currentSender == null) {
-                        logger.warn("所有发件邮箱都已达到每日发送上限，停止发送。剩余 {} 封邮件未发送", recipients.size() - recipients.indexOf(recipient));
-                        // 更新任务状态为已完成
-                        currentTask.setStatus("2");
+                        int remainingCount = recipients.size() - recipients.indexOf(recipient);
+                        logger.warn("所有发件邮箱都已达到每日发送上限，剩余 {} 封邮件未发送", remainingCount);
+                        
+                        // 将剩余邮件延迟到第二天凌晨0点30分执行
+                        delayRemainingEmailsToNextDay(currentTask, remainingCount);
+                        
+                        // 更新当前任务状态为已完成
+                        currentTask.setStatus("2"); // 已完成
+                        currentTask.setRemark("部分邮件已发送，剩余邮件已延迟到第二天执行");
                         emailSendTaskService.updateEmailSendTask(currentTask);
                         break;
                     }
@@ -365,12 +395,31 @@ public class EmailSendService {
                     EmailSendTask finalTask = emailSendTaskService.selectEmailSendTaskByTaskId(taskId);
                     if (finalTask != null) {
                         logger.info("邮件发送任务完成: {}, 成功: {}, 失败: {}", taskId, successCount, failedCount);
-                        finalTask.setStatus("2"); // 完成
-                        emailSendTaskService.updateEmailSendTask(finalTask);
                         
-                        // 更新任务执行记录状态为完成
+                        // 更新任务执行记录状态
                         if (finalExecution != null) {
-                            finalExecution.setExecutionStatus("2"); // 已完成
+                            // 根据失败情况判断执行状态
+                            String executionStatus;
+                            String taskStatus;
+                            if (failedCount > 0 && successCount == 0) {
+                                // 全部失败
+                                executionStatus = "3"; // 执行失败
+                                taskStatus = "3"; // 任务失败
+                            } else if (failedCount > 0) {
+                                // 部分失败
+                                executionStatus = "2"; // 已完成（部分成功）
+                                taskStatus = "2"; // 任务完成
+                            } else {
+                                // 全部成功
+                                executionStatus = "2"; // 已完成
+                                taskStatus = "2"; // 任务完成
+                            }
+                            
+                            // 更新任务状态
+                            finalTask.setStatus(taskStatus);
+                            emailSendTaskService.updateEmailSendTask(finalTask);
+                            
+                            finalExecution.setExecutionStatus(executionStatus);
                             finalExecution.setEndTime(new Date());
                             finalExecution.setTotalCount(recipients.size());
                             finalExecution.setSentCount(successCount + failedCount);
@@ -389,6 +438,14 @@ public class EmailSendService {
                             finalExecution.setUpdateTime(new Date());
                             emailTaskExecutionService.updateEmailTaskExecution(finalExecution);
                             logger.info("任务执行记录已更新为完成状态，执行ID: {}", finalExecution.getExecutionId());
+                        } else {
+                            // 如果没有执行记录，根据失败情况设置任务状态
+                            if (failedCount > 0 && successCount == 0) {
+                                finalTask.setStatus("3"); // 任务失败
+                            } else {
+                                finalTask.setStatus("2"); // 任务完成
+                            }
+                            emailSendTaskService.updateEmailSendTask(finalTask);
                         }
                     }
                 } catch (Exception e) {
@@ -409,6 +466,10 @@ public class EmailSendService {
                             finalExecution.setExecutionStatus("3"); // 执行失败
                             finalExecution.setEndTime(new Date());
                             finalExecution.setErrorMessage(e.getMessage());
+                            // 设置失败数量为总数（因为任务执行异常，所有邮件都未发送成功）
+                            finalExecution.setFailedCount(finalExecution.getTotalCount() != null ? finalExecution.getTotalCount() : 0);
+                            finalExecution.setSuccessCount(0);
+                            finalExecution.setSentCount(0);
                             finalExecution.setUpdateTime(new Date());
                             emailTaskExecutionService.updateEmailTaskExecution(finalExecution);
                         }
@@ -434,6 +495,19 @@ public class EmailSendService {
                 if (task != null) {
                     task.setStatus("4"); // 失败
                     emailSendTaskService.updateEmailSendTask(task);
+                }
+                
+                // 更新任务执行记录状态为失败
+                if (execution != null) {
+                    execution.setExecutionStatus("3"); // 执行失败
+                    execution.setEndTime(new Date());
+                    execution.setErrorMessage(e.getMessage());
+                    // 设置失败数量为总数（因为任务执行异常，所有邮件都未发送成功）
+                    execution.setFailedCount(execution.getTotalCount() != null ? execution.getTotalCount() : 0);
+                    execution.setSuccessCount(0);
+                    execution.setSentCount(0);
+                    execution.setUpdateTime(new Date());
+                    emailTaskExecutionService.updateEmailTaskExecution(execution);
                 }
             } catch (Exception ex) {
                 logger.error("更新任务状态失败: {}", ex.getMessage());
@@ -701,6 +775,12 @@ public class EmailSendService {
             execution.setCreateBy(SecurityUtils.getUsername());
             execution.setCreateTime(new Date());
             
+            // 初始化计数字段，避免null值导致的计数问题
+            execution.setTotalCount(0);
+            execution.setSentCount(0);
+            execution.setSuccessCount(0);
+            execution.setFailedCount(0);
+            
             emailTaskExecutionService.insertEmailTaskExecution(execution);
             logger.info("创建长连接任务执行记录成功，执行ID: {}", execution.getExecutionId());
 
@@ -758,6 +838,10 @@ public class EmailSendService {
                     execution.setExecutionStatus("3"); // 执行失败
                     execution.setEndTime(new Date());
                     execution.setErrorMessage(e.getMessage());
+                    // 设置失败数量为总数（因为任务执行异常，所有邮件都未发送成功）
+                    execution.setFailedCount(execution.getTotalCount() != null ? execution.getTotalCount() : 0);
+                    execution.setSuccessCount(0);
+                    execution.setSentCount(0);
                     execution.setUpdateTime(new Date());
                     emailTaskExecutionService.updateEmailTaskExecution(execution);
                 }
@@ -828,9 +912,15 @@ public class EmailSendService {
                     
                     // 检查当前账号是否还有发送配额
                     if (!emailSendLimitService.canSendToday(account.getAccountId())) {
-                        logger.warn("长连接账号已达到每日发送上限，停止发送。剩余 {} 封邮件未发送", recipients.size() - recipients.indexOf(recipient));
-                        // 更新任务状态为已完成
-                        currentTask.setStatus("2");
+                        int remainingCount = recipients.size() - recipients.indexOf(recipient);
+                        logger.warn("长连接账号已达到每日发送上限，剩余 {} 封邮件未发送", remainingCount);
+                        
+                        // 将剩余邮件延迟到第二天凌晨0点30分执行
+                        delayRemainingEmailsToNextDay(currentTask, remainingCount);
+                        
+                        // 更新当前任务状态为已完成
+                        currentTask.setStatus("2"); // 已完成
+                        currentTask.setRemark("部分邮件已发送，剩余邮件已延迟到第二天执行");
                         emailSendTaskService.updateEmailSendTask(currentTask);
                         break;
                     }
@@ -928,12 +1018,31 @@ public class EmailSendService {
                 EmailSendTask finalTask = emailSendTaskService.selectEmailSendTaskByTaskId(task.getTaskId());
                 if (finalTask != null) {
                     logger.info("长连接邮件发送任务完成: {}", task.getTaskId());
-                    finalTask.setStatus("2"); // 完成
-                    emailSendTaskService.updateEmailSendTask(finalTask);
                     
-                    // 更新任务执行记录状态为完成
+                    // 更新任务执行记录状态
                     if (execution != null) {
-                        execution.setExecutionStatus("2"); // 已完成
+                        // 根据失败情况判断执行状态
+                        String executionStatus;
+                        String taskStatus;
+                        if (execution.getFailedCount() > 0 && execution.getSuccessCount() == 0) {
+                            // 全部失败
+                            executionStatus = "3"; // 执行失败
+                            taskStatus = "3"; // 任务失败
+                        } else if (execution.getFailedCount() > 0) {
+                            // 部分失败
+                            executionStatus = "2"; // 已完成（部分成功）
+                            taskStatus = "2"; // 任务完成
+                        } else {
+                            // 全部成功
+                            executionStatus = "2"; // 已完成
+                            taskStatus = "2"; // 任务完成
+                        }
+                        
+                        // 更新任务状态
+                        finalTask.setStatus(taskStatus);
+                        emailSendTaskService.updateEmailSendTask(finalTask);
+                        
+                        execution.setExecutionStatus(executionStatus);
                         execution.setEndTime(new Date());
                         
                         // 添加任务完成日志
@@ -948,6 +1057,10 @@ public class EmailSendService {
                         execution.setUpdateTime(new Date());
                         emailTaskExecutionService.updateEmailTaskExecution(execution);
                         logger.info("长连接任务执行记录已更新为完成状态，执行ID: {}", execution.getExecutionId());
+                    } else {
+                        // 如果没有执行记录，设置为完成状态
+                        finalTask.setStatus("2"); // 任务完成
+                        emailSendTaskService.updateEmailSendTask(finalTask);
                     }
                 }
                 
@@ -965,6 +1078,10 @@ public class EmailSendService {
                         execution.setExecutionStatus("3"); // 执行失败
                         execution.setEndTime(new Date());
                         execution.setErrorMessage(e.getMessage());
+                        // 设置失败数量为总数（因为任务执行异常，所有邮件都未发送成功）
+                        execution.setFailedCount(execution.getTotalCount() != null ? execution.getTotalCount() : 0);
+                        execution.setSuccessCount(0);
+                        execution.setSentCount(0);
                         execution.setUpdateTime(new Date());
                         emailTaskExecutionService.updateEmailTaskExecution(execution);
                         logger.info("长连接任务执行记录已更新为失败状态，执行ID: {}", execution.getExecutionId());
@@ -1292,5 +1409,116 @@ public class EmailSendService {
         }
         
         return content;
+    }
+    
+    /**
+     * 将超出部分延迟到第二天凌晨0点30分执行
+     * 
+     * @param task 发送任务
+     * @param remainingCount 剩余邮件数量
+     */
+    private void delayRemainingEmailsToNextDay(EmailSendTask task, int remainingCount) {
+        try {
+            if (remainingCount <= 0) {
+                logger.info("没有剩余邮件需要延迟，任务ID: {}", task.getTaskId());
+                return;
+            }
+            
+            // 计算第二天凌晨0点30分的时间
+            java.util.Calendar calendar = java.util.Calendar.getInstance();
+            calendar.add(java.util.Calendar.DAY_OF_MONTH, 1); // 加一天
+            calendar.set(java.util.Calendar.HOUR_OF_DAY, 0); // 设置为0点
+            calendar.set(java.util.Calendar.MINUTE, 30); // 设置为30分
+            calendar.set(java.util.Calendar.SECOND, 0); // 设置为0秒
+            calendar.set(java.util.Calendar.MILLISECOND, 0); // 设置为0毫秒
+            
+            Date nextDayTime = calendar.getTime();
+            
+            // 创建新的延迟任务，包含剩余的邮件
+            EmailSendTask delayedTask = new EmailSendTask();
+            delayedTask.setTaskName(task.getTaskName() + "_延迟_" + new java.text.SimpleDateFormat("MMdd").format(new Date()));
+            delayedTask.setTemplateId(task.getTemplateId());
+            delayedTask.setSenderId(task.getSenderId());
+            delayedTask.setSubject(task.getSubject());
+            delayedTask.setContent(task.getContent());
+            delayedTask.setRecipientType(task.getRecipientType());
+            delayedTask.setRecipientIds(task.getRecipientIds());
+            delayedTask.setGroupIds(task.getGroupIds());
+            delayedTask.setTagIds(task.getTagIds());
+            delayedTask.setContactIds(task.getContactIds());
+            delayedTask.setAccountIds(task.getAccountIds());
+            delayedTask.setSendMode("scheduled"); // 定时发送
+            delayedTask.setSendInterval(task.getSendInterval());
+            delayedTask.setStartTime(nextDayTime);
+            delayedTask.setTotalCount(remainingCount);
+            delayedTask.setSentCount(0);
+            delayedTask.setDeliveredCount(0);
+            delayedTask.setOpenedCount(0);
+            delayedTask.setRepliedCount(0);
+            delayedTask.setStatus("0"); // 待发送
+            delayedTask.setRemark("因所有发件邮箱达到每日发送上限，剩余" + remainingCount + "封邮件已自动延迟到第二天凌晨0点30分执行");
+            delayedTask.setCreateBy(task.getCreateBy());
+            delayedTask.setCreateTime(new Date());
+            delayedTask.setUpdateTime(new Date());
+            
+            // 插入新的延迟任务
+            emailSendTaskService.insertEmailSendTask(delayedTask);
+            
+            // 添加到调度器
+            emailSchedulerService.scheduleEmailTask(delayedTask);
+            
+            logger.info("剩余邮件已延迟到第二天凌晨0点30分执行: 原任务ID={}, 延迟任务ID={}, 剩余邮件数={}, 延迟时间={}", 
+                task.getTaskId(), delayedTask.getTaskId(), remainingCount, 
+                new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(nextDayTime));
+                
+        } catch (Exception e) {
+            logger.error("延迟剩余邮件到第二天执行失败: taskId={}, remainingCount={}", task.getTaskId(), remainingCount, e);
+        }
+    }
+    
+    /**
+     * 将整个任务延迟到第二天凌晨0点30分执行（用于发送前检查）
+     * 
+     * @param task 发送任务
+     */
+    private void delayTaskToNextDay(EmailSendTask task) {
+        try {
+            // 计算第二天凌晨0点30分的时间
+            java.util.Calendar calendar = java.util.Calendar.getInstance();
+            calendar.add(java.util.Calendar.DAY_OF_MONTH, 1); // 加一天
+            calendar.set(java.util.Calendar.HOUR_OF_DAY, 0); // 设置为0点
+            calendar.set(java.util.Calendar.MINUTE, 30); // 设置为30分
+            calendar.set(java.util.Calendar.SECOND, 0); // 设置为0秒
+            calendar.set(java.util.Calendar.MILLISECOND, 0); // 设置为0毫秒
+            
+            Date nextDayTime = calendar.getTime();
+            
+            // 更新任务状态为待发送，并设置新的发送时间
+            task.setStatus("0"); // 待发送
+            task.setSendMode("scheduled"); // 改为定时发送
+            task.setStartTime(nextDayTime);
+            task.setUpdateTime(new Date());
+            task.setRemark("因所有发件邮箱达到每日发送上限，已自动延迟到第二天凌晨0点30分执行");
+            
+            // 更新数据库
+            emailSendTaskService.updateEmailSendTask(task);
+            
+            // 添加到调度器
+            emailSchedulerService.scheduleEmailTask(task);
+            
+            logger.info("任务已延迟到第二天凌晨0点30分执行: taskId={}, delayTime={}", 
+                task.getTaskId(), new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(nextDayTime));
+                
+        } catch (Exception e) {
+            logger.error("延迟任务到第二天执行失败: taskId={}", task.getTaskId(), e);
+            // 如果延迟失败，将任务状态设置为失败
+            try {
+                task.setStatus("4"); // 失败
+                task.setRemark("延迟执行失败: " + e.getMessage());
+                emailSendTaskService.updateEmailSendTask(task);
+            } catch (Exception ex) {
+                logger.error("更新任务状态失败: taskId={}", task.getTaskId(), ex);
+            }
+        }
     }
 }
