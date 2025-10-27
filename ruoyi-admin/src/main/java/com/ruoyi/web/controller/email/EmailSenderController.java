@@ -37,7 +37,7 @@ public class EmailSenderController extends BaseController
     /**
      * 查询发件人信息列表
      */
-    @PreAuthorize("@ss.hasPermi('email:sender:list')")
+    @PreAuthorize("@ss.hasPermi('email:account:list')")
     @GetMapping("/list")
     public TableDataInfo list(EmailSender emailSender)
     {
@@ -126,7 +126,7 @@ public class EmailSenderController extends BaseController
     /**
      * 获取发件人选项列表（用于下拉选择）
      */
-    @PreAuthorize("@ss.hasPermi('email:sender:list')")
+    @PreAuthorize("@ss.hasPermi('email:account:list')")
     @GetMapping("/options")
     public AjaxResult getOptions()
     {
