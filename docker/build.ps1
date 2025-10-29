@@ -207,7 +207,7 @@ if (-not (Test-Path $dockerDir)) {
 if ($Target -eq "backend" -or $Target -eq "all") {
     Write-Host "[INFO] Exporting backend image to tar file..." -ForegroundColor Green
     try {
-        $backendTarPath = Join-Path $dockerDir "ruoyi-backend-latest.tar"
+        $backendTarPath = Join-Path $dockerDir "backend.tar"
         & docker save -o $backendTarPath ruoyi-backend:latest
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[WARNING] Failed to export backend image" -ForegroundColor Yellow
@@ -224,7 +224,7 @@ if ($Target -eq "backend" -or $Target -eq "all") {
 if ($Target -eq "frontend" -or $Target -eq "all") {
     Write-Host "[INFO] Exporting frontend image to tar file..." -ForegroundColor Green
     try {
-        $frontendTarPath = Join-Path $dockerDir "ruoyi-frontend-latest.tar"
+        $frontendTarPath = Join-Path $dockerDir "frontend.tar"
         & docker save -o $frontendTarPath ruoyi-frontend:latest
         if ($LASTEXITCODE -ne 0) {
             Write-Host "[WARNING] Failed to export frontend image" -ForegroundColor Yellow
@@ -254,14 +254,14 @@ if ($Target -eq "frontend" -or $Target -eq "all") {
 Write-Host ""
 Write-Host "Exported tar files:" -ForegroundColor Yellow
 if ($Target -eq "backend" -or $Target -eq "all") {
-    Write-Host "  - docker/ruoyi-backend-latest.tar" -ForegroundColor Green
+    Write-Host "  - docker/backend.tar" -ForegroundColor Green
 }
 if ($Target -eq "frontend" -or $Target -eq "all") {
-    Write-Host "  - docker/ruoyi-frontend-latest.tar" -ForegroundColor Green
+    Write-Host "  - docker/frontend.tar" -ForegroundColor Green
 }
 Write-Host ""
 Write-Host "Next step: Run .\deploy.bat start to start services" -ForegroundColor Yellow
-Write-Host "Or use 'docker load -i docker/ruoyi-*.tar' to load images on other machines" -ForegroundColor Cyan
+Write-Host "Or use 'docker load -i docker/backend.tar' and 'docker load -i docker/frontend.tar' to load images on other machines" -ForegroundColor Cyan
 Read-Host "Press Enter to exit"
 
 

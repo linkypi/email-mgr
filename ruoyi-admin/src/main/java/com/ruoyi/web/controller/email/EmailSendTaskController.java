@@ -176,6 +176,18 @@ public class EmailSendTaskController extends BaseController
             emailSendTask.setCreateBy(getUsername());
             emailSendTask.setCreateTime(new java.util.Date());
             
+            // 处理发件人ID列表：如果提供了senderIds，优先使用；否则回退到senderId
+            if (emailSendTask.getSenderIds() != null && !emailSendTask.getSenderIds().trim().isEmpty()) {
+                // 使用多个发件人ID
+                logger.info("使用多个发件人ID: {}", emailSendTask.getSenderIds());
+            } else if (emailSendTask.getSenderId() != null) {
+                // 回退到单个发件人ID，转换为senderIds格式
+                emailSendTask.setSenderIds(emailSendTask.getSenderId().toString());
+                logger.info("将单个发件人ID转换为列表格式: {}", emailSendTask.getSenderIds());
+            } else {
+                return error("请选择至少一个发件人");
+            }
+            
             // 如果使用模板发送，需要从模板获取subject和content
             if (emailSendTask.getTemplateId() != null) {
                 EmailTemplate template = emailTemplateService.selectEmailTemplateByTemplateId(emailSendTask.getTemplateId());
@@ -553,8 +565,8 @@ public class EmailSendTaskController extends BaseController
     {
         try
         {
-            // 这里需要注入EmailListener，但为了简化，我们直接返回成功
-            // 实际检测可以通过日志查看
+            // 调用EmailListener的手动回复检测方法
+            emailSendService.manualReplyDetection(taskId);
             return success("手动回复检测请求已发送，请查看日志了解详细结果");
         }
         catch (Exception e)

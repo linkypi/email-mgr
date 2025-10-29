@@ -169,6 +169,19 @@ export const constantRoutes = [
         meta: { title: '销售数据管理', icon: 'data-line' }
       }
     ]
+  },
+  {
+    path: '/email-monitor',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: 'monitor',
+        component: () => import('@/views/email/monitor/index'),
+        name: 'EmailServiceMonitor',
+        meta: { title: '邮件服务监控', icon: 'monitor' }
+      }
+    ]
   }
 
   // 移除 emailRouter，统一通过后端菜单数据管理

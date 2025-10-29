@@ -248,7 +248,7 @@
             @click="handleBatchStartMonitor"
             :disabled="ids.length === 0"
             v-hasPermi="['email:monitor:start']"
-          >批量启动监控</el-button>
+          >启动监控</el-button>
         </el-col>
         <el-col :span="1.5">
           <el-button
@@ -259,18 +259,18 @@
             @click="handleBatchStopMonitor"
             :disabled="ids.length === 0"
             v-hasPermi="['email:monitor:stop']"
-          >批量停止监控</el-button>
+          >停止监控</el-button>
         </el-col>
         <el-col :span="1.5">
           <el-button
-            type="warning"
+            type="primary"
             plain
             icon="el-icon-refresh"
             size="mini"
             @click="handleBatchRestartMonitor"
             :disabled="ids.length === 0"
             v-hasPermi="['email:monitor:restart']"
-          >批量重启监控</el-button>
+          >重新连接</el-button>
         </el-col>
         <el-col :span="1.5">
           <el-button
@@ -375,6 +375,16 @@
           </template>
         </el-table-column>
         <el-table-column label="状态信息" align="center" prop="message" :show-overflow-tooltip="true" />
+        <el-table-column label="具体错误日志" align="center" prop="errorLog" width="300" :show-overflow-tooltip="true">
+          <template slot-scope="scope">
+            <div v-if="scope.row.errorLog" class="error-log-content">
+              <el-tooltip :content="scope.row.errorLog" placement="top" :disabled="scope.row.errorLog.length <= 50">
+                <span class="error-log-text">{{ scope.row.errorLog.length > 50 ? scope.row.errorLog.substring(0, 50) + '...' : scope.row.errorLog }}</span>
+              </el-tooltip>
+            </div>
+            <span v-else class="no-error-log">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="响应时间" align="center" prop="responseTime" width="120">
           <template slot-scope="scope">
             <span v-if="scope.row.responseTime">{{ scope.row.responseTime }}ms</span>
@@ -722,7 +732,7 @@ export default {
       }, `邮件服务监控_${new Date().getTime()}.xlsx`)
     },
     
-    /** 批量启动监控 */
+    /** 启动监控 */
     handleBatchStartMonitor() {
       this.$modal.confirm(`是否确认启动选中的 ${this.ids.length} 个账号的监控？`).then(() => {
         const promises = this.ids.map(id => {
@@ -736,7 +746,7 @@ export default {
       }).catch(() => {});
     },
     
-    /** 批量停止监控 */
+    /** 停止监控 */
     handleBatchStopMonitor() {
       this.$modal.confirm(`是否确认停止选中的 ${this.ids.length} 个账号的监控？`).then(() => {
         const promises = this.ids.map(id => {
@@ -750,9 +760,9 @@ export default {
       }).catch(() => {});
     },
     
-    /** 批量重启监控 */
+    /** 重新连接监控 */
     handleBatchRestartMonitor() {
-      this.$modal.confirm(`是否确认重启选中的 ${this.ids.length} 个账号的监控？`).then(() => {
+      this.$modal.confirm(`是否确认重新连接选中的 ${this.ids.length} 个账号的监控？`).then(() => {
         const promises = this.ids.map(id => {
           const row = this.monitorList.find(item => item.id === id);
           return restartAccountMonitor(row.accountId);
@@ -760,7 +770,7 @@ export default {
         return Promise.all(promises);
       }).then(() => {
         this.getList();
-        this.$modal.msgSuccess(`成功重启 ${this.ids.length} 个账号的监控`);
+        this.$modal.msgSuccess(`成功重新连接 ${this.ids.length} 个账号的监控`);
       }).catch(() => {});
     },
     
@@ -954,5 +964,28 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   word-break: keep-all;
+}
+
+/* 错误日志样式 */
+.error-log-content {
+  max-width: 280px;
+  word-break: break-all;
+}
+
+.error-log-text {
+  color: #F56C6C;
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.no-error-log {
+  color: #C0C4CC;
+  font-style: italic;
 }
 </style>

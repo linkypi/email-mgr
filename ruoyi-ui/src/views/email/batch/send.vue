@@ -24,13 +24,14 @@
             <el-input v-model="sendForm.taskName" placeholder="请输入任务名称"></el-input>
           </el-form-item>
           
-          <el-form-item label="发件人" prop="senderId">
-            <el-select 
-              v-model="sendForm.senderId" 
+          <el-form-item label="发件人" prop="senderIds">
+            <el-select
+              v-model="sendForm.senderIds"
+              multiple
               filterable
               remote
               reserve-keyword
-              placeholder="选择发件人（支持搜索）" 
+              placeholder="选择发件人（支持多选和搜索）"
               style="width: 100%"
               :remote-method="searchSenders"
               :loading="senderLoading">
@@ -41,9 +42,35 @@
                 :value="item.senderId">
               </el-option>
             </el-select>
+            
+            <!-- 选中发件人显示区域 -->
+            <div v-if="sendForm.senderIds && sendForm.senderIds.length > 0" class="selected-senders-display">
+              <div class="selected-senders-header">
+                <span class="sender-count">已选择 {{ sendForm.senderIds.length }} 个发件人：</span>
+                <el-button 
+                  @click="clearAllSenders" 
+                  type="text" 
+                  size="mini" 
+                  icon="el-icon-close">
+                  清空
+                </el-button>
+              </div>
+              <div class="selected-senders-list">
+                <el-tag
+                  v-for="senderId in sendForm.senderIds"
+                  :key="senderId"
+                  closable
+                  @close="removeSender(senderId)"
+                  size="small"
+                  class="sender-tag">
+                  {{ getSenderDisplayName(senderId) }}
+                </el-tag>
+              </div>
+            </div>
+            
             <div class="form-tip">
               <i class="el-icon-info"></i>
-              选择一个发件人，系统将使用其关联的邮箱账号进行发送
+              可选择多个发件人，系统将使用所有选中发件人关联的邮箱账号进行发送
             </div>
           </el-form-item>
           
@@ -576,7 +603,7 @@ export default {
       sending: false,
       sendForm: {
         taskName: '',
-        senderId: null,
+        senderIds: [],
         contactIds: [],
         sendType: 'template',
         templateId: null,
@@ -629,8 +656,18 @@ export default {
         taskName: [
           { required: true, message: "任务名称不能为空", trigger: "blur" }
         ],
-        senderId: [
-          { required: true, message: "请选择发件人", trigger: "change" }
+        senderIds: [
+          { required: true, message: "请选择至少一个发件人", trigger: "change" },
+          {
+            validator: (rule, value, callback) => {
+              if (!value || value.length === 0) {
+                callback(new Error('请选择至少一个发件人'));
+              } else {
+                callback();
+              }
+            },
+            trigger: "change"
+          }
         ],
         templateId: [
           { 
@@ -877,13 +914,15 @@ export default {
       }
       
       // 获取发件人信息
-      const selectedSender = this.senderOptions.find(sender => sender.senderId === this.sendForm.senderId);
+      const selectedSenders = this.senderOptions.filter(sender => 
+        this.sendForm.senderIds && this.sendForm.senderIds.includes(sender.senderId)
+      );
       
       // 获取收件人信息
       let recipientInfo = this.getRecipientInfo();
       
       this.previewData = {
-        sender: selectedSender,
+        senders: selectedSenders,
         recipient: recipientInfo,
         subject: this.selectedTemplate.subject,
         content: this.selectedTemplate.content
@@ -894,7 +933,7 @@ export default {
     /** 获取收件人信息 */
     getRecipientInfo() {
       if (this.selectedContacts && this.selectedContacts.length > 0) {
-        const contactList = this.selectedContacts.map(contact => 
+        const contactList = this.selectedContacts.map(contact =>
           `${contact.name}(${contact.email})`
         ).join('，');
         return {
@@ -906,6 +945,25 @@ export default {
         type: 'manual',
         display: '未选择联系人'
       };
+    },
+    /** 获取发件人显示名称 */
+    getSenderDisplayName(senderId) {
+      const sender = this.senderOptions.find(item => item.senderId == senderId);
+      if (sender) {
+        return `${sender.senderName}(${sender.company}) - 剩余:${sender.dailyRemainingCount || 0}封`;
+      }
+      return `发件人ID: ${senderId}`;
+    },
+    /** 移除单个发件人 */
+    removeSender(senderId) {
+      const index = this.sendForm.senderIds.indexOf(senderId);
+      if (index > -1) {
+        this.sendForm.senderIds.splice(index, 1);
+      }
+    },
+    /** 清空所有发件人 */
+    clearAllSenders() {
+      this.sendForm.senderIds = [];
     },
     /** 发送邮件 */
     handleSend() {
@@ -946,7 +1004,7 @@ export default {
             // 构建发送任务数据
             const taskData = {
               taskName: this.sendForm.taskName,
-              senderId: this.sendForm.senderId,
+              senderIds: this.sendForm.senderIds.join(','), // 将数组转换为逗号分隔的字符串
               sendMode: this.sendForm.sendMode,
               sendInterval: this.sendForm.sendInterval,
               sendTime: this.sendForm.sendTime
@@ -1007,7 +1065,7 @@ export default {
     handleReset() {
       this.sendForm = {
         taskName: '',
-        senderId: null,
+        senderIds: [],
         contactIds: [],
         sendType: 'template',
         templateId: null,
@@ -1290,6 +1348,52 @@ export default {
 </script>
 
 <style scoped>
+/* 选中发件人显示区域样式 */
+.selected-senders-display {
+  margin-top: 10px;
+  padding: 12px;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+}
+
+.selected-senders-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.sender-count {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.selected-senders-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.sender-tag {
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .sender-tag {
+    max-width: 200px;
+  }
+  .selected-senders-list {
+    gap: 4px;
+  }
+}
 .box-card {
   margin-bottom: 20px;
 }

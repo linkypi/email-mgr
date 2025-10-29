@@ -1256,8 +1256,38 @@ public class EmailSendService {
     private List<EmailAccount> getSenderAccounts(EmailSendTask task) {
         List<EmailAccount> accounts = new ArrayList<>();
         
-        // 优先使用 senderId（根据发件人获取所有邮箱账号）
-        if (task.getSenderId() != null) {
+        // 优先使用 senderIds（多个发件人ID）
+        if (task.getSenderIds() != null && !task.getSenderIds().trim().isEmpty()) {
+            try {
+                String[] senderIdArray = task.getSenderIds().split(",");
+                for (String senderIdStr : senderIdArray) {
+                    if (senderIdStr != null && !senderIdStr.trim().isEmpty()) {
+                        try {
+                            Long senderId = Long.parseLong(senderIdStr.trim());
+                            List<EmailAccount> senderAccounts = emailAccountService.selectEmailAccountBySenderId(senderId);
+                            for (EmailAccount account : senderAccounts) {
+                                if (account != null && "0".equals(account.getStatus()) && emailSendLimitService.canSendToday(account.getAccountId())) {
+                                    accounts.add(account);
+                                    logger.debug("添加发件人邮箱账号: {} ({})", account.getAccountName(), account.getEmailAddress());
+                                } else {
+                                    logger.debug("发件人邮箱账号不可用: {} (ID: {}, 状态: {}, 今日可发送: {})", 
+                                        account != null ? account.getAccountName() : "未知", 
+                                        account != null ? account.getAccountId() : "未知",
+                                        account != null ? account.getStatus() : "未知",
+                                        account != null ? emailSendLimitService.canSendToday(account.getAccountId()) : false);
+                                }
+                            }
+                        } catch (NumberFormatException e) {
+                            logger.warn("无效的发件人ID格式: {}", senderIdStr);
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("获取多个发件人邮箱账号失败: {}", e.getMessage());
+            }
+        }
+        // 回退到单个 senderId（兼容旧版本）
+        else if (task.getSenderId() != null) {
             try {
                 List<EmailAccount> senderAccounts = emailAccountService.selectEmailAccountBySenderId(task.getSenderId());
                 for (EmailAccount account : senderAccounts) {
@@ -1519,6 +1549,26 @@ public class EmailSendService {
             } catch (Exception ex) {
                 logger.error("更新任务状态失败: taskId={}", task.getTaskId(), ex);
             }
+        }
+    }
+    
+    /**
+     * 手动检测回复邮件
+     * 
+     * @param taskId 任务ID
+     */
+    public void manualReplyDetection(Long taskId) {
+        try {
+            logger.info("开始手动检测任务 {} 的回复邮件", taskId);
+            
+            // 调用EmailListener的手动回复检测方法
+            emailListener.manualReplyDetection(taskId);
+            
+            logger.info("手动回复检测完成，任务ID: {}", taskId);
+            
+        } catch (Exception e) {
+            logger.error("手动回复检测失败，任务ID: {}", taskId, e);
+            throw e;
         }
     }
 }

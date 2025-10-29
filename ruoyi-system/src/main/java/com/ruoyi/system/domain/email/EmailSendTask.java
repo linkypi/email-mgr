@@ -36,6 +36,10 @@ public class EmailSendTask extends BaseEntity
     @Excel(name = "发件人ID")
     private Long senderId;
 
+    /** 发件人ID列表(逗号分隔) */
+    @Excel(name = "发件人ID列表")
+    private String senderIds;
+
     /** 邮件主题 */
     @Excel(name = "邮件主题")
     private String subject;
@@ -160,6 +164,16 @@ public class EmailSendTask extends BaseEntity
     public Long getSenderId() 
     {
         return senderId;
+    }
+
+    public void setSenderIds(String senderIds) 
+    {
+        this.senderIds = senderIds;
+    }
+
+    public String getSenderIds() 
+    {
+        return senderIds;
     }
 
     public void setSubject(String subject) 
@@ -360,6 +374,7 @@ public class EmailSendTask extends BaseEntity
             .append("templateId", getTemplateId())
             .append("accountId", getAccountId())
             .append("senderId", getSenderId())
+            .append("senderIds", getSenderIds())
             .append("subject", getSubject())
             .append("content", getContent())
             .append("recipientType", getRecipientType())

@@ -227,6 +227,17 @@ public class EmailTrackRecordServiceImpl implements IEmailTrackRecordService
                 case "DELIVERED":
                     record.setDeliveredTime(new Date());
                     break;
+                case "RECEIVED":
+                    // RECEIVED状态表示邮件已被接收，设置发送时间和送达时间
+                    if (record.getSentTime() == null) {
+                        record.setSentTime(new Date());
+                        logger.info("邮件接收时自动设置发送时间: {}", messageId);
+                    }
+                    if (record.getDeliveredTime() == null) {
+                        record.setDeliveredTime(new Date());
+                        logger.info("邮件接收时自动设置送达时间: {}", messageId);
+                    }
+                    break;
                 case "OPENED":
                     // 如果送达时间为空，先设置送达时间（逻辑上邮件必须先送达才能被打开）
                     if (record.getDeliveredTime() == null) {

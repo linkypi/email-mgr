@@ -5,6 +5,7 @@ import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.system.domain.email.EmailAccount;
 import com.ruoyi.system.domain.email.EmailPersonal;
+import com.ruoyi.system.domain.email.EmailSender;
 import com.ruoyi.system.domain.email.EmailServiceMonitor;
 import com.ruoyi.system.domain.email.EmailServiceMonitorLog;
 import com.ruoyi.system.domain.email.EmailTrackRecord;
@@ -61,6 +62,9 @@ public class EmailServiceMonitorService {
     
     @Autowired
     private IEmailPersonalService emailPersonalService;
+    
+    @Autowired
+    private IEmailSenderService emailSenderService;
     
     @Autowired
     private ISysConfigService sysConfigService;
@@ -448,6 +452,26 @@ public class EmailServiceMonitorService {
             logger.warn("账户 {} 未启用，跳过监控启动", account.getEmailAddress());
             return;
         }
+        
+        // 检查发件人是否也启用
+        if (account.getSenderId() != null) {
+            try {
+                EmailSender sender = emailSenderService.selectEmailSenderBySenderId(account.getSenderId());
+                if (sender == null || !"0".equals(sender.getStatus())) {
+                    logger.warn("账户 {} 的发件人未启用或不存在，跳过监控启动", account.getEmailAddress());
+                    return;
+                }
+            } catch (Exception e) {
+                logger.error("检查账户 {} 的发件人状态时出错: {}", account.getEmailAddress(), e.getMessage());
+                return;
+            }
+        } else {
+            logger.warn("账户 {} 没有关联发件人，跳过监控启动", account.getEmailAddress());
+            return;
+        }
+        
+        // 确保监控记录存在
+        ensureMonitorRecordExists(accountId, account);
         
         AccountMonitorState newState = new AccountMonitorState();
         accountMonitorStates.put(accountId, newState);
@@ -2147,9 +2171,25 @@ public class EmailServiceMonitorService {
                 // 检查启用发送邮件且未在监控中的账号
                 if ("0".equals(account.getStatus()) &&
                     !accountMonitorStates.containsKey(account.getAccountId())) {
-                    logger.info("发现新的启用发送邮件账号: {}", account.getEmailAddress());
-                    // 立即启动监控
-                    startAccountMonitor(account.getAccountId());
+                    
+                    // 检查发件人是否也启用
+                    if (account.getSenderId() != null) {
+                        try {
+                            EmailSender sender = emailSenderService.selectEmailSenderBySenderId(account.getSenderId());
+                            if (sender != null && "0".equals(sender.getStatus())) {
+                                logger.info("发现新的符合条件的账号: {} (发件人: {})", 
+                                    account.getEmailAddress(), sender.getSenderName());
+                                // 立即启动监控
+                                startAccountMonitor(account.getAccountId());
+                            } else {
+                                logger.debug("账号 {} 的发件人未启用，跳过监控", account.getEmailAddress());
+                            }
+                        } catch (Exception e) {
+                            logger.warn("检查账号 {} 的发件人状态时出错: {}", account.getEmailAddress(), e.getMessage());
+                        }
+                    } else {
+                        logger.debug("账号 {} 没有关联发件人，跳过监控", account.getEmailAddress());
+                    }
                 }
             }
         } catch (Exception e) {
@@ -2189,7 +2229,7 @@ public class EmailServiceMonitorService {
         } catch (Exception e) {
             logger.error("测试IMAP服务失败", e);
             updateImapStatus(accountId, "TEST_FAILED", e.getMessage());
-            recordOperation(accountId, "IMAP", "FAILED", e.getMessage());
+            recordOperation(accountId, "IMAP", "FAILED", e.getMessage(), getDetailedErrorMessage(e));
             Map<String, Object> result = new HashMap<>();
             result.put("success", false);
             result.put("message", e.getMessage());
@@ -2229,7 +2269,7 @@ public class EmailServiceMonitorService {
         } catch (Exception e) {
             logger.error("测试SMTP服务失败", e);
             updateSmtpStatus(accountId, "TEST_FAILED", e.getMessage());
-            recordOperation(accountId, "SMTP", "FAILED", e.getMessage());
+            recordOperation(accountId, "SMTP", "FAILED", e.getMessage(), getDetailedErrorMessage(e));
             Map<String, Object> result = new HashMap<>();
             result.put("success", false);
             result.put("message", e.getMessage());
@@ -2263,6 +2303,11 @@ public class EmailServiceMonitorService {
         } else {
             monitorMapper.updateEmailServiceMonitor(monitor);
         }
+        
+        // 记录操作日志
+        String logStatus = "3".equals(status) ? "success" : "failed";
+        String logMessage = errorMessage != null ? errorMessage : "IMAP服务状态更新";
+        recordOperation(accountId, "IMAP", logStatus, logMessage, errorMessage);
     }
     
     /**
@@ -2291,6 +2336,11 @@ public class EmailServiceMonitorService {
         } else {
             monitorMapper.updateEmailServiceMonitor(monitor);
         }
+        
+        // 记录操作日志
+        String logStatus = "3".equals(status) ? "success" : "failed";
+        String logMessage = errorMessage != null ? errorMessage : "SMTP服务状态更新";
+        recordOperation(accountId, "SMTP", logStatus, logMessage, errorMessage);
     }
     
     /**
@@ -2305,6 +2355,12 @@ public class EmailServiceMonitorService {
         } else if ("SMTP".equals(status)) {
             monitor.setSmtpStatus("running");
             monitor.setSmtpLastCheckTime(new Date());
+        } else if ("RUNNING".equals(status)) {
+            monitor.setMonitorStatus("1"); // 运行中
+            monitor.setLastMonitorTime(new Date());
+        } else if ("STOPPED".equals(status)) {
+            monitor.setMonitorStatus("0"); // 停止
+            monitor.setLastMonitorTime(new Date());
         }
         monitor.setUpdateBy("system");
         monitor.setUpdateTime(new Date());
@@ -2356,15 +2412,47 @@ public class EmailServiceMonitorService {
     }
     
     /**
+     * 确保监控记录存在
+     */
+    private void ensureMonitorRecordExists(Long accountId, EmailAccount account) {
+        EmailServiceMonitor monitor = monitorMapper.selectEmailServiceMonitorByAccountId(accountId);
+        if (monitor == null) {
+            monitor = new EmailServiceMonitor();
+            monitor.setAccountId(accountId);
+            monitor.setEmailAddress(account.getEmailAddress());
+            monitor.setImapStatus("stopped");
+            monitor.setSmtpStatus("stopped");
+            monitor.setMonitorStatus("0"); // 停止状态
+            monitor.setMonitorEnabled(1);
+            monitor.setCreateBy("system");
+            monitor.setCreateTime(new Date());
+            monitor.setUpdateBy("system");
+            monitor.setUpdateTime(new Date());
+            
+            // 插入监控记录
+            monitorMapper.insertEmailServiceMonitor(monitor);
+            logger.info("为账号 {} 创建监控记录", account.getEmailAddress());
+        }
+    }
+    
+    /**
      * 记录操作日志
      */
     private void recordOperation(Long accountId, String serviceType, String status, String message) {
+        recordOperation(accountId, serviceType, status, message, null);
+    }
+    
+    /**
+     * 记录操作日志（带错误日志）
+     */
+    private void recordOperation(Long accountId, String serviceType, String status, String message, String errorLog) {
         try {
             EmailServiceMonitorLog log = new EmailServiceMonitorLog();
             log.setAccountId(accountId);
             log.setServiceType(serviceType);
             log.setStatus(status);
             log.setMessage(message);
+            log.setErrorLog(errorLog);
             log.setCheckTime(new Date());
             log.setCreateBy("system");
             log.setCreateTime(new Date());
@@ -2373,6 +2461,35 @@ public class EmailServiceMonitorService {
         } catch (Exception e) {
             logger.error("记录操作日志失败", e);
         }
+    }
+    
+    /**
+     * 获取详细的错误信息
+     */
+    private String getDetailedErrorMessage(Exception e) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("异常类型: ").append(e.getClass().getSimpleName()).append("\n");
+        sb.append("异常消息: ").append(e.getMessage()).append("\n");
+        sb.append("堆栈跟踪:\n");
+        
+        // 添加堆栈跟踪信息（限制长度）
+        StackTraceElement[] stackTrace = e.getStackTrace();
+        int maxLines = Math.min(stackTrace.length, 10); // 最多显示10行堆栈
+        for (int i = 0; i < maxLines; i++) {
+            sb.append("  at ").append(stackTrace[i].toString()).append("\n");
+        }
+        
+        if (stackTrace.length > 10) {
+            sb.append("  ... (省略 ").append(stackTrace.length - 10).append(" 行)\n");
+        }
+        
+        // 添加原因异常信息
+        Throwable cause = e.getCause();
+        if (cause != null && cause != e) {
+            sb.append("原因异常: ").append(cause.getClass().getSimpleName()).append(": ").append(cause.getMessage()).append("\n");
+        }
+        
+        return sb.toString();
     }
     
     /**
@@ -2533,18 +2650,76 @@ public class EmailServiceMonitorService {
     
     // 查询方法
     public List<EmailServiceMonitor> getMonitorList(EmailServiceMonitor monitor) {
-        List<EmailServiceMonitor> monitors = monitorMapper.selectEmailServiceMonitorList(monitor);
+        logger.info("开始查询监控列表，查询参数: {}", monitor);
         
-        // 过滤掉禁用的账号，只显示启用的账号
-        monitors.removeIf(monitorItem -> {
-            try {
-                EmailAccount account = emailAccountService.selectEmailAccountByAccountId(monitorItem.getAccountId());
-                return account == null || !"0".equals(account.getStatus());
-            } catch (Exception e) {
-                logger.error("检查账号状态时发生错误: {}", monitorItem.getAccountId(), e);
-                return true; // 出错时也过滤掉
+        // 首先获取所有已启用的邮箱账号
+        List<EmailAccount> allAccounts = emailAccountService.selectEmailAccountList(new EmailAccount());
+        logger.info("找到 {} 个邮箱账号", allAccounts.size());
+        
+        // 过滤出同时满足以下条件的账号：
+        // 1. email_account.status = '0' (账号启用)
+        // 2. email_sender.status = '0' (发件人启用)
+        List<EmailAccount> enabledAccounts = new ArrayList<>();
+        for (EmailAccount account : allAccounts) {
+            if ("0".equals(account.getStatus()) && account.getSenderId() != null) {
+                // 检查关联的发件人是否也启用
+                try {
+                    EmailSender sender = emailSenderService.selectEmailSenderBySenderId(account.getSenderId());
+                    if (sender != null && "0".equals(sender.getStatus())) {
+                        enabledAccounts.add(account);
+                        logger.debug("账号 {} 及其发件人 {} 都处于启用状态，可以监控", 
+                            account.getEmailAddress(), sender.getSenderName());
+                    } else {
+                        logger.debug("账号 {} 的发件人未启用或不存在，跳过监控", account.getEmailAddress());
+                    }
+                } catch (Exception e) {
+                    logger.warn("检查账号 {} 的发件人状态时出错: {}", account.getEmailAddress(), e.getMessage());
+                }
+            } else {
+                logger.debug("账号 {} 未启用或无发件人关联，跳过监控", account.getEmailAddress());
             }
-        });
+        }
+        
+        logger.info("找到 {} 个符合条件的邮箱账号（账号和发件人都启用）", enabledAccounts.size());
+        
+        // 获取现有的监控记录
+        List<EmailServiceMonitor> existingMonitors = monitorMapper.selectEmailServiceMonitorList(monitor);
+        logger.info("找到 {} 个现有监控记录", existingMonitors.size());
+        
+        Map<Long, EmailServiceMonitor> monitorMap = new HashMap<>();
+        for (EmailServiceMonitor existingMonitor : existingMonitors) {
+            monitorMap.put(existingMonitor.getAccountId(), existingMonitor);
+        }
+        
+        // 为符合条件的账号创建监控记录（如果不存在）
+        List<EmailServiceMonitor> monitors = new ArrayList<>();
+        for (EmailAccount account : enabledAccounts) {
+            EmailServiceMonitor monitorItem = monitorMap.get(account.getAccountId());
+            if (monitorItem == null) {
+                logger.info("为账号 {} 创建新的监控记录", account.getEmailAddress());
+                // 创建新的监控记录
+                monitorItem = new EmailServiceMonitor();
+                monitorItem.setAccountId(account.getAccountId());
+                monitorItem.setEmailAddress(account.getEmailAddress());
+                monitorItem.setImapStatus("stopped");
+                monitorItem.setSmtpStatus("stopped");
+                monitorItem.setMonitorStatus("0");
+                monitorItem.setMonitorEnabled(1);
+                monitorItem.setCreateBy("system");
+                monitorItem.setCreateTime(new Date());
+                monitorItem.setUpdateBy("system");
+                monitorItem.setUpdateTime(new Date());
+                
+                // 插入到数据库
+                monitorMapper.insertEmailServiceMonitor(monitorItem);
+                logger.info("为符合条件的账号 {} 创建监控记录成功", account.getEmailAddress());
+            } else {
+                logger.info("账号 {} 已有监控记录", account.getEmailAddress());
+            }
+            monitors.add(monitorItem);
+        }
+        
+        logger.info("最终返回 {} 个监控记录", monitors.size());
         
         // 更新实时监控状态
         for (EmailServiceMonitor monitorItem : monitors) {

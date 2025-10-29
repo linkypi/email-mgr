@@ -759,6 +759,7 @@ public class EmailListener {
                 statistics.setMessageId(messageId);
                 statistics.setStatus(EmailStatus.SEND_SUCCESS.name());
                 statistics.setStatDate(new Date()); // 设置统计日期
+                statistics.setStatType("1"); // 设置为日统计
                 statistics.setCreateBy("system");
                 statistics.setCreateTime(new Date());
                 
@@ -1915,6 +1916,7 @@ public class EmailListener {
     
     /**
      * 在邮件内容中添加跟踪
+     * 增强版：采用多种策略应对Gmail等邮件服务商的代理机制
      */
     private String addTrackingToContent(String content, String pixelUrl, String linkUrl) {
         if (content == null || content.trim().isEmpty()) {
@@ -1928,18 +1930,18 @@ public class EmailListener {
                         content.toLowerCase().contains("<div");
         
         if (isHtml) {
-            // 如果是HTML内容，在</body>标签前添加跟踪像素
-            String trackingPixel = "<img src=\"" + pixelUrl + "\" width=\"1\" height=\"1\" style=\"display:none;\">";
+            // 如果是HTML内容，添加增强版跟踪
+            String enhancedTracking = generateEnhancedTracking(pixelUrl, linkUrl);
             
             if (content.toLowerCase().contains("</body>")) {
-                // 在</body>前添加跟踪像素
-                return content.replaceAll("(?i)</body>", trackingPixel + "\n</body>");
+                // 在</body>前添加增强版跟踪
+                return content.replaceAll("(?i)</body>", enhancedTracking + "\n</body>");
             } else if (content.toLowerCase().contains("</html>")) {
                 // 如果没有</body>但有</html>，在</html>前添加
-                return content.replaceAll("(?i)</html>", trackingPixel + "\n</html>");
+                return content.replaceAll("(?i)</html>", enhancedTracking + "\n</html>");
             } else {
                 // 如果都没有，在内容末尾添加
-                return content + "\n" + trackingPixel;
+                return content + "\n" + enhancedTracking;
             }
         } else {
             // 如果是纯文本内容，转换为HTML格式
@@ -1961,13 +1963,59 @@ public class EmailListener {
                 }
             }
             
-            // 添加跟踪像素
-            htmlContent.append("<img src=\"").append(pixelUrl).append("\" width=\"1\" height=\"1\" style=\"display:none;\">\n");
+            // 添加增强版跟踪
+            htmlContent.append(generateEnhancedTracking(pixelUrl, linkUrl)).append("\n");
             htmlContent.append("</body>\n");
             htmlContent.append("</html>");
             
             return htmlContent.toString();
         }
+    }
+    
+    /**
+     * 生成增强版邮件跟踪代码
+     * 采用多种策略应对Gmail等邮件服务商的代理机制
+     */
+    private String generateEnhancedTracking(String pixelUrl, String linkUrl) {
+        StringBuilder tracking = new StringBuilder();
+        
+        // 1. 传统像素跟踪（基础方案）
+        tracking.append("<!-- 邮件跟踪像素 -->\n");
+        tracking.append("<img src=\"").append(pixelUrl).append("\" width=\"1\" height=\"1\" style=\"display:none;\" alt=\"\">\n");
+        
+        // 2. 多重像素跟踪（应对代理）
+        tracking.append("<!-- 多重跟踪像素 -->\n");
+        tracking.append("<img src=\"").append(pixelUrl).append("&t=1\" width=\"1\" height=\"1\" style=\"display:none;\" alt=\"\">\n");
+        tracking.append("<img src=\"").append(pixelUrl).append("&t=2\" width=\"1\" height=\"1\" style=\"display:none;\" alt=\"\">\n");
+        
+        // 3. CSS背景图片跟踪
+        tracking.append("<!-- CSS背景图片跟踪 -->\n");
+        tracking.append("<div style=\"background-image:url('").append(pixelUrl).append("&method=css'); width:1px; height:1px; overflow:hidden; position:absolute; left:-9999px;\"></div>\n");
+        
+        // 4. JavaScript跟踪（如果支持）
+        tracking.append("<!-- JavaScript跟踪 -->\n");
+        tracking.append("<script type=\"text/javascript\">\n");
+        tracking.append("try {\n");
+        tracking.append("  var img = new Image();\n");
+        tracking.append("  img.src = '").append(pixelUrl).append("&method=js';\n");
+        tracking.append("} catch(e) {}\n");
+        tracking.append("</script>\n");
+        
+        // 5. 隐藏链接跟踪
+        tracking.append("<!-- 隐藏链接跟踪 -->\n");
+        tracking.append("<a href=\"").append(linkUrl).append("\" style=\"display:none; text-decoration:none; color:transparent;\">.</a>\n");
+        
+        // 6. 表格单元格背景跟踪
+        tracking.append("<!-- 表格背景跟踪 -->\n");
+        tracking.append("<table style=\"width:1px; height:1px; border:0; margin:0; padding:0;\">\n");
+        tracking.append("  <tr><td style=\"background-image:url('").append(pixelUrl).append("&method=table'); width:1px; height:1px;\"></td></tr>\n");
+        tracking.append("</table>\n");
+        
+        // 7. 字体图标跟踪（使用特殊字符）
+        tracking.append("<!-- 字体图标跟踪 -->\n");
+        tracking.append("<span style=\"font-size:1px; color:transparent; background-image:url('").append(pixelUrl).append("&method=font');\">&#8203;</span>\n");
+        
+        return tracking.toString();
     }
     
     /**
@@ -2869,6 +2917,221 @@ public class EmailListener {
             
         } catch (Exception e) {
             logger.error("扫描回复邮件失败: {}", account.getEmailAddress(), e);
+        }
+        
+        return replyCount;
+    }
+
+    /**
+     * 检测指定账户的回复邮件
+     * 
+     * @param accountId 账户ID
+     * @return 检测到的回复数量
+     */
+    public int detectReplyEmailsForAccount(Long accountId) {
+        try {
+            logger.info("开始检测账户 {} 的回复邮件", accountId);
+            
+            // 获取账户信息
+            EmailAccount account = emailAccountService.selectEmailAccountByAccountId(accountId);
+            if (account == null) {
+                logger.warn("账户不存在: {}", accountId);
+                return 0;
+            }
+            
+            // 获取该账户发送的所有邮件跟踪记录
+            List<EmailTrackRecord> trackRecords = emailTrackRecordService.selectEmailTrackRecordByAccountId(accountId);
+            if (trackRecords == null || trackRecords.isEmpty()) {
+                logger.debug("账户 {} 没有邮件跟踪记录", account.getEmailAddress());
+                return 0;
+            }
+            
+            logger.info("账户 {} 有 {} 条邮件跟踪记录", account.getEmailAddress(), trackRecords.size());
+            
+            // 使用IMAP服务检测回复
+            Store store = imapService.createPersistentConnectionWithRetry(account, 2);
+            if (store == null || !store.isConnected()) {
+                logger.warn("无法连接到账户 {} 进行回复检测", account.getEmailAddress());
+                return 0;
+            }
+            
+            Folder folder = imapService.openInboxFolder(store);
+            if (folder == null || !folder.isOpen()) {
+                logger.warn("无法打开账户 {} 的收件箱", account.getEmailAddress());
+                store.close();
+                return 0;
+            }
+            
+            int replyCount = scanRepliesForAccount(folder, trackRecords, account);
+            
+            folder.close(false);
+            store.close();
+            
+            logger.info("账户 {} 检测到 {} 个回复邮件", account.getEmailAddress(), replyCount);
+            return replyCount;
+            
+        } catch (Exception e) {
+            logger.error("检测账户 {} 的回复邮件失败: {}", accountId, e.getMessage(), e);
+            return 0;
+        }
+    }
+    
+    /**
+     * 执行全量回复检测
+     * 
+     * @param accountId 账户ID
+     * @return 检测到的回复数量
+     */
+    public int performFullReplyDetection(Long accountId) {
+        try {
+            logger.info("开始执行账户 {} 的全量回复检测", accountId);
+            
+            // 获取账户信息
+            EmailAccount account = emailAccountService.selectEmailAccountByAccountId(accountId);
+            if (account == null) {
+                logger.warn("账户不存在: {}", accountId);
+                return 0;
+            }
+            
+            // 获取该账户发送的所有邮件跟踪记录
+            List<EmailTrackRecord> trackRecords = emailTrackRecordService.selectEmailTrackRecordByAccountId(accountId);
+            if (trackRecords == null || trackRecords.isEmpty()) {
+                logger.debug("账户 {} 没有邮件跟踪记录", account.getEmailAddress());
+                return 0;
+            }
+            
+            logger.info("账户 {} 有 {} 条邮件跟踪记录，开始全量检测", account.getEmailAddress(), trackRecords.size());
+            
+            // 使用IMAP服务检测回复
+            Store store = imapService.createPersistentConnectionWithRetry(account, 3);
+            if (store == null || !store.isConnected()) {
+                logger.warn("无法连接到账户 {} 进行全量回复检测", account.getEmailAddress());
+                return 0;
+            }
+            
+            Folder folder = imapService.openInboxFolder(store);
+            if (folder == null || !folder.isOpen()) {
+                logger.warn("无法打开账户 {} 的收件箱", account.getEmailAddress());
+                store.close();
+                return 0;
+            }
+            
+            // 全量检测：检查最近500封邮件
+            int replyCount = scanRepliesForAccountFull(folder, trackRecords, account);
+            
+            folder.close(false);
+            store.close();
+            
+            logger.info("账户 {} 全量检测到 {} 个回复邮件", account.getEmailAddress(), replyCount);
+            return replyCount;
+            
+        } catch (Exception e) {
+            logger.error("全量检测账户 {} 的回复邮件失败: {}", accountId, e.getMessage(), e);
+            return 0;
+        }
+    }
+    
+    /**
+     * 扫描指定账户的回复邮件
+     */
+    private int scanRepliesForAccount(Folder folder, List<EmailTrackRecord> trackRecords, EmailAccount account) {
+        int replyCount = 0;
+        try {
+            int messageCount = folder.getMessageCount();
+            if (messageCount == 0) {
+                return 0;
+            }
+            
+            // 检查最近200封邮件
+            int startIndex = Math.max(1, messageCount - 200);
+            Message[] messages = folder.getMessages(startIndex, messageCount);
+            
+            for (Message message : messages) {
+                if (message instanceof MimeMessage) {
+                    MimeMessage mimeMessage = (MimeMessage) message;
+                    
+                    // 检查是否是回复邮件
+                    if (isReplyMessage(mimeMessage)) {
+                        String originalMessageId = extractOriginalMessageIdFromReply(mimeMessage);
+                        if (originalMessageId != null) {
+                            // 检查是否是我们发送的邮件
+                            for (EmailTrackRecord record : trackRecords) {
+                                if (originalMessageId.equals(record.getMessageId()) && 
+                                    record.getRepliedTime() == null) {
+                                    
+                                    // 更新回复时间
+                                    record.setRepliedTime(new Date());
+                                    record.setStatus("REPLIED");
+                                    record.setUpdateTime(new Date());
+                                    emailTrackRecordService.updateEmailTrackRecord(record);
+                                    
+                                    logger.info("检测到回复邮件: {} -> {} (任务ID: {})", 
+                                               originalMessageId, mimeMessage.getMessageID(), record.getTaskId());
+                                    replyCount++;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            logger.error("扫描账户 {} 的回复邮件失败: {}", account.getEmailAddress(), e.getMessage(), e);
+        }
+        
+        return replyCount;
+    }
+    
+    /**
+     * 全量扫描指定账户的回复邮件
+     */
+    private int scanRepliesForAccountFull(Folder folder, List<EmailTrackRecord> trackRecords, EmailAccount account) {
+        int replyCount = 0;
+        try {
+            int messageCount = folder.getMessageCount();
+            if (messageCount == 0) {
+                return 0;
+            }
+            
+            // 全量检测：检查最近500封邮件
+            int startIndex = Math.max(1, messageCount - 500);
+            Message[] messages = folder.getMessages(startIndex, messageCount);
+            
+            logger.info("账户 {} 开始全量扫描，检查 {} 封邮件", account.getEmailAddress(), messages.length);
+            
+            for (Message message : messages) {
+                if (message instanceof MimeMessage) {
+                    MimeMessage mimeMessage = (MimeMessage) message;
+                    
+                    // 检查是否是回复邮件
+                    if (isReplyMessage(mimeMessage)) {
+                        String originalMessageId = extractOriginalMessageIdFromReply(mimeMessage);
+                        if (originalMessageId != null) {
+                            // 检查是否是我们发送的邮件
+                            for (EmailTrackRecord record : trackRecords) {
+                                if (originalMessageId.equals(record.getMessageId()) && 
+                                    record.getRepliedTime() == null) {
+                                    
+                                    // 更新回复时间
+                                    record.setRepliedTime(new Date());
+                                    record.setStatus("REPLIED");
+                                    record.setUpdateTime(new Date());
+                                    emailTrackRecordService.updateEmailTrackRecord(record);
+                                    
+                                    logger.info("全量检测到回复邮件: {} -> {} (任务ID: {})", 
+                                               originalMessageId, mimeMessage.getMessageID(), record.getTaskId());
+                                    replyCount++;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            logger.error("全量扫描账户 {} 的回复邮件失败: {}", account.getEmailAddress(), e.getMessage(), e);
         }
         
         return replyCount;

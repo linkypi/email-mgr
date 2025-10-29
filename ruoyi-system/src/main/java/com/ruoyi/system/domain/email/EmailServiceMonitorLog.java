@@ -40,6 +40,10 @@ public class EmailServiceMonitorLog extends BaseEntity
     @Excel(name = "状态信息")
     private String message;
 
+    /** 具体错误日志 */
+    @Excel(name = "具体错误日志")
+    private String errorLog;
+
     /** 检查时间 */
     @Excel(name = "检查时间", width = 30, dateFormat = "yyyy-MM-dd HH:mm:ss")
     private Date checkTime;
@@ -102,6 +106,15 @@ public class EmailServiceMonitorLog extends BaseEntity
     {
         return message;
     }
+    public void setErrorLog(String errorLog) 
+    {
+        this.errorLog = errorLog;
+    }
+
+    public String getErrorLog() 
+    {
+        return errorLog;
+    }
     public void setCheckTime(Date checkTime) 
     {
         this.checkTime = checkTime;
@@ -130,6 +143,7 @@ public class EmailServiceMonitorLog extends BaseEntity
             .append("serviceType", getServiceType())
             .append("status", getStatus())
             .append("message", getMessage())
+            .append("errorLog", getErrorLog())
             .append("checkTime", getCheckTime())
             .append("responseTime", getResponseTime())
             .append("createBy", getCreateBy())
