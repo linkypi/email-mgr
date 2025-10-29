@@ -472,7 +472,8 @@ public class EmailContactServiceImpl implements IEmailContactService
     @Override
     public List<EmailContact> searchContacts(EmailContact searchParams)
     {
-        return emailContactMapper.selectEmailContactList(searchParams);
+        // 使用优化的分页查询方法，避免复杂子查询导致分页计数问题
+        return emailContactMapper.selectEmailContactListForPage(searchParams);
     }
 
     /**
@@ -630,5 +631,11 @@ public class EmailContactServiceImpl implements IEmailContactService
     public long countTotalContacts()
     {
         return emailContactMapper.countTotalContacts();
+    }
+
+    @Override
+    public long countContactsBySearch(EmailContact searchParams)
+    {
+        return emailContactMapper.countContactsBySearch(searchParams);
     }
 }

@@ -129,5 +129,21 @@ public interface EmailContactMapper
      * @return 总联系人数量
      */
     public long countTotalContacts();
+
+    /**
+     * 分页查询邮件联系人列表（优化版本，避免复杂子查询导致分页计数问题）
+     * 
+     * @param emailContact 邮件联系人
+     * @return 邮件联系人集合
+     */
+    public List<EmailContact> selectEmailContactListForPage(EmailContact emailContact);
+
+    /**
+     * 根据搜索条件统计联系人数量
+     * 
+     * @param emailContact 邮件联系人
+     * @return 联系人数量
+     */
+    public long countContactsBySearch(EmailContact emailContact);
 }
 

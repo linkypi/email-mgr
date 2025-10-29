@@ -3109,63 +3109,76 @@ public class EmailServiceMonitorService {
     
     /**
      * 创建SMTP连接属性
+     * 严格按照Simple163EmailTest的成功配置
      */
     private Properties createSmtpProperties(EmailAccount account) {
         Properties props = new Properties();
+        
+        // 基本连接设置 - 严格按照Simple163EmailTest
         props.put("mail.smtp.host", account.getSmtpHost());
         props.put("mail.smtp.port", account.getSmtpPort());
         props.put("mail.smtp.auth", "true");
         
-        // 根据端口判断使用SSL还是STARTTLS
+        // 根据端口判断使用SSL还是STARTTLS - 严格按照Simple163EmailTest
         int port = account.getSmtpPort();
         if (port == 465) {
-            // SSL连接
+            // SSL连接 - 严格按照Simple163EmailTest的成功配置
             props.put("mail.smtp.socketFactory.port", account.getSmtpPort());
             props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
             props.put("mail.smtp.socketFactory.fallback", "false");
+            props.put("mail.smtp.ssl.enable", "true"); // 明确启用SSL
+            props.put("mail.smtp.ssl.trust", "*"); // 信任所有主机
         } else if (port == 587) {
             // STARTTLS连接
             props.put("mail.smtp.starttls.enable", "true");
             props.put("mail.smtp.starttls.required", "true");
+            props.put("mail.smtp.ssl.trust", "*");
         } else if (port == 25) {
             // 普通连接
             props.put("mail.smtp.starttls.enable", "true");
+            props.put("mail.smtp.ssl.trust", "*");
         }
+        
+        // 认证设置 - 严格按照Simple163EmailTest的成功配置
+        props.put("mail.smtp.auth.plain.disable", "false");
+        props.put("mail.smtp.auth.login.disable", "false");
         
         // 设置超时时间 - 针对长连接优化，增加超时时间
         props.put("mail.smtp.timeout", "120000"); // 120秒读取超时（增加）
         props.put("mail.smtp.connectiontimeout", "60000"); // 60秒连接超时（增加）
         props.put("mail.smtp.writetimeout", "120000"); // 120秒写入超时（增加）
         
-        // 信任所有主机（用于开发环境）
-        props.put("mail.smtp.ssl.trust", "*");
-        
         // 连接保持和优化
         props.put("mail.smtp.keepalive", "true");
         props.put("mail.smtp.userset", "true"); // 启用连接复用
-        
-        // 认证设置
-        props.put("mail.smtp.auth.plain.disable", "false");
-        props.put("mail.smtp.auth.login.disable", "false");
         
         // 其他优化设置
         props.put("mail.smtp.quitwait", "false");
         props.put("mail.smtp.allow8bitmime", "true");
         props.put("mail.smtp.sendpartial", "true");
         
+        // 163邮箱特殊设置 - 严格按照Simple163EmailTest
+        if (account.getSmtpHost() != null && account.getSmtpHost().contains("163.com")) {
+            logger.info("应用163邮箱特殊配置: {}", account.getEmailAddress());
+            // 163邮箱可能需要额外的SSL配置
+            props.put("mail.smtp.ssl.protocols", "TLSv1.2");
+            props.put("mail.smtp.ssl.ciphersuites", "TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_256_CBC_SHA");
+        }
+        
         // QQ邮箱特殊设置
-        if (account.getSmtpHost().contains("qq.com")) {
+        if (account.getSmtpHost() != null && account.getSmtpHost().contains("qq.com")) {
             props.put("mail.smtp.socketFactory.fallback", "false");
             props.put("mail.smtp.quitwait", "false"); // QQ邮箱优化
         }
         
         // Gmail特殊设置
-        if (account.getSmtpHost().contains("gmail.com")) {
+        if (account.getSmtpHost() != null && account.getSmtpHost().contains("gmail.com")) {
             props.put("mail.smtp.starttls.enable", "true");
             props.put("mail.smtp.starttls.required", "true");
             props.put("mail.smtp.ssl.trust", "smtp.gmail.com");
         }
         
+        logger.debug("创建SMTP配置完成: {}:{}", account.getSmtpHost(), account.getSmtpPort());
         return props;
     }
     

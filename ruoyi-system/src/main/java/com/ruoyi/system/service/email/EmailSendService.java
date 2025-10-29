@@ -10,6 +10,7 @@ import com.ruoyi.system.service.email.IEmailContactService;
 import com.ruoyi.system.service.email.IEmailSendTaskService;
 import com.ruoyi.system.service.email.IEmailTemplateService;
 import com.ruoyi.system.service.email.IEmailTaskExecutionService;
+import com.ruoyi.common.utils.PasswordUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -554,33 +555,53 @@ public class EmailSendService {
     }
 
     private Session createMailSession(EmailAccount account) {
+        // 严格按照Simple163EmailTest的成功配置
         Properties props = new Properties();
         props.put("mail.smtp.host", account.getSmtpHost());
         props.put("mail.smtp.port", account.getSmtpPort());
         props.put("mail.smtp.auth", "true");
         
-        // 根据端口判断使用SSL还是STARTTLS
+        // 根据端口判断使用SSL还是STARTTLS - 严格按照Simple163EmailTest
         int port = account.getSmtpPort();
         if (port == 465) {
-            // SSL连接
+            // SSL连接 - 严格按照Simple163EmailTest的成功配置
             props.put("mail.smtp.socketFactory.port", account.getSmtpPort());
             props.put("mail.smtp.socketFactory.class", "javax.net.ssl.SSLSocketFactory");
             props.put("mail.smtp.socketFactory.fallback", "false");
+            props.put("mail.smtp.ssl.enable", "true"); // 明确启用SSL
+            props.put("mail.smtp.ssl.trust", "*"); // 信任所有主机
         } else if (port == 587) {
             // STARTTLS连接
             props.put("mail.smtp.starttls.enable", "true");
             props.put("mail.smtp.starttls.required", "true");
+            props.put("mail.smtp.ssl.trust", "*");
         } else if (port == 25) {
             // 普通连接
             props.put("mail.smtp.starttls.enable", "true");
+            props.put("mail.smtp.ssl.trust", "*");
         }
+        
+        // 认证设置 - 严格按照Simple163EmailTest的成功配置
+        props.put("mail.smtp.auth.plain.disable", "false");
+        props.put("mail.smtp.auth.login.disable", "false");
         
         // 设置超时时间
         props.put("mail.smtp.timeout", "60000");
         props.put("mail.smtp.connectiontimeout", "60000");
+        props.put("mail.smtp.writetimeout", "60000");
         
-        // 信任所有主机（用于开发环境）
-        props.put("mail.smtp.ssl.trust", "*");
+        // 其他优化设置
+        props.put("mail.smtp.quitwait", "false");
+        props.put("mail.smtp.allow8bitmime", "true");
+        props.put("mail.smtp.sendpartial", "true");
+        
+        // 163邮箱特殊设置 - 严格按照Simple163EmailTest
+        if (account.getSmtpHost() != null && account.getSmtpHost().contains("163.com")) {
+            logger.info("应用163邮箱特殊配置: {}", account.getEmailAddress());
+            // 163邮箱可能需要额外的SSL配置
+            props.put("mail.smtp.ssl.protocols", "TLSv1.2");
+            props.put("mail.smtp.ssl.ciphersuites", "TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_256_CBC_SHA");
+        }
 
         return Session.getInstance(props, new Authenticator() {
             @Override
@@ -1248,6 +1269,41 @@ public class EmailSendService {
     }
     
     /**
+     * 解密邮箱账号密码
+     * 
+     * @param account 邮箱账号
+     */
+    private void decryptAccountPassword(EmailAccount account) {
+        if (account == null) {
+            return;
+        }
+        
+        try {
+            // 解密SMTP密码
+            if (account.getPassword() != null && !account.getPassword().trim().isEmpty()) {
+                try {
+                    account.setPassword(PasswordUtils.decryptPassword(account.getPassword()));
+                } catch (Exception e) {
+                    // 如果解密失败，可能是未加密的密码，保持原样
+                    logger.debug("SMTP密码解密失败，可能未加密: {}", e.getMessage());
+                }
+            }
+            
+            // 解密IMAP密码
+            if (account.getImapPassword() != null && !account.getImapPassword().trim().isEmpty()) {
+                try {
+                    account.setImapPassword(PasswordUtils.decryptPassword(account.getImapPassword()));
+                } catch (Exception e) {
+                    // 如果解密失败，可能是未加密的密码，保持原样
+                    logger.debug("IMAP密码解密失败，可能未加密: {}", e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("解密邮箱账号密码时发生异常: {}", e.getMessage());
+        }
+    }
+    
+    /**
      * 获取发件人账户列表
      * 
      * @param task 发送任务
@@ -1267,6 +1323,8 @@ public class EmailSendService {
                             List<EmailAccount> senderAccounts = emailAccountService.selectEmailAccountBySenderId(senderId);
                             for (EmailAccount account : senderAccounts) {
                                 if (account != null && "0".equals(account.getStatus()) && emailSendLimitService.canSendToday(account.getAccountId())) {
+                                    // 解密密码
+                                    decryptAccountPassword(account);
                                     accounts.add(account);
                                     logger.debug("添加发件人邮箱账号: {} ({})", account.getAccountName(), account.getEmailAddress());
                                 } else {
@@ -1292,6 +1350,8 @@ public class EmailSendService {
                 List<EmailAccount> senderAccounts = emailAccountService.selectEmailAccountBySenderId(task.getSenderId());
                 for (EmailAccount account : senderAccounts) {
                     if (account != null && "0".equals(account.getStatus()) && emailSendLimitService.canSendToday(account.getAccountId())) {
+                        // 解密密码
+                        decryptAccountPassword(account);
                         accounts.add(account);
                         logger.debug("添加发件人邮箱账号: {} ({})", account.getAccountName(), account.getEmailAddress());
                     } else {
@@ -1317,6 +1377,8 @@ public class EmailSendService {
                         Long accountId = Long.parseLong(accountIdStr.trim());
                         EmailAccount account = emailAccountService.selectEmailAccountByAccountId(accountId);
                         if (account != null && emailSendLimitService.canSendToday(accountId)) {
+                            // 解密密码
+                            decryptAccountPassword(account);
                             accounts.add(account);
                             logger.debug("添加可用发件箱: {} ({})", account.getAccountName(), account.getEmailAddress());
                         } else {
@@ -1336,6 +1398,8 @@ public class EmailSendService {
         if (accounts.isEmpty() && task.getAccountId() != null) {
             EmailAccount account = emailAccountService.selectEmailAccountByAccountId(task.getAccountId());
             if (account != null && emailSendLimitService.canSendToday(task.getAccountId())) {
+                // 解密密码
+                decryptAccountPassword(account);
                 accounts.add(account);
                 logger.debug("添加单个发件箱: {} ({})", account.getAccountName(), account.getEmailAddress());
             } else {

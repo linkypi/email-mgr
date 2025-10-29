@@ -23,6 +23,7 @@ import com.ruoyi.system.domain.email.EmailContact;
 import com.ruoyi.system.service.email.IEmailContactService;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 import com.ruoyi.common.core.page.TableDataInfo;
+import com.github.pagehelper.PageHelper;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -531,11 +532,58 @@ public class EmailContactController extends BaseController
      * 搜索联系人（支持多条件搜索）
      */
     @PostMapping("/search")
-    public TableDataInfo search(@RequestBody EmailContact searchParams)
+    public TableDataInfo search(@RequestBody Map<String, Object> params)
     {
-        startPage();
+        // 提取分页参数
+        Integer pageNum = (Integer) params.get("pageNum");
+        Integer pageSize = (Integer) params.get("pageSize");
+        
+        // 设置默认分页参数
+        if (pageNum == null || pageNum < 1) {
+            pageNum = 1;
+        }
+        if (pageSize == null || pageSize < 1) {
+            pageSize = 10;
+        }
+        
+        // 构建搜索参数对象
+        EmailContact searchParams = new EmailContact();
+        if (params.get("name") != null) {
+            searchParams.setName((String) params.get("name"));
+        }
+        if (params.get("email") != null) {
+            searchParams.setEmail((String) params.get("email"));
+        }
+        if (params.get("company") != null) {
+            searchParams.setCompany((String) params.get("company"));
+        }
+        if (params.get("level") != null) {
+            searchParams.setLevel((String) params.get("level"));
+        }
+        if (params.get("groupId") != null) {
+            searchParams.setGroupId(Long.valueOf(params.get("groupId").toString()));
+        }
+        if (params.get("tags") != null) {
+            searchParams.setTags((String) params.get("tags"));
+        }
+        if (params.get("status") != null) {
+            searchParams.setStatus((String) params.get("status"));
+        }
+        
+        // 先查询总数
+        long total = emailContactService.countContactsBySearch(searchParams);
+        
+        // 设置分页参数
+        PageHelper.startPage(pageNum, pageSize);
         List<EmailContact> list = emailContactService.searchContacts(searchParams);
-        return getDataTable(list);
+        
+        // 构建分页结果
+        TableDataInfo rspData = new TableDataInfo();
+        rspData.setCode(200);
+        rspData.setMsg("查询成功");
+        rspData.setRows(list);
+        rspData.setTotal(total);
+        return rspData;
     }
 
     /**

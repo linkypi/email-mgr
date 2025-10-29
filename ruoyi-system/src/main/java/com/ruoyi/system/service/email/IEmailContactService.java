@@ -204,4 +204,12 @@ public interface IEmailContactService
      * @return 总联系人数量
      */
     public long countTotalContacts();
+
+    /**
+     * 根据搜索条件统计联系人数量
+     * 
+     * @param searchParams 搜索参数
+     * @return 联系人数量
+     */
+    public long countContactsBySearch(EmailContact searchParams);
 }

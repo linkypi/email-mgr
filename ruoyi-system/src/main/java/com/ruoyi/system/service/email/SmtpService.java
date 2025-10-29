@@ -67,7 +67,12 @@ public class SmtpService {
         
         try {
             Properties props = createSmtpProperties(account);
-            Session session = Session.getInstance(props);
+            Session session = Session.getInstance(props, new Authenticator() {
+                @Override
+                protected PasswordAuthentication getPasswordAuthentication() {
+                    return new PasswordAuthentication(account.getEmailAddress(), account.getPassword());
+                }
+            });
             session.setDebug(false);
             
             Transport transport = session.getTransport("smtp");
