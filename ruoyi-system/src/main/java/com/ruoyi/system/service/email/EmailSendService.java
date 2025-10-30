@@ -1311,9 +1311,35 @@ public class EmailSendService {
      */
     private List<EmailAccount> getSenderAccounts(EmailSendTask task) {
         List<EmailAccount> accounts = new ArrayList<>();
-        
-        // 优先使用 senderIds（多个发件人ID）
-        if (task.getSenderIds() != null && !task.getSenderIds().trim().isEmpty()) {
+
+        // 最高优先级：使用前端明确选择的发件邮箱 accountIds（仅使用这些邮箱进行轮询）
+        if (task.getAccountIds() != null && !task.getAccountIds().trim().isEmpty()) {
+            try {
+                String[] accountIdArray = task.getAccountIds().split(",");
+                for (String accountIdStr : accountIdArray) {
+                    try {
+                        Long accountId = Long.parseLong(accountIdStr.trim());
+                        EmailAccount account = emailAccountService.selectEmailAccountByAccountId(accountId);
+                        if (account != null && "0".equals(account.getStatus())) {
+                            // 解密密码
+                            decryptAccountPassword(account);
+                            accounts.add(account);
+                            logger.debug("添加可用发件箱(来自accountIds): {} ({})", account.getAccountName(), account.getEmailAddress());
+                        } else {
+                            logger.debug("发件箱不可用或未启用(来自accountIds): {} (ID: {})",
+                                account != null ? account.getAccountName() : "未知", accountId);
+                        }
+                    } catch (NumberFormatException e) {
+                        logger.warn("无效的账户ID: {}", accountIdStr);
+                    }
+                }
+            } catch (Exception e) {
+                logger.error("解析账户ID列表失败: {}", e.getMessage());
+            }
+        }
+
+        // 次优先：使用 senderIds（多个发件人ID）
+        if (accounts.isEmpty() && task.getSenderIds() != null && !task.getSenderIds().trim().isEmpty()) {
             try {
                 String[] senderIdArray = task.getSenderIds().split(",");
                 for (String senderIdStr : senderIdArray) {
@@ -1345,7 +1371,7 @@ public class EmailSendService {
             }
         }
         // 回退到单个 senderId（兼容旧版本）
-        else if (task.getSenderId() != null) {
+        if (accounts.isEmpty() && task.getSenderId() != null) {
             try {
                 List<EmailAccount> senderAccounts = emailAccountService.selectEmailAccountBySenderId(task.getSenderId());
                 for (EmailAccount account : senderAccounts) {
@@ -1364,33 +1390,6 @@ public class EmailSendService {
                 }
             } catch (Exception e) {
                 logger.error("获取发件人邮箱账号失败: {}", e.getMessage());
-            }
-        }
-        
-        // 如果没有发件人ID，回退到 accountIds（多邮箱支持）
-        if (accounts.isEmpty() && task.getAccountIds() != null && !task.getAccountIds().trim().isEmpty()) {
-            try {
-                // 解析 accountIds（假设是逗号分隔的ID列表）
-                String[] accountIdArray = task.getAccountIds().split(",");
-                for (String accountIdStr : accountIdArray) {
-                    try {
-                        Long accountId = Long.parseLong(accountIdStr.trim());
-                        EmailAccount account = emailAccountService.selectEmailAccountByAccountId(accountId);
-                        if (account != null && emailSendLimitService.canSendToday(accountId)) {
-                            // 解密密码
-                            decryptAccountPassword(account);
-                            accounts.add(account);
-                            logger.debug("添加可用发件箱: {} ({})", account.getAccountName(), account.getEmailAddress());
-                        } else {
-                            logger.debug("发件箱不可用: {} (ID: {})", 
-                                account != null ? account.getAccountName() : "未知", accountId);
-                        }
-                    } catch (NumberFormatException e) {
-                        logger.warn("无效的账户ID: {}", accountIdStr);
-                    }
-                }
-            } catch (Exception e) {
-                logger.error("解析账户ID列表失败: {}", e.getMessage());
             }
         }
         

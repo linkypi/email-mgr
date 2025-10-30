@@ -24,17 +24,17 @@
             <el-input v-model="sendForm.taskName" placeholder="请输入任务名称"></el-input>
           </el-form-item>
           
-          <el-form-item label="发件人" prop="senderIds">
+          <el-form-item label="发件人" prop="senderId">
             <el-select
-              v-model="sendForm.senderIds"
-              multiple
+              v-model="sendForm.senderId"
               filterable
               remote
               reserve-keyword
-              placeholder="选择发件人（支持多选和搜索）"
+              placeholder="选择发件人（单选，可搜索）"
               style="width: 100%"
               :remote-method="searchSenders"
-              :loading="senderLoading">
+              :loading="senderLoading"
+              @change="handleSenderChange">
               <el-option
                 v-for="item in senderOptions"
                 :key="item.senderId"
@@ -42,35 +42,31 @@
                 :value="item.senderId">
               </el-option>
             </el-select>
-            
-            <!-- 选中发件人显示区域 -->
-            <div v-if="sendForm.senderIds && sendForm.senderIds.length > 0" class="selected-senders-display">
-              <div class="selected-senders-header">
-                <span class="sender-count">已选择 {{ sendForm.senderIds.length }} 个发件人：</span>
-                <el-button 
-                  @click="clearAllSenders" 
-                  type="text" 
-                  size="mini" 
-                  icon="el-icon-close">
-                  清空
-                </el-button>
-              </div>
-              <div class="selected-senders-list">
-                <el-tag
-                  v-for="senderId in sendForm.senderIds"
-                  :key="senderId"
-                  closable
-                  @close="removeSender(senderId)"
-                  size="small"
-                  class="sender-tag">
-                  {{ getSenderDisplayName(senderId) }}
-                </el-tag>
-              </div>
-            </div>
-            
             <div class="form-tip">
               <i class="el-icon-info"></i>
-              可选择多个发件人，系统将使用所有选中发件人关联的邮箱账号进行发送
+              请选择一个发件人，随后选择该发件人的启用邮箱用于发送
+            </div>
+          </el-form-item>
+
+          <el-form-item label="发件邮箱" prop="accountIds">
+            <el-select
+              v-model="sendForm.accountIds"
+              multiple
+              filterable
+              placeholder="请选择要用于发送的邮箱账号（可多选，仅显示启用账号）"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="acc in senderAccountOptions"
+                :key="acc.accountId"
+                :label="acc.accountName + ' (' + acc.emailAddress + ')'
+                  + (acc.dailyRemainingCount != null ? ' - 剩余:' + acc.dailyRemainingCount + '封' : '')"
+                :value="acc.accountId"
+              />
+            </el-select>
+            <div class="form-tip">
+              <i class="el-icon-info"></i>
+              仅展示所选发件人的启用邮箱（状态为启用）
             </div>
           </el-form-item>
           
@@ -589,7 +585,7 @@
 
 <script>
 import { getAllTemplates, getTemplate } from "@/api/email/template";
-import { getAllAccounts } from "@/api/email/account";
+import { getAllAccounts, listAccount } from "@/api/email/account";
 import { getAllContacts, searchContacts } from "@/api/email/contact";
 import { getAllGroups } from "@/api/email/group";
 import { getAllTags } from "@/api/email/tag";
@@ -603,7 +599,8 @@ export default {
       sending: false,
       sendForm: {
         taskName: '',
-        senderIds: [],
+        senderId: null,
+        accountIds: [],
         contactIds: [],
         sendType: 'template',
         templateId: null,
@@ -622,6 +619,8 @@ export default {
       templateOptions: [],
       // 发件人搜索相关
       senderLoading: false,
+      // 当前发件人的启用邮箱选项
+      senderAccountOptions: [],
       // 模板相关
       selectedTemplate: null,
       previewOpen: false,
@@ -656,17 +655,19 @@ export default {
         taskName: [
           { required: true, message: "任务名称不能为空", trigger: "blur" }
         ],
-        senderIds: [
-          { required: true, message: "请选择至少一个发件人", trigger: "change" },
+        senderId: [
+          { required: true, message: "请选择发件人", trigger: "change" }
+        ],
+        accountIds: [
           {
             validator: (rule, value, callback) => {
               if (!value || value.length === 0) {
-                callback(new Error('请选择至少一个发件人'));
+                callback(new Error('请至少选择一个启用邮箱'));
               } else {
                 callback();
               }
             },
-            trigger: "change"
+            trigger: 'change'
           }
         ],
         templateId: [
@@ -771,6 +772,26 @@ export default {
     this.checkCopyTask();
   },
   methods: {
+    /** 发件人变更时，加载其启用邮箱 */
+    handleSenderChange() {
+      this.senderAccountOptions = [];
+      this.sendForm.accountIds = [];
+      if (!this.sendForm.senderId) return;
+      // 过滤：仅启用状态（status='0'）且绑定该发件人的邮箱
+      listAccount({
+        senderId: this.sendForm.senderId,
+        status: '0',
+        pageNum: 1,
+        pageSize: 9999
+      })
+        .then(res => {
+          const rows = (res && (res.rows || res.data)) || [];
+          this.senderAccountOptions = rows;
+        })
+        .catch(() => {
+          this.senderAccountOptions = [];
+        });
+    },
     /** 检查并处理复制任务 */
     checkCopyTask() {
       const copyTaskId = this.$route.query.copyTaskId;
@@ -915,7 +936,7 @@ export default {
       
       // 获取发件人信息
       const selectedSenders = this.senderOptions.filter(sender => 
-        this.sendForm.senderIds && this.sendForm.senderIds.includes(sender.senderId)
+        this.sendForm.senderId && sender.senderId === this.sendForm.senderId
       );
       
       // 获取收件人信息
@@ -946,25 +967,7 @@ export default {
         display: '未选择联系人'
       };
     },
-    /** 获取发件人显示名称 */
-    getSenderDisplayName(senderId) {
-      const sender = this.senderOptions.find(item => item.senderId == senderId);
-      if (sender) {
-        return `${sender.senderName}(${sender.company}) - 剩余:${sender.dailyRemainingCount || 0}封`;
-      }
-      return `发件人ID: ${senderId}`;
-    },
-    /** 移除单个发件人 */
-    removeSender(senderId) {
-      const index = this.sendForm.senderIds.indexOf(senderId);
-      if (index > -1) {
-        this.sendForm.senderIds.splice(index, 1);
-      }
-    },
-    /** 清空所有发件人 */
-    clearAllSenders() {
-      this.sendForm.senderIds = [];
-    },
+    
     /** 发送邮件 */
     handleSend() {
       // 防重复提交检查
@@ -1004,7 +1007,10 @@ export default {
             // 构建发送任务数据
             const taskData = {
               taskName: this.sendForm.taskName,
-              senderIds: this.sendForm.senderIds.join(','), // 将数组转换为逗号分隔的字符串
+            senderId: this.sendForm.senderId,
+            accountIds: this.sendForm.accountIds && this.sendForm.accountIds.length > 0
+              ? this.sendForm.accountIds.join(',')
+              : null,
               sendMode: this.sendForm.sendMode,
               sendInterval: this.sendForm.sendInterval,
               sendTime: this.sendForm.sendTime
