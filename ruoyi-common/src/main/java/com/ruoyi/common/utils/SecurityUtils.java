@@ -3,6 +3,9 @@ package com.ruoyi.common.utils;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -12,6 +15,7 @@ import com.ruoyi.common.constant.HttpStatus;
 import com.ruoyi.common.core.domain.entity.SysRole;
 import com.ruoyi.common.core.domain.model.LoginUser;
 import com.ruoyi.common.exception.ServiceException;
+import com.ruoyi.common.utils.spring.SpringUtils;
 
 /**
  * 安全服务工具类
@@ -20,7 +24,7 @@ import com.ruoyi.common.exception.ServiceException;
  */
 public class SecurityUtils
 {
-
+    private static final Logger log = LoggerFactory.getLogger(SecurityUtils.class);
     /**
      * 用户ID
      **/
@@ -90,6 +94,25 @@ public class SecurityUtils
     }
 
     /**
+     * 获取BCryptPasswordEncoder实例（优先使用Spring容器中的单例）
+     *
+     * @return BCryptPasswordEncoder实例
+     */
+    private static BCryptPasswordEncoder getPasswordEncoder()
+    {
+        try
+        {
+            // 尝试从Spring容器获取单例实例
+            return SpringUtils.getBean(BCryptPasswordEncoder.class);
+        }
+        catch (Exception e)
+        {
+            // 如果获取失败，创建新实例（向后兼容）
+            return new BCryptPasswordEncoder();
+        }
+    }
+
+    /**
      * 生成BCryptPasswordEncoder密码
      *
      * @param password 密码
@@ -97,21 +120,121 @@ public class SecurityUtils
      */
     public static String encryptPassword(String password)
     {
-        BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+        if (password == null || password.trim().isEmpty())
+        {
+            throw new IllegalArgumentException("密码不能为空");
+        }
+        BCryptPasswordEncoder passwordEncoder = getPasswordEncoder();
         return passwordEncoder.encode(password);
+    }
+
+    /**
+     * 生成密码掩码（用于安全日志记录）
+     * 
+     * @param password 原始密码
+     * @return 掩码后的密码（只显示首尾字符）
+     */
+    private static String maskPassword(String password)
+    {
+        if (password == null || password.isEmpty())
+        {
+            return "***";
+        }
+        if (password.length() <= 2)
+        {
+            return "***";
+        }
+        if (password.length() <= 4)
+        {
+            return password.substring(0, 1) + "***";
+        }
+        return password.substring(0, 1) + "***" + password.substring(password.length() - 1);
     }
 
     /**
      * 判断密码是否相同
      *
      * @param rawPassword 真实密码
-     * @param encodedPassword 加密后字符
+     * @param encodedPassword 加密后字符（BCrypt哈希值）
      * @return 结果
      */
     public static boolean matchesPassword(String rawPassword, String encodedPassword)
     {
-        BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
-        return passwordEncoder.matches(rawPassword, encodedPassword);
+        if (rawPassword == null || rawPassword.trim().isEmpty())
+        {
+            log.debug("密码验证失败：输入密码为空");
+            return false;
+        }
+        if (encodedPassword == null || encodedPassword.trim().isEmpty())
+        {
+            log.debug("密码验证失败：数据库密码哈希为空");
+            return false;
+        }
+        
+        // 检查BCrypt格式
+        if (!encodedPassword.startsWith("$2a$") && !encodedPassword.startsWith("$2b$") && !encodedPassword.startsWith("$2y$"))
+        {
+            log.error("密码验证失败：数据库密码哈希格式不正确，不是BCrypt格式。哈希值前缀: {}", 
+                    encodedPassword.length() > 10 ? encodedPassword.substring(0, 10) : encodedPassword);
+            return false;
+        }
+        
+        try
+        {
+            BCryptPasswordEncoder passwordEncoder = getPasswordEncoder();
+            boolean matches = passwordEncoder.matches(rawPassword, encodedPassword);
+            
+            if (!matches)
+            {
+                // 密码验证失败时，记录详细的调试信息（不输出完整密码）
+                String passwordMask = maskPassword(rawPassword);
+                String encodedPrefix = encodedPassword.length() > 30 
+                    ? encodedPassword.substring(0, 30) + "..." 
+                    : encodedPassword;
+                
+                log.error("密码验证失败 - 输入密码掩码: {}, 密码长度: {}, 字符编码: {}, 数据库密码哈希: {}, 哈希长度: {}, 哈希前缀: {}", 
+                        passwordMask,
+                        rawPassword.length(),
+                        java.nio.charset.StandardCharsets.UTF_8.name(),
+                        encodedPrefix,
+                        encodedPassword.length(),
+                        encodedPassword.substring(0, Math.min(10, encodedPassword.length())));
+                
+                // 记录密码的字节信息（用于排查编码问题）
+                byte[] passwordBytes = rawPassword.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                log.debug("密码字节详情 - 长度: {}, 前3字节: {}, 后3字节: {}", 
+                        passwordBytes.length,
+                        passwordBytes.length > 0 ? String.format("%02X%02X%02X", 
+                                passwordBytes[0], 
+                                passwordBytes.length > 1 ? passwordBytes[1] : 0,
+                                passwordBytes.length > 2 ? passwordBytes[2] : 0) : "N/A",
+                        passwordBytes.length > 3 ? String.format("%02X%02X%02X", 
+                                passwordBytes[passwordBytes.length - 3], 
+                                passwordBytes[passwordBytes.length - 2],
+                                passwordBytes[passwordBytes.length - 1]) : "N/A");
+            }
+            
+            return matches;
+        }
+        catch (Exception e)
+        {
+            // 密码验证过程中发生异常
+            String passwordMask = maskPassword(rawPassword);
+            String encodedPrefix = encodedPassword.length() > 30 
+                ? encodedPassword.substring(0, 30) + "..." 
+                : encodedPassword;
+            
+            log.error("密码验证过程中发生异常 - 输入密码掩码: {}, 密码长度: {}, 数据库密码哈希: {}, 异常类型: {}, 异常信息: {}", 
+                    passwordMask,
+                    rawPassword != null ? rawPassword.length() : 0,
+                    encodedPrefix,
+                    e.getClass().getSimpleName(),
+                    e.getMessage(), 
+                    e);
+            
+            // 记录异常但不抛出，返回false表示验证失败
+            return false;
+        }
     }
 
     /**
