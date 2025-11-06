@@ -16,6 +16,7 @@ import com.ruoyi.common.core.domain.model.LoginBody;
 import com.ruoyi.common.core.domain.model.LoginUser;
 import com.ruoyi.common.core.text.Convert;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.RsaUtils;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.web.service.SysLoginService;
@@ -57,11 +58,33 @@ public class SysLoginController
     public AjaxResult login(@RequestBody LoginBody loginBody)
     {
         AjaxResult ajax = AjaxResult.success();
+        // RSA解密密码
+        String password = loginBody.getPassword();
+        if (StringUtils.isNotEmpty(password))
+        {
+            String decryptedPassword = RsaUtils.decrypt(password);
+            if (StringUtils.isEmpty(decryptedPassword))
+            {
+                return AjaxResult.error("密码解密失败，请检查密码格式");
+            }
+            password = decryptedPassword;
+        }
         // 生成令牌
-        String token = loginService.login(loginBody.getUsername(), loginBody.getPassword(), loginBody.getCode(),
+        String token = loginService.login(loginBody.getUsername(), password, loginBody.getCode(),
                 loginBody.getUuid());
         ajax.put(Constants.TOKEN, token);
         return ajax;
+    }
+    
+    /**
+     * 获取RSA公钥（用于前端加密）
+     * 
+     * @return 公钥
+     */
+    @GetMapping("/getPublicKey")
+    public AjaxResult getPublicKey()
+    {
+        return AjaxResult.success("获取成功").put("publicKey", RsaUtils.getPublicKeyString());
     }
 
     /**

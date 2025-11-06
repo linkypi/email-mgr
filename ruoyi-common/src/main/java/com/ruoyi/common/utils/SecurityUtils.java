@@ -124,8 +124,10 @@ public class SecurityUtils
         {
             throw new IllegalArgumentException("密码不能为空");
         }
+        // 对密码进行trim处理，确保前后空格不影响加密
+        String trimmedPassword = password.trim();
         BCryptPasswordEncoder passwordEncoder = getPasswordEncoder();
-        return passwordEncoder.encode(password);
+        return passwordEncoder.encode(trimmedPassword);
     }
 
     /**
@@ -182,7 +184,17 @@ public class SecurityUtils
         try
         {
             BCryptPasswordEncoder passwordEncoder = getPasswordEncoder();
+            // 先尝试用原始密码验证（兼容已存储的带空格的密码哈希）
             boolean matches = passwordEncoder.matches(rawPassword, encodedPassword);
+            
+            // 如果原始密码验证失败，尝试用trim后的密码验证（兼容新存储的密码哈希）
+            if (!matches) {
+                String trimmedPassword = rawPassword.trim();
+                // 只有当trim后的密码与原始密码不同时，才进行二次验证
+                if (!trimmedPassword.equals(rawPassword)) {
+                    matches = passwordEncoder.matches(trimmedPassword, encodedPassword);
+                }
+            }
             
             if (!matches)
             {

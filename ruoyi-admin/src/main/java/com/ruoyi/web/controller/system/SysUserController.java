@@ -24,6 +24,7 @@ import com.ruoyi.common.core.domain.entity.SysRole;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.page.TableDataInfo;
 import com.ruoyi.common.enums.BusinessType;
+import com.ruoyi.common.utils.RsaUtils;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.poi.ExcelUtil;
@@ -196,7 +197,18 @@ public class SysUserController extends BaseController
     {
         userService.checkUserAllowed(user);
         userService.checkUserDataScope(user.getUserId());
-        user.setPassword(SecurityUtils.encryptPassword(user.getPassword()));
+        // RSA解密密码
+        String password = user.getPassword();
+        if (StringUtils.isNotEmpty(password))
+        {
+            String decryptedPassword = RsaUtils.decrypt(password);
+            if (StringUtils.isEmpty(decryptedPassword))
+            {
+                return error("密码解密失败，请检查密码格式");
+            }
+            password = decryptedPassword;
+        }
+        user.setPassword(SecurityUtils.encryptPassword(password));
         user.setUpdateBy(getUsername());
         return toAjax(userService.resetPwd(user));
     }

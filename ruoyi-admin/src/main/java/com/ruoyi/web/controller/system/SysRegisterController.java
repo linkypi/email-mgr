@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.ruoyi.common.core.controller.BaseController;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.model.RegisterBody;
+import com.ruoyi.common.utils.RsaUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.framework.web.service.SysRegisterService;
 import com.ruoyi.system.service.ISysConfigService;
@@ -31,6 +32,17 @@ public class SysRegisterController extends BaseController
         if (!("true".equals(configService.selectConfigByKey("sys.account.registerUser"))))
         {
             return error("当前系统没有开启注册功能！");
+        }
+        // RSA解密密码
+        String password = user.getPassword();
+        if (StringUtils.isNotEmpty(password))
+        {
+            String decryptedPassword = RsaUtils.decrypt(password);
+            if (StringUtils.isEmpty(decryptedPassword))
+            {
+                return error("密码解密失败，请检查密码格式");
+            }
+            user.setPassword(decryptedPassword);
         }
         String msg = registerService.register(user);
         return StringUtils.isEmpty(msg) ? success() : error(msg);

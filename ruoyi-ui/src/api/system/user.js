@@ -1,5 +1,6 @@
 import request from '@/utils/request'
 import { parseStrEmpty } from "@/utils/ruoyi";
+import { encrypt } from '@/utils/jsencrypt'
 
 // 查询用户列表
 export function listUser(query) {
@@ -46,9 +47,14 @@ export function delUser(userId) {
 
 // 用户密码重置
 export function resetUserPwd(userId, password) {
+  // 对密码进行RSA加密
+  const encryptedPassword = encrypt(password)
+  if (!encryptedPassword) {
+    return Promise.reject(new Error('密码加密失败，请重试'))
+  }
   const data = {
     userId,
-    password
+    password: encryptedPassword
   }
   return request({
     url: '/system/user/resetPwd',
@@ -89,9 +95,17 @@ export function updateUserProfile(data) {
 
 // 用户密码重置
 export function updateUserPwd(oldPassword, newPassword) {
+  // 对密码进行RSA加密
+  const encryptedOldPassword = encrypt(oldPassword)
+  const encryptedNewPassword = encrypt(newPassword)
+  
+  if (!encryptedOldPassword || !encryptedNewPassword) {
+    return Promise.reject(new Error('密码加密失败，请重试'))
+  }
+  
   const data = {
-    oldPassword,
-    newPassword
+    oldPassword: encryptedOldPassword,
+    newPassword: encryptedNewPassword
   }
   return request({
     url: '/system/user/profile/updatePwd',

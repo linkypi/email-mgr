@@ -18,6 +18,7 @@ import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.domain.model.LoginUser;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.utils.DateUtils;
+import com.ruoyi.common.utils.RsaUtils;
 import com.ruoyi.common.utils.SecurityUtils;
 import com.ruoyi.common.utils.StringUtils;
 import com.ruoyi.common.utils.file.FileUploadUtils;
@@ -92,8 +93,30 @@ public class SysProfileController extends BaseController
     @PutMapping("/updatePwd")
     public AjaxResult updatePwd(@RequestBody Map<String, String> params)
     {
+        // RSA解密旧密码
         String oldPassword = params.get("oldPassword");
+        if (StringUtils.isNotEmpty(oldPassword))
+        {
+            String decryptedOldPassword = RsaUtils.decrypt(oldPassword);
+            if (StringUtils.isEmpty(decryptedOldPassword))
+            {
+                return error("旧密码解密失败，请检查密码格式");
+            }
+            oldPassword = decryptedOldPassword;
+        }
+        
+        // RSA解密新密码
         String newPassword = params.get("newPassword");
+        if (StringUtils.isNotEmpty(newPassword))
+        {
+            String decryptedNewPassword = RsaUtils.decrypt(newPassword);
+            if (StringUtils.isEmpty(decryptedNewPassword))
+            {
+                return error("新密码解密失败，请检查密码格式");
+            }
+            newPassword = decryptedNewPassword;
+        }
+        
         LoginUser loginUser = getLoginUser();
         Long userId = loginUser.getUserId();
         String password = loginUser.getPassword();

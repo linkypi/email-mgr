@@ -1,10 +1,16 @@
 import request from '@/utils/request'
+import { encrypt } from '@/utils/jsencrypt'
 
 // 登录方法
 export function login(username, password, code, uuid) {
+  // 对密码进行RSA加密
+  const encryptedPassword = encrypt(password)
+  if (!encryptedPassword) {
+    return Promise.reject(new Error('密码加密失败，请重试'))
+  }
   const data = {
     username,
-    password,
+    password: encryptedPassword,
     code,
     uuid
   }
@@ -21,6 +27,14 @@ export function login(username, password, code, uuid) {
 
 // 注册方法
 export function register(data) {
+  // 对密码进行RSA加密
+  if (data.password) {
+    const encryptedPassword = encrypt(data.password)
+    if (!encryptedPassword) {
+      return Promise.reject(new Error('密码加密失败，请重试'))
+    }
+    data = { ...data, password: encryptedPassword }
+  }
   return request({
     url: '/register',
     headers: {
