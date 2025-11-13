@@ -13,6 +13,10 @@ import com.ruoyi.system.domain.email.EmailContact;
 import com.ruoyi.system.service.email.IEmailContactService;
 import com.ruoyi.common.utils.DateUtils;
 import com.ruoyi.common.utils.StringUtils;
+import com.ruoyi.common.utils.SecurityUtils;
+import com.ruoyi.common.enums.UserRole;
+import com.ruoyi.common.core.domain.model.LoginUser;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import org.springframework.web.multipart.MultipartFile;
 import com.ruoyi.common.utils.poi.ExcelUtil;
 
@@ -98,6 +102,29 @@ public class EmailContactServiceImpl implements IEmailContactService
     @Transactional
     public int updateEmailContact(EmailContact emailContact)
     {
+        // 权限检查：只有访客角色需要限制编辑权限
+        if (StringUtils.isNotNull(emailContact.getContactId())) {
+            EmailContact existingContact = emailContactMapper.selectEmailContactByContactId(emailContact.getContactId());
+            if (StringUtils.isNotNull(existingContact)) {
+                LoginUser loginUser = SecurityUtils.getLoginUser();
+                if (StringUtils.isNotNull(loginUser)) {
+                    SysUser currentUser = loginUser.getUser();
+                    if (StringUtils.isNotNull(currentUser) && !currentUser.isAdmin()) {
+                        // 获取用户角色
+                        UserRole userRole = UserRole.getByCode(getUserRoleCode(currentUser));
+                        
+                        // 如果是访客角色，只能编辑自己创建的联系人
+                        if (userRole.isGuest()) {
+                            if (!currentUser.getUserName().equals(existingContact.getCreateBy())) {
+                                throw new RuntimeException("您没有权限编辑此联系人");
+                            }
+                        }
+                        // 普通角色和管理员可以编辑所有联系人，不需要权限检查
+                    }
+                }
+            }
+        }
+        
         // 检查邮箱是否已存在（排除自己）
         if (StringUtils.isNotEmpty(emailContact.getEmail())) {
             EmailContact existContact = emailContactMapper.selectEmailContactByEmailIncludeDeleted(emailContact.getEmail());
@@ -124,6 +151,29 @@ public class EmailContactServiceImpl implements IEmailContactService
     @Override
     public int deleteEmailContactByContactIds(Long[] contactIds)
     {
+        // 权限检查：只有访客角色需要限制删除权限
+        LoginUser loginUser = SecurityUtils.getLoginUser();
+        if (StringUtils.isNotNull(loginUser)) {
+            SysUser currentUser = loginUser.getUser();
+            if (StringUtils.isNotNull(currentUser) && !currentUser.isAdmin()) {
+                // 获取用户角色
+                UserRole userRole = UserRole.getByCode(getUserRoleCode(currentUser));
+                
+                // 如果是访客角色，只能删除自己创建的联系人
+                if (userRole.isGuest()) {
+                    for (Long contactId : contactIds) {
+                        EmailContact contact = emailContactMapper.selectEmailContactByContactId(contactId);
+                        if (StringUtils.isNotNull(contact)) {
+                            if (!currentUser.getUserName().equals(contact.getCreateBy())) {
+                                throw new RuntimeException("您没有权限删除联系人ID: " + contactId);
+                            }
+                        }
+                    }
+                }
+                // 普通角色和管理员可以删除所有联系人，不需要权限检查
+            }
+        }
+        
         return emailContactMapper.deleteEmailContactByContactIds(contactIds);
     }
 
@@ -637,5 +687,16 @@ public class EmailContactServiceImpl implements IEmailContactService
     public long countContactsBySearch(EmailContact searchParams)
     {
         return emailContactMapper.countContactsBySearch(searchParams);
+    }
+
+    /**
+     * 获取用户角色代码
+     */
+    private String getUserRoleCode(SysUser user)
+    {
+        if (user.getRoles() != null && !user.getRoles().isEmpty()) {
+            return user.getRoles().get(0).getRoleKey();
+        }
+        return "guest"; // 默认访客角色
     }
 }

@@ -108,9 +108,8 @@ public class DataScopeAspect
         }
         else if (userRole.isRegular())
         {
-            // 普通账号：可以看到所有数据（包括访客录入的数据）
-            dataScope.append("(").append(tableAlias).append(".create_by = '").append(user.getUserName())
-                    .append("' OR ").append(tableAlias).append(".create_by IN (SELECT user_name FROM sys_user WHERE user_type = 'guest'))");
+            // 普通账号：可以看到所有数据（不添加任何限制条件）
+            // 不添加任何限制条件，允许查看所有联系人
         }
         else if (userRole.isAdmin())
         {
