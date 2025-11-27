@@ -39,8 +39,16 @@ public class EmailSalesDataController extends BaseController
      */
     @PreAuthorize("@ss.hasPermi('email:sales:list')")
     @GetMapping("/list")
-    public TableDataInfo list(EmailSalesData emailSalesData)
+    public TableDataInfo list(EmailSalesData emailSalesData, String contactName, Long contactId)
     {
+        // 优先使用 contactId 进行精确过滤（从联系人页面跳转时使用）
+        if (contactId != null) {
+            emailSalesData.setContactId(contactId);
+            // 当使用 contactId 时，不使用 contactName 进行模糊查询
+        } else if (contactName != null && !contactName.isEmpty()) {
+            // 只有在没有 contactId 时，才使用 contactName 进行模糊查询
+            emailSalesData.setUserName(contactName);
+        }
         startPage();
         List<EmailSalesData> list = emailSalesDataService.selectEmailSalesDataList(emailSalesData);
         return getDataTable(list);

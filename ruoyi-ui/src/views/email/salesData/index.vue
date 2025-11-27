@@ -4,7 +4,14 @@
     <div class="search-card">
       <el-form :inline="true" :model="queryParams" class="demo-form-inline">
         <el-form-item label="收件人">
-          <el-input v-model="queryParams.contactName" placeholder="请输入收件人姓名" clearable @keyup.enter.native="handleSearch"></el-input>
+          <el-select v-model="queryParams.contactId" placeholder="请选择收件人" clearable filterable style="width: 200px">
+            <el-option
+              v-for="contact in contactList"
+              :key="contact.contactId"
+              :label="`${contact.name} (${contact.email})`"
+              :value="contact.contactId">
+            </el-option>
+          </el-select>
         </el-form-item>
         <el-form-item label="带货型号">
           <el-input v-model="queryParams.productModel" placeholder="请输入带货型号" clearable @keyup.enter.native="handleSearch"></el-input>
@@ -80,24 +87,36 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="salesDate" label="带货日期" width="120" align="center" sortable></el-table-column>
+        <el-table-column prop="salesDate" label="带货日期" width="120" align="center" sortable>
+          <template slot-scope="scope">
+            <span v-if="scope.row.salesDate">{{ formatDate(scope.row.salesDate, 'YYYY-MM-DD') }}</span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="productModel" label="带货型号" width="150" show-overflow-tooltip sortable></el-table-column>
         <el-table-column prop="salesQuantity" label="带货单量" width="100" align="center" sortable></el-table-column>
         <el-table-column prop="playCount" label="播放次数" width="100" align="center" sortable></el-table-column>
         <el-table-column prop="conversionRate" label="转化率" width="100" align="center" sortable>
           <template slot-scope="scope">
-            <span>{{ scope.row.conversionRate }}%</span>
+            <span v-if="scope.row.conversionRate != null">{{ (scope.row.conversionRate * 100).toFixed(2) }}%</span>
+            <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column prop="discountType" label="折扣类型" width="120" show-overflow-tooltip sortable></el-table-column>
-        <el-table-column prop="discountRate" label="折扣比例" width="100" align="center" sortable>
+        <el-table-column prop="discountRatio" label="折扣比例" width="100" align="center" sortable>
           <template slot-scope="scope">
-            <span>{{ scope.row.discountRate }}%</span>
+            <span v-if="scope.row.discountRatio != null">{{ (scope.row.discountRatio * 100).toFixed(2) }}%</span>
+            <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column prop="sourceChannel" label="来源渠道" width="120" show-overflow-tooltip sortable></el-table-column>
         <el-table-column prop="remark" label="备注" show-overflow-tooltip></el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="160" show-overflow-tooltip sortable></el-table-column>
+        <el-table-column prop="createTime" label="创建时间" width="160" show-overflow-tooltip sortable>
+          <template slot-scope="scope">
+            <span v-if="scope.row.createTime">{{ formatDate(scope.row.createTime, 'YYYY-MM-DD HH:mm:ss') }}</span>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="150" align="center" fixed="right">
           <template slot-scope="scope">
             <el-button size="mini" type="text" icon="el-icon-edit" @click="handleEdit(scope.row)">编辑</el-button>
@@ -182,7 +201,8 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="转化率">
-              <el-input-number v-model="form.conversionRate" :min="0" :max="100" :precision="2" placeholder="请输入转化率" style="width: 100%"></el-input-number>
+              <el-input-number v-model="form.conversionRate" :min="0" :max="1" :precision="2" :step="0.01" placeholder="请输入转化率(0-1之间的小数)" style="width: 100%"></el-input-number>
+              <span style="margin-left: 10px; color: #909399; font-size: 12px;">例如：0.2 表示 20%</span>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -195,7 +215,8 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="折扣比例">
-              <el-input-number v-model="form.discountRate" :min="0" :max="100" :precision="2" placeholder="请输入折扣比例" style="width: 100%"></el-input-number>
+              <el-input-number v-model="form.discountRatio" :min="0" :max="1" :precision="2" :step="0.01" placeholder="请输入折扣比例(0-1之间的小数)" style="width: 100%"></el-input-number>
+              <span style="margin-left: 10px; color: #909399; font-size: 12px;">例如：0.1 表示 10%</span>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -272,8 +293,18 @@ import request from '@/utils/request'
 export default {
   name: 'SalesData',
   created() {
-    this.getList()
+    // 先检查URL参数，设置查询条件（必须在调用 getList 之前设置）
+    const routeQuery = this.$route.query
+    if (routeQuery.contactId) {
+      const contactId = parseInt(routeQuery.contactId)
+      if (!isNaN(contactId)) {
+        this.queryParams.contactId = contactId
+      }
+    }
+    // 加载联系人列表（异步，不影响查询）
     this.loadContactList()
+    // 调用查询方法（会使用已设置的 queryParams.contactId）
+    this.getList()
   },
   data() {
     return {
@@ -284,12 +315,11 @@ export default {
       queryParams: {
         pageNum: 1,
         pageSize: 10,
-        contactName: '',
+        contactId: null, // 收件人ID（下拉选择）
         productModel: '',
         status: '',
         discountType: '',
-        sourceChannel: '',
-        contactId: null // 用于从联系人页面跳转时的筛选
+        sourceChannel: ''
       },
       // 销售数据列表
       salesDataList: [],
@@ -313,7 +343,7 @@ export default {
         playCount: 0,
         conversionRate: 0,
         discountType: '',
-        discountRate: 0,
+        discountRatio: 0,
         sourceChannel: '',
         remark: ''
       },
@@ -429,7 +459,7 @@ export default {
             playCount: 5000,
             conversionRate: 2.00,
             discountType: '限时折扣',
-            discountRate: 10.00,
+            discountRatio: 0.10,
             sourceChannel: '抖音',
             remark: '测试数据',
             createTime: '2024-01-15 10:30:00'
@@ -446,7 +476,7 @@ export default {
             playCount: 3000,
             conversionRate: 1.67,
             discountType: '新用户优惠',
-            discountRate: 15.00,
+            discountRatio: 0.15,
             sourceChannel: '小红书',
             remark: '新品推广',
             createTime: '2024-01-14 14:20:00'
@@ -485,12 +515,11 @@ export default {
       this.queryParams = {
         pageNum: 1,
         pageSize: 10,
-        contactName: '',
+        contactId: null,
         productModel: '',
         status: '',
         discountType: '',
-        sourceChannel: '',
-        contactId: null
+        sourceChannel: ''
       }
       this.getList()
     },
@@ -675,7 +704,7 @@ export default {
         playCount: 0,
         conversionRate: 0,
         discountType: '',
-        discountRate: 0,
+        discountRatio: 0,
         sourceChannel: '',
         remark: ''
       }
@@ -691,13 +720,30 @@ export default {
         '确定不发': 'danger'
       }
       return types[status] || 'info'
+    },
+    
+    /** 格式化日期 */
+    formatDate(date, format) {
+      if (!date) return ''
+      const d = new Date(date)
+      const year = d.getFullYear()
+      const month = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      const hours = String(d.getHours()).padStart(2, '0')
+      const minutes = String(d.getMinutes()).padStart(2, '0')
+      const seconds = String(d.getSeconds()).padStart(2, '0')
+      
+      if (format === 'YYYY-MM-DD') {
+        return `${year}-${month}-${day}`
+      } else if (format === 'YYYY-MM-DD HH:mm:ss') {
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+      }
+      return date
     }
   },
   mounted() {
-    // 检查是否有从联系人页面跳转的参数
-    if (this.$route.query.contactId) {
-      this.queryParams.contactId = this.$route.query.contactId
-    }
+    // mounted 阶段可以处理一些需要 DOM 的操作
+    // URL 参数已在 created 中处理
   }
 }
 </script>

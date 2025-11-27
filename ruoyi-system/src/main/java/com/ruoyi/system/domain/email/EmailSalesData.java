@@ -7,6 +7,7 @@ import org.apache.commons.lang3.builder.ToStringStyle;
 
 import java.math.BigDecimal;
 import java.util.Date;
+import java.util.List;
 
 /**
  * 邮件销售数据对象 email_sales_data
@@ -68,6 +69,21 @@ public class EmailSalesData extends BaseEntity
     /** 备注 */
     @Excel(name = "备注")
     private String remark;
+
+    /** 删除标志（0代表存在 2代表删除） */
+    private String deleted;
+
+    /** 联系人姓名列表（用于前端显示，不映射到数据库） */
+    private List<String> contactNames;
+
+    /** 联系人邮箱列表（用于前端显示，不映射到数据库） */
+    private List<String> contactEmails;
+
+    /** 联系人ID（用于查询，不映射到数据库） */
+    private Long contactId;
+
+    /** 联系人ID列表（用于插入/更新关联关系，不映射到数据库） */
+    private List<Long> contactIds;
 
     public void setSalesId(Long salesId) 
     {
@@ -186,6 +202,51 @@ public class EmailSalesData extends BaseEntity
     {
         return remark;
     }
+    public void setDeleted(String deleted) 
+    {
+        this.deleted = deleted;
+    }
+
+    public String getDeleted() 
+    {
+        return deleted;
+    }
+    public void setContactNames(List<String> contactNames) 
+    {
+        this.contactNames = contactNames;
+    }
+
+    public List<String> getContactNames() 
+    {
+        return contactNames;
+    }
+    public void setContactEmails(List<String> contactEmails) 
+    {
+        this.contactEmails = contactEmails;
+    }
+
+    public List<String> getContactEmails() 
+    {
+        return contactEmails;
+    }
+    public void setContactId(Long contactId) 
+    {
+        this.contactId = contactId;
+    }
+
+    public Long getContactId() 
+    {
+        return contactId;
+    }
+    public void setContactIds(List<Long> contactIds) 
+    {
+        this.contactIds = contactIds;
+    }
+
+    public List<Long> getContactIds() 
+    {
+        return contactIds;
+    }
 
     @Override
     public String toString() {
@@ -207,6 +268,7 @@ public class EmailSalesData extends BaseEntity
             .append("createTime", getCreateTime())
             .append("updateBy", getUpdateBy())
             .append("updateTime", getUpdateTime())
+            .append("deleted", getDeleted())
             .toString();
     }
 }

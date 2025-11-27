@@ -214,8 +214,8 @@ public class EmailPersonalController extends BaseController
      */
     @PreAuthorize("@ss.hasPermi('email:personal:read')")
     @Log(title = "标记已读", businessType = BusinessType.UPDATE)
-    @PutMapping("/read/{ids}")
-    public AjaxResult markAsRead(@PathVariable Long[] ids)
+    @PutMapping("/read")
+    public AjaxResult markAsRead(@RequestBody Long[] ids)
     {
         return toAjax(emailPersonalTrackService.markAsRead(ids));
     }

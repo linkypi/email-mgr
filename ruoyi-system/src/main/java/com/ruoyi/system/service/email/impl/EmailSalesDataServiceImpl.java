@@ -1,6 +1,8 @@
 package com.ruoyi.system.service.email.impl;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Arrays;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.ruoyi.system.mapper.email.EmailSalesDataMapper;
@@ -28,7 +30,21 @@ public class EmailSalesDataServiceImpl implements IEmailSalesDataService
     @Override
     public EmailSalesData selectEmailSalesDataBySalesId(Long salesId)
     {
-        return emailSalesDataMapper.selectEmailSalesDataBySalesId(salesId);
+        EmailSalesData data = emailSalesDataMapper.selectEmailSalesDataBySalesId(salesId);
+        if (data != null) {
+            // 处理联系人数据转换：将字符串转换为数组
+            if (data.getUserName() != null && !data.getUserName().isEmpty()) {
+                data.setContactNames(Arrays.asList(data.getUserName().split(",")));
+            } else {
+                data.setContactNames(new ArrayList<>());
+            }
+            if (data.getUserEmail() != null && !data.getUserEmail().isEmpty()) {
+                data.setContactEmails(Arrays.asList(data.getUserEmail().split(",")));
+            } else {
+                data.setContactEmails(new ArrayList<>());
+            }
+        }
+        return data;
     }
 
     /**
@@ -40,7 +56,21 @@ public class EmailSalesDataServiceImpl implements IEmailSalesDataService
     @Override
     public List<EmailSalesData> selectEmailSalesDataList(EmailSalesData emailSalesData)
     {
-        return emailSalesDataMapper.selectEmailSalesDataList(emailSalesData);
+        List<EmailSalesData> list = emailSalesDataMapper.selectEmailSalesDataList(emailSalesData);
+        // 处理联系人数据转换：将字符串转换为数组
+        for (EmailSalesData data : list) {
+            if (data.getUserName() != null && !data.getUserName().isEmpty()) {
+                data.setContactNames(Arrays.asList(data.getUserName().split(",")));
+            } else {
+                data.setContactNames(new ArrayList<>());
+            }
+            if (data.getUserEmail() != null && !data.getUserEmail().isEmpty()) {
+                data.setContactEmails(Arrays.asList(data.getUserEmail().split(",")));
+            } else {
+                data.setContactEmails(new ArrayList<>());
+            }
+        }
+        return list;
     }
 
     /**
@@ -52,7 +82,19 @@ public class EmailSalesDataServiceImpl implements IEmailSalesDataService
     @Override
     public int insertEmailSalesData(EmailSalesData emailSalesData)
     {
-        return emailSalesDataMapper.insertEmailSalesData(emailSalesData);
+        // 确保创建时间不为空
+        if (emailSalesData.getCreateTime() == null) {
+            emailSalesData.setCreateTime(new java.util.Date());
+        }
+        // 插入销售数据
+        int result = emailSalesDataMapper.insertEmailSalesData(emailSalesData);
+        // 如果插入成功且有联系人ID列表，插入关联关系
+        if (result > 0 && emailSalesData.getSalesId() != null && 
+            emailSalesData.getContactIds() != null && !emailSalesData.getContactIds().isEmpty()) {
+            emailSalesDataMapper.insertSalesDataContactRelations(
+                emailSalesData.getSalesId(), emailSalesData.getContactIds());
+        }
+        return result;
     }
 
     /**
@@ -64,7 +106,19 @@ public class EmailSalesDataServiceImpl implements IEmailSalesDataService
     @Override
     public int updateEmailSalesData(EmailSalesData emailSalesData)
     {
-        return emailSalesDataMapper.updateEmailSalesData(emailSalesData);
+        int result = emailSalesDataMapper.updateEmailSalesData(emailSalesData);
+        // 如果更新成功且有联系人ID列表，先删除旧关联关系，再插入新关联关系
+        if (result > 0 && emailSalesData.getSalesId() != null && 
+            emailSalesData.getContactIds() != null) {
+            // 删除旧的关联关系
+            emailSalesDataMapper.deleteSalesDataContactRelations(emailSalesData.getSalesId());
+            // 如果有新的联系人ID列表，插入新的关联关系
+            if (!emailSalesData.getContactIds().isEmpty()) {
+                emailSalesDataMapper.insertSalesDataContactRelations(
+                    emailSalesData.getSalesId(), emailSalesData.getContactIds());
+            }
+        }
+        return result;
     }
 
     /**
@@ -76,6 +130,11 @@ public class EmailSalesDataServiceImpl implements IEmailSalesDataService
     @Override
     public int deleteEmailSalesDataBySalesIds(Long[] salesIds)
     {
+        // 先删除关联关系
+        for (Long salesId : salesIds) {
+            emailSalesDataMapper.deleteSalesDataContactRelations(salesId);
+        }
+        // 再删除销售数据
         return emailSalesDataMapper.deleteEmailSalesDataBySalesIds(salesIds);
     }
 
@@ -88,6 +147,9 @@ public class EmailSalesDataServiceImpl implements IEmailSalesDataService
     @Override
     public int deleteEmailSalesDataBySalesId(Long salesId)
     {
+        // 先删除关联关系
+        emailSalesDataMapper.deleteSalesDataContactRelations(salesId);
+        // 再删除销售数据
         return emailSalesDataMapper.deleteEmailSalesDataBySalesId(salesId);
     }
 
@@ -100,6 +162,20 @@ public class EmailSalesDataServiceImpl implements IEmailSalesDataService
     @Override
     public List<EmailSalesData> selectEmailSalesDataByUserEmail(String userEmail)
     {
-        return emailSalesDataMapper.selectEmailSalesDataByUserEmail(userEmail);
+        List<EmailSalesData> list = emailSalesDataMapper.selectEmailSalesDataByUserEmail(userEmail);
+        // 处理联系人数据转换：将字符串转换为数组
+        for (EmailSalesData data : list) {
+            if (data.getUserName() != null && !data.getUserName().isEmpty()) {
+                data.setContactNames(Arrays.asList(data.getUserName().split(",")));
+            } else {
+                data.setContactNames(new ArrayList<>());
+            }
+            if (data.getUserEmail() != null && !data.getUserEmail().isEmpty()) {
+                data.setContactEmails(Arrays.asList(data.getUserEmail().split(",")));
+            } else {
+                data.setContactEmails(new ArrayList<>());
+            }
+        }
+        return list;
     }
 }

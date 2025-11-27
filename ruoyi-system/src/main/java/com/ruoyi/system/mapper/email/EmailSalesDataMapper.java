@@ -1,6 +1,7 @@
 package com.ruoyi.system.mapper.email;
 
 import java.util.List;
+import org.apache.ibatis.annotations.Param;
 import com.ruoyi.system.domain.email.EmailSalesData;
 
 /**
@@ -66,4 +67,21 @@ public interface EmailSalesDataMapper
      * @return 销售数据列表
      */
     public List<EmailSalesData> selectEmailSalesDataByUserEmail(String userEmail);
+
+    /**
+     * 插入销售数据与收件人关联关系
+     * 
+     * @param salesId 销售数据ID
+     * @param contactIds 收件人ID列表
+     * @return 结果
+     */
+    public int insertSalesDataContactRelations(@Param("salesId") Long salesId, @Param("contactIds") List<Long> contactIds);
+
+    /**
+     * 删除销售数据与收件人关联关系
+     * 
+     * @param salesId 销售数据ID
+     * @return 结果
+     */
+    public int deleteSalesDataContactRelations(Long salesId);
 }

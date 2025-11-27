@@ -22,6 +22,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="createTime"    column="create_time"    />
         <result property="updateBy"    column="update_by"    />
         <result property="updateTime"    column="update_time"    />
+        <result property="deleted"    column="deleted"    />
+        <result property="userName"    column="contact_names"    />
+        <result property="userEmail"    column="contact_emails"    />
     </resultMap>
 
     <sql id="selectEmailSalesDataVo">
@@ -63,6 +66,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="discountType != null  and discountType != ''"> and s.discount_type like concat('%', #{discountType}, '%')</if>
             <if test="discountRatio != null "> and s.discount_rate = #{discountRatio}</if>
             <if test="sourceChannel != null  and sourceChannel != ''"> and s.source_channel like concat('%', #{sourceChannel}, '%')</if>
+            <if test="contactId != null"> and c.contact_id = #{contactId}</if>
             and s.deleted = '0'
         </where>
         group by s.sales_id, s.status, s.sales_date, s.product_model, s.sales_quantity, 
@@ -92,7 +96,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="playCount != null">play_count,</if>
             <if test="conversionRate != null">conversion_rate,</if>
             <if test="discountType != null">discount_type,</if>
-            <if test="discountRate != null">discount_rate,</if>
+            <if test="discountRatio != null">discount_rate,</if>
             <if test="sourceChannel != null">source_channel,</if>
             <if test="remark != null">remark,</if>
             <if test="createBy != null">create_by,</if>
@@ -109,7 +113,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="playCount != null">#{playCount},</if>
             <if test="conversionRate != null">#{conversionRate},</if>
             <if test="discountType != null">#{discountType},</if>
-            <if test="discountRate != null">#{discountRate},</if>
+            <if test="discountRatio != null">#{discountRatio},</if>
             <if test="sourceChannel != null">#{sourceChannel},</if>
             <if test="remark != null">#{remark},</if>
             <if test="createBy != null">#{createBy},</if>
@@ -130,7 +134,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="playCount != null">play_count = #{playCount},</if>
             <if test="conversionRate != null">conversion_rate = #{conversionRate},</if>
             <if test="discountType != null">discount_type = #{discountType},</if>
-            <if test="discountRate != null">discount_rate = #{discountRate},</if>
+            <if test="discountRatio != null">discount_rate = #{discountRatio},</if>
             <if test="sourceChannel != null">source_channel = #{sourceChannel},</if>
             <if test="remark != null">remark = #{remark},</if>
             <if test="updateBy != null">update_by = #{updateBy},</if>
@@ -148,5 +152,17 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <foreach item="salesId" collection="array" open="(" separator="," close=")">
             #{salesId}
         </foreach>
+    </delete>
+
+    <insert id="insertSalesDataContactRelations">
+        insert into email_sales_data_contact_relation (sales_id, contact_id)
+        values
+        <foreach collection="contactIds" item="contactId" separator=",">
+            (#{salesId}, #{contactId})
+        </foreach>
+    </insert>
+
+    <delete id="deleteSalesDataContactRelations" parameterType="Long">
+        delete from email_sales_data_contact_relation where sales_id = #{salesId}
     </delete>
 </mapper>
