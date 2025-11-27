@@ -44,8 +44,8 @@
 构建脚本现在会在Docker镜像构建完成后，自动将镜像导出为tar文件，存储到docker目录中。
 
 ### 导出的文件
-- `docker/ruoyi-backend-latest.tar` - 后端应用镜像
-- `docker/ruoyi-frontend-latest.tar` - 前端应用镜像
+- `docker/backend.tar` - 后端应用镜像
+- `docker/frontend.tar` - 前端应用镜像
 
 ### 使用场景
 1. **离线部署**：在没有网络的环境中部署应用
@@ -56,10 +56,10 @@
 ### 在其他机器上加载镜像
 ```bash
 # 加载后端镜像
-docker load -i docker/ruoyi-backend-latest.tar
+docker load -i docker/backend.tar
 
 # 加载前端镜像
-docker load -i docker/ruoyi-frontend-latest.tar
+docker load -i docker/frontend.tar
 
 # 验证镜像已加载
 docker images | grep ruoyi
@@ -140,8 +140,8 @@ docker/
 ├── nginx.conf             # Nginx配置
 ├── application.yml        # 应用配置
 ├── application-druid.yml  # 数据库配置
-├── ruoyi-backend-latest.tar    # 后端镜像文件
-├── ruoyi-frontend-latest.tar   # 前端镜像文件
+├── backend.tar    # 后端镜像文件
+├── frontend.tar   # 前端镜像文件
 └── README.md              # 说明文档
 ```
 

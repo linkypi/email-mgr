@@ -119,9 +119,9 @@ export_images() {
     # 导出后端镜像
     if docker images | grep -q "ruoyi-backend.*latest"; then
         print_message "导出后端镜像..."
-        if docker save -o ruoyi-backend-latest.tar ruoyi-backend:latest; then
-            local backend_size=$(du -h ruoyi-backend-latest.tar | cut -f1)
-            print_message "后端镜像导出成功: ruoyi-backend-latest.tar (大小: $backend_size)"
+        if docker save -o backend.tar ruoyi-backend:latest; then
+            local backend_size=$(du -h backend.tar | cut -f1)
+            print_message "后端镜像导出成功: backend.tar (大小: $backend_size)"
         else
             print_warning "后端镜像导出失败"
         fi
@@ -130,9 +130,9 @@ export_images() {
     # 导出前端镜像
     if docker images | grep -q "ruoyi-frontend.*latest"; then
         print_message "导出前端镜像..."
-        if docker save -o ruoyi-frontend-latest.tar ruoyi-frontend:latest; then
-            local frontend_size=$(du -h ruoyi-frontend-latest.tar | cut -f1)
-            print_message "前端镜像导出成功: ruoyi-frontend-latest.tar (大小: $frontend_size)"
+        if docker save -o frontend.tar ruoyi-frontend:latest; then
+            local frontend_size=$(du -h frontend.tar | cut -f1)
+            print_message "前端镜像导出成功: frontend.tar (大小: $frontend_size)"
         else
             print_warning "前端镜像导出失败"
         fi
@@ -174,12 +174,12 @@ show_help() {
     echo "  $0 clean        # 清理镜像"
     echo ""
     echo "导出的tar文件:"
-    echo "  - ruoyi-backend-latest.tar    # 后端镜像"
-    echo "  - ruoyi-frontend-latest.tar   # 前端镜像"
+    echo "  - backend.tar    # 后端镜像"
+    echo "  - frontend.tar   # 前端镜像"
     echo ""
     echo "在其他机器上加载镜像:"
-    echo "  docker load -i ruoyi-backend-latest.tar"
-    echo "  docker load -i ruoyi-frontend-latest.tar"
+    echo "  docker load -i backend.tar"
+    echo "  docker load -i frontend.tar"
 }
 
 # 主函数
